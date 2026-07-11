@@ -1,0 +1,159 @@
+"""検索ルーター — 天気・Wikipedia・Brave・ニュースDBの統合"""
+from app.utils.logger import get_logger
+from .providers.wikipedia import search_wikipedia
+from .providers.brave import search_brave
+from .providers.jina import fetch_with_jina
+from .providers.weather import get_weather, format_weather_for_prompt
+from .cache import cache
+from .formatter import format_results
+
+logger = get_logger(__name__)
+
+
+def _extract_place(query: str) -> str:
+    """天気クエリから地名を抽出（簡易版）"""
+    WEATHER_KEYWORDS = ["天気", "気温", "天候", "雨", "晴れ", "曇り", "雪", "forecast"]
+    for kw in WEATHER_KEYWORDS:
+        query = query.replace(kw, "")
+    return query.strip() or "東京"
+
+
+async def search(query: str, providers: list[str] = None) -> list[dict]:
+    """
+    クエリ内容に応じて指定されたプロバイダーで検索を実行。
+    """
+    if providers is None:
+        providers = ["brave"]
+        
+    combined_results = []
+
+    # 1. 天気クエリ
+    if "weather" in providers:
+        place = _extract_place(query)
+        cached = cache.get(place, "weather")
+        if cached:
+            combined_results.extend(cached)
+        else:
+            weather = await get_weather(place)
+            if weather:
+                result = [{
+                    "title": f"{place}の天気", 
+                    "snippet": format_weather_for_prompt(weather),
+                    "url": "", 
+                    "source": "open-meteo"
+                }]
+                cache.set(place, result, "weather")
+                combined_results.extend(result)
+
+    # 2. Wikipediaで答えられそうなクエリ
+    if "wikipedia" in providers:
+        cached = cache.get(query, "wiki")
+        if cached:
+            combined_results.extend(cached)
+        else:
+            results = await search_wikipedia(query)
+            if results:
+                formatted = format_results(results, query)
+                cache.set(query, formatted, "wiki")
+                combined_results.extend(formatted)
+
+    # 3. ニュースクエリ (オンデマンド1次情報取得)
+    # 日付フィルタを自動付与（現在日付から30日以内に制限）
+    from datetime import datetime as _dt
+    _today = _dt.now().strftime("%Y-%m-%d")
+    _date_filtered_query = f"{query} after:{_today}" if query else ""
+    if "news" in providers:
+        from app.core.news.fetcher import fetch_primary_news
+        from app.core.cache_manager import get_search_cache, set_search_cache
+        
+        # キャッシュチェック（30分TTL）
+        cache_key = f"news_{query}" if query else "news_headlines"
+        cached = await get_search_cache(cache_key, providers, max_age_seconds=1800)
+        if cached:
+            logger.info(f"✅ ニュースキャッシュヒット: {cache_key}")
+            combined_results.extend(cached.get("sources", []))
+        else:
+            # オンデマンドで1次情報RSSを取得
+            logger.info(f"📡 オンデマンドニュース取得: {query or 'ヘッドライン'}")
+            news_items = await fetch_primary_news(query)
+            
+            formatted_news = []
+            for r in news_items:
+                formatted_news.append({
+                    "title": r.get("title", ""),
+                    "snippet": r.get("summary", "")[:500],
+                    "url": r.get("url", ""),
+                    "source": f"PRIMARY ({r.get('source', 'RSS')})",
+                })
+            
+            if formatted_news:
+                # キャッシュに保存
+                await set_search_cache(cache_key, providers, 
+                    results="\n".join([f"- {n['title']} ({n['source']})" for n in formatted_news]),
+                    sources=formatted_news,
+                    ttl_seconds=1800
+                )
+                combined_results.extend(formatted_news)
+                logger.info(f"✅ オンデマンドニュース取得成功: {len(formatted_news)}件")
+            else:
+                # フォールバック: Braveで一般検索（日付フィルタ付き）
+                logger.info("⚠️ 1次情報取得失敗、Braveでフォールバック検索")
+                _brave_query = _date_filtered_query if _date_filtered_query else (query or "latest news 2026")
+                results = await search_brave(_brave_query)
+                if results:
+                    combined_results.extend(format_results(results, query))
+
+    # 4. 一般クエリ (Brave Search / DuckDuckGo 無料フォールバック)
+    if "brave" in providers or "duckduckgo" in providers or "free" in providers:
+        _search_query = _date_filtered_query if _date_filtered_query else query
+        cached = cache.get(_search_query, "general")
+        if cached:
+            combined_results.extend(cached)
+        else:
+            results = []
+            if "duckduckgo" not in providers and "free" not in providers:
+                results = await search_brave(_search_query)
+
+            # Brave結果なし・あるいは無料優先指示時は DuckDuckGo へ自動フォールバック
+            if not results:
+                logger.info("🦆 Brave結果なし/無料優先指示のため、DuckDuckGo無料検索プロバイダに自動フォールバックします")
+                from .providers.duckduckgo import search_duckduckgo
+                results = await search_duckduckgo(_search_query)
+                
+            if results:
+                formatted_res = format_results(results, query)
+                cache.set(_search_query, formatted_res, "general")
+                combined_results.extend(formatted_res)
+
+    # 5. 結果なしの場合の無料検索・Wikipediaフォールバック
+    if not combined_results and "wikipedia" not in providers:
+        logger.info("一般検索結果なし、DuckDuckGo無料検索およびWikipediaでフォールバック検索を実行します")
+        from .providers.duckduckgo import search_duckduckgo
+        ddg_results = await search_duckduckgo(query)
+        if ddg_results:
+            combined_results.extend(format_results(ddg_results, query))
+        else:
+            results = await search_wikipedia(query)
+            if results:
+                combined_results.extend(format_results(results, query))
+            
+    return combined_results
+
+
+async def fetch_url(url: str, force_refresh: bool = False) -> str:
+    """特定URLの内容取得（Jina + 直接HTTPフォールバック使用・不完全キャッシュ自動更新）"""
+    cached = cache.get(url, "jina")
+    # 古いキャッシュや不完全なキャッシュ（10,000文字以下で論文・学術ページ等）は破棄して最新フェッチ
+    if cached and not force_refresh:
+        content = cached[0].get("snippet", "")
+        if len(content) >= 10000 or not any(dom in url for dom in ["pmc", "ncbi", "ieee", "arxiv"]):
+            return content
+        
+    text = await fetch_with_jina(url)
+    if not text or len(text.strip()) < 50:
+        from .providers.jina import fetch_direct_html
+        text = await fetch_direct_html(url)
+
+    if text:
+        cache.set(url, [{"snippet": text}], "jina")
+    return text

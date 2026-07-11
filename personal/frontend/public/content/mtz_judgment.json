@@ -1,0 +1,82 @@
+{
+  "generated_at": "2026-02-27T22:45:32.697808",
+  "ticker": "MTZ",
+  "context": {
+    "ticker": "MTZ",
+    "name": "MasTec, Inc.",
+    "price": 289.96,
+    "pivot": 291.7,
+    "scores": {
+      "vcp": 50,
+      "rs": 90,
+      "canslim": 90,
+      "ecr_rank": 66,
+      "ses": 55
+    },
+    "vcp_details": {
+      "score": 50,
+      "atr": 12.716428571428569,
+      "signals": [
+        "V-Contraction Detected",
+        "Trend Alignment OK",
+        "Near Pivot Point"
+      ],
+      "is_dryup": false,
+      "range_pct": 0.2249,
+      "vol_ratio": 1.2,
+      "breakdown": {
+        "tight": 15,
+        "vol": 0,
+        "ma": 30,
+        "pivot": 5
+      }
+    },
+    "ses_details": {
+      "score": 55,
+      "metrics": {
+        "er": 0.407,
+        "force_ratio": 0.718,
+        "vol_contraction": 1.134,
+        "avg_clv": 0.58
+      },
+      "breakdown": {
+        "fractal_efficiency": 20,
+        "true_force": 20,
+        "volatility_squeeze": 0,
+        "bar_quality": 15
+      }
+    },
+    "ecr_phase": "HOLD/WATCH",
+    "fundamentals": {
+      "pe": 69.03809,
+      "eps_growth": 144.97607655502392,
+      "rev_growth": 16.220691993734448,
+      "market_cap": "22878113663"
+    },
+    "analyst": {},
+    "ownership": {
+      "institutional_pct": 76.23
+    },
+    "news": "【Market Intelligence News】\n【Google News】\n- Almost At All Time High, Is MasTec Stock Still A Good Buy Right Now? - TIKR.com\n- 《1月10日(土)よる8：00～ 「BS10プレミアム」でTV初独占放送!》佐藤竹善 Ｙｏｕｒ Ｃｈｒｉｓｔｍａｓ Ｎｉｇｈｔ ２０２５ - PR TIMES\n- 『CoD:MW3』シーズン1アップデート マルチプレイヤー編：全SMG強化 、MTZ-556やシールド弱体化など9種に調整 / MWll武器改訂＆9種に調整 / スタミナゲージなど新機能とバグ修正 - EAA FPS\n- がん性皮膚潰瘍の特効薬に市販化の動き - 日経メディカル\n- ガールズ・エモ・ポップ・バンドTHE HYPE THEORY来日！MTZ TOUR 2012いよいよ本日大阪公演を皮切りにスタート！ - 激ロック\n- タイトル - TIKR.com\n- Jonathan Martinez's New Chapter - UFC.com\n- 「私は昭和な女子プロ」藤田さいきのパターはフェースが特注品でこだわりだらけ？ - ALBA Net"
+  },
+  "judgment": {
+    "judgment": "WAIT",
+    "confidence": 65,
+    "vcp_score_breakdown": {
+      "tightness": 15,
+      "volume": 0,
+      "ma": 30,
+      "pivot": 5
+    },
+    "reasoning": "VCPスコア50（tightness15, volume0, ma30, pivot5）、株価$289.96でピボット$291.7近傍。CANSLIMスコア90、EPS成長145%、売上成長16%、機関保有76%、RS90高いが、ECR HOLD/WATCHで注意。ピボット突破待ち。",
+    "entry_plan": "ピボット突破後に$292でエントリー",
+    "risks": [
+      "ピボット突破失敗",
+      "市場変動リスク"
+    ],
+    "catalysts": [
+      "強いEPS成長",
+      "高い相対力指数"
+    ]
+  }
+}

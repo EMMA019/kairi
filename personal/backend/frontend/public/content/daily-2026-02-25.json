@@ -1,0 +1,928 @@
+{
+  "slug": "daily-2026-02-25",
+  "type": "daily",
+  "date": "2026-02-25",
+  "published_at": "2026-02-25T21:01:07.753044+09:00",
+  "ja": {
+    "title": "2026-02-25 米国株レポート — SPY 0.73% / ACTION 309銘柄",
+    "body": "# 🔥 激熱！米国株式マーケット分析レポート：2026年2月25日\n\n## ① 指数動向と市場全体のモメンタム分析\n\n本日の市場は、**短期的な反発と中期的な倦怠感が同居する、まさに「転換点の胎動」を示唆する動き**となりました！📈📉\n\nS&P 500 (+0.73%)、NASDAQ 100 (+1.07%)、Russell 2000 (+1.09%)と、主要指数が**揃って一日で堅調な上昇**を記録しています。これは、直近1ヶ月の下落（NASDAQ -2.81%）を受けての「押し目買い」が入った可能性が高いでしょう。特に、小型株指数（Russell 2000）のマイナス幅が最も小さい（-0.25%）ことは、**資金が過度に集中していたメガテックから、幅広いセクターへ分散し始めている可能性を示す重要なシグナル**です。\n\nしかし、手放しで楽観はできません！NASDAQの1ヶ月パフォーマンスが依然として大きく負けていることは、**AI関連株などの高成長株に対する「バブル懸念」や利食い圧力が根強い**ことを物語っています。市場は「一段高いレンジでの休息」に入ったのか、それとも「中期調整の入り口」に立っているのか。次の週次・月次終値が、その方向性を決定づけるでしょう。\n\n**結論：市場全体のモメンタムは「弱気の中の強気」**。ボラティリティは高まりつつあり、選別が極めて重要な局面です。無差別な買いは禁物。しかし、**相対力（RS）が高く、明確な上昇トレンドを形成している個別銘柄には、資金が集まり続けています！** 💪\n\n## ② 厳選ACTION銘柄：テクニカル×ファンダメンタルズの合致点\n\n膨大なACTIONリストから、**テクニカルの圧倒的強さと、ファンダメンタルズの追い風が交差する「黄金の交差点」にある銘柄**を厳選します！\n\n**🎯 KEYS (Keysight Technologies) - 技術セクター**\n*   **テクニカルの衝撃:** RS 90点という**業界をリードする相対力**、VCP 40点で適度な固め期間を経て、**強気の継続パターン**を形成中。\n*   **ファンダメンタルズの爆発:** **Strong（強力）と評価された触媒！** 「Blowout Earnings & AI-Fueled Guidance（爆発的な業績とAIに後押しされた業績予想）」という見出しが全てを物語る。AI需要の本格化が、測定機器メーカーという「ツメオ」企業に直接的な恩恵をもたらすという**確度の高いストーリー**が支えています。RR 1:1 は控えめですが、勢いと業績の確実性でカバーできる銘柄です。\n\n**🚀 PRAX (Praxis Precision Medicines) - ヘルスケアセクター**\n*   **テクニカルの怪物:** RS **98点**、VCP 75点という**驚異的なスペック**。これは市場全体でトップクラスの値動きの強さを示します。`pivot_breakout`（ピボット・ブレイクアウト）戦略は、**新たな上昇フェーズへの突入を狙った積極的なエントリー**です。\n*   **ファンダメンタルズの熱狂:** 「株価が1年で300%超上昇」という見出しが示す通り、**バイオテックならではの変革的期待**に支えられています。RR 1:2と高いリスクリターン比を設定できる背景には、臨床試験の成功等による**株価の非連続的ジャンプへの期待**が込められています。ハイリスク・ハイリターンの典型ですが、テクニカルが完全に優位を握っています。\n\n**🏗️ FIX (Comfort Systems USA) - 工業セクター**\n*   **テクニカルの優等生:** RS 97点、VCP 65点とバランスが極めて優れています。`price_above_atr`（価格がATRを上回る）戦略は、**明確な上昇トレンドの流れに乗る**手法。ストップ（$1351.23）とエントリー（$1475.92）の差が広く、ある程度のボラティリティを許容した**トレンドフォロー型**のポジション設計です。\n*   **ファンダメンタルズの地盤:** ニュースセンチメントは「Bullish」。銘柄名から連想される「空調・設備」事業は、**データセンター建設ブームの直接的受益者**です。派手な見出しはなくとも、業績の堅実な成長が期待される「影の立役者」的ポジション。工業セクターの筆頭に挙がるだけの安定感があります。\n\n## ③ セクターローテーションの予兆と次なる戦略\n\n現在のACTION銘柄リストは、**市場の資金の流向を如実に映し出す「投資家の欲望のマップ」** です！\n\n**1. 工業（Industrials）セクターの台頭が圧倒的！** 🔧\nリストの12銘柄中、実に**7銘柄**が工業セクターに集中しています（FIX, VRT, AEIS, SPXC, AGX, STRL）。その多くが「データセンター建設」「電力インフラ」「工場設備」に関わる企業です。これは、**AIブームが「クラウド上でのソフトウェア」という第1波から、「それを支える物理的インフラ」という第2波へとシフトしている決定的な証拠**です。次なる主役は、この「**AIインフラ・ファミリー**」から出てくるでしょう。\n\n**2. テクノロジー内部での「世代交代」**\nテクノロジーセクター（9銘柄）では、従来の半導体（TSM）に加え、**光ファイバー（GLW）、計測機器（KEYS）、電力変換（VICR）** といった「**AIを可能にする周辺技術・部品**」が注目を集めています。純粋なソフトウェアやSaaSではなく、**ハードウェアに軸足を置くテック株がリーダーシップを握り始めました**。\n\n**🔥 次なる戦略： 「インフラ」と「相対力」に全てを賭けろ！**\n*   **フォーカス:** 「データセンター需要」「再エネ・電力網」「サプライチェーン再構築」という**3大メガトレード**の交差点にある工業株を中心にポートフォリオを組む。\n*   **フィルター:** セクターに関わらず、**RSラインが80点以上**の銘柄のみを選別する。市場全体がもたつく中では、「強者恒強（強いものはさらに強くなる）」の法則が働きます。\n*   **リスク管理:** 市場の方向性が定まらない今、**RR（リスクリターン比）が1:1.5以上**の機会を優先し、ストップロスは厳格に遵守する。\n\n**総括：市場は混沌だが、機会は漲っている。** 資金は、曖昧な「物語」から、確実な「業績」が見込めるインフラ関連株へと移動中です。我々の使命は、この資金の流れを**テクニカル分析というレーダーで捉え**、**ファンダメンタルズというフィルターで濃縮し**、最も効率的にリターンを追求することにあります。さあ、次の波に乗り遅れるな！⚡"
+  },
+  "data": {
+    "action_count": 309,
+    "wait_count": 291,
+    "actions": [
+      {
+        "ticker": "FIX",
+        "name": "Comfort Systems USA,",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 65,
+        "rs": 97,
+        "canslim_score": 85,
+        "composite": 77.6,
+        "_price": 1468.58,
+        "_entry": 1475.92,
+        "_stop": 1351.23,
+        "_target": 1683.73,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 83.12,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "Why Comfort Systems (FIX) Stock Is Up Today - Yahoo Finance",
+            "Perma-Fix Environmental Services (NASDAQ:PESI) Stock Price Passes Above 200-Day Moving Average - Here's What Happened - MarketBeat",
+            "Indonesia's fix for market turmoil is turning off investors - Reuters"
+          ]
+        }
+      },
+      {
+        "ticker": "GEV",
+        "name": "GE Vernova Inc.",
+        "sector": "Utilities",
+        "status": "ACTION",
+        "vcp": 45,
+        "rs": 94,
+        "canslim_score": 85,
+        "composite": 73.8,
+        "_price": 879.73,
+        "_entry": 888.53,
+        "_stop": 813.21,
+        "_target": 963.85,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 37.66,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Could This Fuel The Next Surge in GE Vernova Stock - Trefis",
+            "VRT vs. APLD vs. GEV: Which ‘Strong Buy’ Data Center Infrastructure Stock Could Offer the Best Upside? - TipRanks",
+            "Rep. Jonathan L. Jackson Buys GE Vernova Inc. (NYSE:GEV) Shares - MarketBeat"
+          ]
+        }
+      },
+      {
+        "ticker": "TSM",
+        "name": "Taiwan Semiconductor",
+        "sector": "Technology",
+        "status": "ACTION",
+        "vcp": 55,
+        "rs": 89,
+        "canslim_score": 85,
+        "composite": 72.4,
+        "_price": 385.75,
+        "_entry": 387.68,
+        "_stop": 363.67,
+        "_target": 427.69,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 16.0,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Taiwan Semi Stock Is Soaring Above AI Bubble Fears. Where Options Data Says It Is Headed Next. - Yahoo Finance",
+            "TSMC Stock (TSM) Hits a New 52-Week High — What’s Driving the Rally? - TipRanks",
+            "Is Taiwan Semiconductor Stock a Buy Now? - The Motley Fool"
+          ]
+        }
+      },
+      {
+        "ticker": "GLW",
+        "name": "Corning Incorporated",
+        "sector": "Technology",
+        "status": "ACTION",
+        "vcp": 40,
+        "rs": 96,
+        "canslim_score": 90,
+        "composite": 72.3,
+        "_price": 151.59,
+        "_entry": 153.11,
+        "_stop": 137.98,
+        "_target": 168.24,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 7.57,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Why Corning Stock Jumped 200%? - Trefis",
+            "Corning (GLW) Valuation Check After Strong Multi‑Period Share Price Momentum - Yahoo Finance",
+            "Corning stock hits fresh highs after UBS lifts target to $160 as AI-fiber trade rolls on - TechStock²"
+          ]
+        }
+      },
+      {
+        "ticker": "VRT",
+        "name": "Vertiv Holdings Co",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 40,
+        "rs": 95,
+        "canslim_score": 85,
+        "composite": 71.7,
+        "_price": 253.15,
+        "_entry": 255.68,
+        "_stop": 224.44,
+        "_target": 286.92,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 15.62,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "VRT vs. APLD vs. GEV: Which ‘Strong Buy’ Data Center Infrastructure Stock Could Offer the Best Upside? - TipRanks",
+            "Top Wall Street analysts are bullish on the growth potential of these three stocks - CNBC",
+            "Dakota Wealth Management Grows Stock Holdings in Vertiv Holdings Co. $VRT - MarketBeat"
+          ]
+        }
+      },
+      {
+        "ticker": "AEIS",
+        "name": "Advanced Energy Indu",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 40,
+        "rs": 94,
+        "canslim_score": 95,
+        "composite": 71.4,
+        "_price": 335.74,
+        "_entry": 339.1,
+        "_stop": 305.05,
+        "_target": 373.15,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 17.03,
+        "news_summary": {
+          "score": 66.7,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "Is It Too Late To Consider Advanced Energy Industries (AEIS) After Its 177% One Year Surge - Yahoo Finance",
+            "Elizabeth Karpinski Vonne Sells 964 Shares of Advanced Energy Industries (NASDAQ:AEIS) Stock - MarketBeat",
+            "Advanced Energy Industries Leans On Acquisitions To Reshape Growth Profile - simplywall.st"
+          ]
+        }
+      },
+      {
+        "ticker": "SPXC",
+        "name": "SPX Technologies, In",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 85,
+        "rs": 83,
+        "canslim_score": 55,
+        "composite": 70.5,
+        "_price": 243.26,
+        "_entry": 247.91,
+        "_stop": 234.95,
+        "_target": 273.84,
+        "_rr": 2.0,
+        "_entry_method": "pivot_breakout",
+        "_atr_used": 8.64,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "SPX TECHNOLOGIES ($SPXC) Releases Q4 2025 Earnings - Quiver Quantitative",
+            "SPX Technologies (SPXC) Beats Q4 Earnings and Revenue Estimates - Nasdaq",
+            "SPX Technologies (SPXC) Q4 Earnings: Taking a Look at Key Metrics Versus Estimates - Yahoo Finance Singapore"
+          ]
+        }
+      },
+      {
+        "ticker": "KEYS",
+        "name": "Keysight Technologie",
+        "sector": "Technology",
+        "status": "ACTION",
+        "vcp": 40,
+        "rs": 90,
+        "canslim_score": 80,
+        "composite": 70.4,
+        "_price": 301.48,
+        "_entry": 304.49,
+        "_stop": 280.37,
+        "_target": 328.61,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 12.06,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Strong",
+          "catalyst_count": 2,
+          "article_count": 5,
+          "headlines": [
+            "Keysight (KEYS) Stock Trades Up, Here Is Why - Yahoo Finance",
+            "KEYS Stock (+23%): Blowout Earnings & AI-Fueled Guidance Ignites Squeeze - Trefis",
+            "Keysight Technologies (KEYS) Hits All-Time High on Strong Q1 - Finviz"
+          ]
+        }
+      },
+      {
+        "ticker": "PRAX",
+        "name": "Praxis Precision Med",
+        "sector": "Healthcare",
+        "status": "ACTION",
+        "vcp": 75,
+        "rs": 98,
+        "canslim_score": 45,
+        "composite": 69.9,
+        "_price": 342.71,
+        "_entry": 357.78,
+        "_stop": 328.2,
+        "_target": 416.94,
+        "_rr": 2.0,
+        "_entry_method": "pivot_breakout",
+        "_atr_used": 19.72,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Assessing Praxis Precision Medicines (PRAX) Valuation After Strong Recent Share Price Momentum - simplywall.st",
+            "Investor Buys Up $81 Million in Praxis Stock as Shares Soar Over 300% in One Year - Yahoo Finance",
+            "Investor Buys Up $81 Million in Praxis Stock as Shares Soar Over 300% in One Year - The Motley Fool"
+          ]
+        }
+      },
+      {
+        "ticker": "FIVE",
+        "name": "Five Below, Inc.",
+        "sector": "Consumer Cyclical",
+        "status": "ACTION",
+        "vcp": 70,
+        "rs": 92,
+        "canslim_score": 50,
+        "composite": 69.9,
+        "_price": 221.4,
+        "_entry": 225.92,
+        "_stop": 212.96,
+        "_target": 251.83,
+        "_rr": 2.0,
+        "_entry_method": "pivot_breakout",
+        "_atr_used": 8.64,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "Is Five Below (FIVE) Stock Outpacing Its Retail-Wholesale Peers This Year? - Yahoo Finance",
+            "Coinbase Launches 24/5 Stock and ETF Trading for All U.S. Users, Expanding Beyond Crypto - Bitcoin Magazine",
+            "Meta-AMD chip deal, Wall Street's AI angst, Trump's State of the Union and more in Morning Squawk - CNBC"
+          ]
+        }
+      },
+      {
+        "ticker": "AGX",
+        "name": "Argan, Inc.",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 35,
+        "rs": 95,
+        "canslim_score": 90,
+        "composite": 69.6,
+        "_price": 447.6,
+        "_entry": 452.08,
+        "_stop": 396.04,
+        "_target": 508.12,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 28.02,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Here’s What Boosted Argan (AGX) in Q4 - Yahoo Finance",
+            "Argan (NYSE:AGX) Reaches New 52-Week High - Here's Why - MarketBeat",
+            "10 Industrials Stocks Whale Activity In Today's Session - Benzinga"
+          ]
+        }
+      },
+      {
+        "ticker": "AU",
+        "name": "AngloGold Ashanti Pl",
+        "sector": "Basic Materials",
+        "status": "ACTION",
+        "vcp": 35,
+        "rs": 96,
+        "canslim_score": 100,
+        "composite": 69.6,
+        "_price": 124.7,
+        "_entry": 125.95,
+        "_stop": 113.6,
+        "_target": 138.3,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 6.17,
+        "news_summary": {
+          "score": -33.3,
+          "label": "Bearish",
+          "catalyst_strength": "Strong",
+          "catalyst_count": 2,
+          "article_count": 5,
+          "headlines": [
+            "AngloGold Ashanti (NYSE:AU) Stock Rating Lowered by Zacks Research - MarketBeat",
+            "Is AngloGold Ashanti PLC (AU) Stock Outpacing Its Basic Materials Peers This Year? - Yahoo Finance",
+            "AngloGold Ashanti Grants Long-Term Share Awards to Executives Under 2024 Incentive Plan - TipRanks"
+          ]
+        }
+      },
+      {
+        "ticker": "VICR",
+        "name": "Vicor Corporation",
+        "sector": "Technology",
+        "status": "ACTION",
+        "vcp": 40,
+        "rs": 97,
+        "canslim_score": 90,
+        "composite": 69.4,
+        "_price": 190.3,
+        "_entry": 192.2,
+        "_stop": 180.67,
+        "_target": 215.26,
+        "_rr": 2.0,
+        "_entry_method": "fallback_pct",
+        "_atr_used": 0.0,
+        "news_summary": {
+          "score": 50.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Why Vicor (VICR) Stock Is Up Today - Yahoo Finance",
+            "Insider Sale: Director at $vicr Sells 3,791 Shares - Quiver Quantitative",
+            "Vicor (NASDAQ:VICR) Stock Price Up 9.2% - Still a Buy? - MarketBeat"
+          ]
+        }
+      },
+      {
+        "ticker": "STRL",
+        "name": "Sterling Infrastruct",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 40,
+        "rs": 96,
+        "canslim_score": 80,
+        "composite": 69.0,
+        "_price": 459.72,
+        "_entry": 464.32,
+        "_stop": 406.74,
+        "_target": 521.9,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 28.79,
+        "news_summary": {
+          "score": 50.0,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "A Look At Sterling Infrastructure (STRL) Valuation As Earnings Optimism And Revenue Momentum Build - simplywall.st",
+            "Stock Of The Day Sterling Infrastructure Rides Data Center Boom, Heads For 79% Growth - Investor's Business Daily",
+            "A Look At Sterling Infrastructure (STRL) Valuation After Analyst Upgrades And Earnings Optimism - Yahoo Finance"
+          ]
+        }
+      },
+      {
+        "ticker": "CIEN",
+        "name": "Ciena Corporation",
+        "sector": "Technology",
+        "status": "ACTION",
+        "vcp": 40,
+        "rs": 97,
+        "canslim_score": 70,
+        "composite": 68.6,
+        "_price": 342.7,
+        "_entry": 346.13,
+        "_stop": 300.68,
+        "_target": 391.58,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 22.72,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Citigroup Inc. Decreases Stock Holdings in Ciena Corporation $CIEN - MarketBeat",
+            "Assessing Ciena (CIEN) Valuation After A Sharp Multi‑Month Share Price Surge - simplywall.st",
+            "Ciena Corporation (CIEN): A Bull Case Theory - Yahoo! Finance Canada"
+          ]
+        }
+      },
+      {
+        "ticker": "TPL",
+        "name": "Texas Pacific Land C",
+        "sector": "Energy",
+        "status": "ACTION",
+        "vcp": 60,
+        "rs": 86,
+        "canslim_score": 60,
+        "composite": 68.4,
+        "_price": 531.95,
+        "_entry": 534.61,
+        "_stop": 494.61,
+        "_target": 601.28,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 26.67,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "TPL Stock Surges 25% In 5-day Spree On KeyBanc’s $639 Price Target Hike - Trefis",
+            "KeyCorp Forecasts Strong Price Appreciation for Texas Pacific Land (NYSE:TPL) Stock - MarketBeat",
+            "Horizon Kinetics buys Texas Pacific Land (TPL) share for $519 - Investing.com"
+          ]
+        }
+      },
+      {
+        "ticker": "LITE",
+        "name": "Lumentum Holdings In",
+        "sector": "Technology",
+        "status": "ACTION",
+        "vcp": 35,
+        "rs": 98,
+        "canslim_score": 70,
+        "composite": 68.3,
+        "_price": 688.27,
+        "_entry": 695.15,
+        "_stop": 590.11,
+        "_target": 800.19,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 52.52,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "AI Optics Boom: What 1.6T Ramp Means for the LITE Stock's Prospect - Yahoo Finance",
+            "LITE Stock Heads For 4th Day In Green: Morgan Stanley Bets On AI Optics, Retail Is Bullish - Stocktwits",
+            "Lumentum stock’s latest surge sets up a big week — what investors watch next - TechStock²"
+          ]
+        }
+      },
+      {
+        "ticker": "HWM",
+        "name": "Howmet Aerospace Inc",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 45,
+        "rs": 88,
+        "canslim_score": 80,
+        "composite": 68.1,
+        "_price": 260.95,
+        "_entry": 263.56,
+        "_stop": 245.47,
+        "_target": 281.65,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 9.04,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Strong",
+          "catalyst_count": 2,
+          "article_count": 5,
+          "headlines": [
+            "A Look At Howmet Aerospace’s (HWM) Valuation After Earnings Beat And Higher 2026 Revenue Guidance - simplywall.st",
+            "Howmet Aerospace Inc. (HWM) Hits Fresh High: Is There Still Room to Run? - Yahoo Finance",
+            "Howmet Aerospace Inc. $HWM Shares Sold by Vestmark Advisory Solutions Inc. - MarketBeat"
+          ]
+        }
+      },
+      {
+        "ticker": "MOD",
+        "name": "Modine Manufacturing",
+        "sector": "Consumer Cyclical",
+        "status": "ACTION",
+        "vcp": 40,
+        "rs": 95,
+        "canslim_score": 70,
+        "composite": 67.9,
+        "_price": 236.7,
+        "_entry": 239.07,
+        "_stop": 213.6,
+        "_target": 264.54,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 12.73,
+        "news_summary": {
+          "score": 50.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Modine Manufacturing Co (MOD) Stock Price Up 5.19% on Feb 24 - GuruFocus",
+            "Modine Manufacturing Company (MOD) is Attracting Investor Attention: Here is What You Should Know - Yahoo Finance",
+            "Ransomville Speedway adding Mod Lites and Thunder Stocks to 2026 schedule - TheDailyNewsOnline.com"
+          ]
+        }
+      },
+      {
+        "ticker": "DY",
+        "name": "Dycom Industries, In",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 65,
+        "rs": 91,
+        "canslim_score": 60,
+        "composite": 66.6,
+        "_price": 428.58,
+        "_entry": 430.72,
+        "_stop": 398.14,
+        "_target": 485.01,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 21.72,
+        "news_summary": {
+          "score": -100.0,
+          "label": "Bearish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "The Largest Single-Day Stock Market Drop Ever Recorded (And What Happened Next) - 24/7 Wall St.",
+            "Why Feb. 26 Could Be a Huge Day for the Stock Market - Nasdaq",
+            "Which piece of speculative fiction had the greatest single-day stock market impact? - Financial Times"
+          ]
+        }
+      },
+      {
+        "ticker": "DTM",
+        "name": "DT Midstream, Inc.",
+        "sector": "Energy",
+        "status": "ACTION",
+        "vcp": 70,
+        "rs": 72,
+        "canslim_score": 65,
+        "composite": 66.6,
+        "_price": 137.17,
+        "_entry": 139.0,
+        "_stop": 133.91,
+        "_target": 149.18,
+        "_rr": 2.0,
+        "_entry_method": "pivot_breakout",
+        "_atr_used": 3.39,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Strong",
+          "catalyst_count": 2,
+          "article_count": 5,
+          "headlines": [
+            "JPMorgan Chase & Co. Raises Stock Position in DT Midstream, Inc. $DTM - MarketBeat",
+            "How The DT Midstream (DTM) Investment Story Is Shifting With Capex Plans And Rising Targets - Yahoo Finance",
+            "Is DT Midstream’s Stronger 2025 Earnings, Higher Dividend and ESOP Plan Altering The Investment Case For DTM? - simplywall.st"
+          ]
+        }
+      },
+      {
+        "ticker": "DG",
+        "name": "Dollar General Corpo",
+        "sector": "Consumer Defensive",
+        "status": "ACTION",
+        "vcp": 90,
+        "rs": 87,
+        "canslim_score": 40,
+        "composite": 66.5,
+        "_price": 153.96,
+        "_entry": 155.77,
+        "_stop": 148.9,
+        "_target": 169.5,
+        "_rr": 2.0,
+        "_entry_method": "pivot_breakout",
+        "_atr_used": 4.58,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Has Dollar General (DG) Run Too Far After Its 1 Year Share Price Surge - simplywall.st",
+            "Dollar General (DG) is a Great Momentum Stock: Should You Buy? - Yahoo Finance",
+            "Leadership shake-up at Dollar General: new chair, long-time director exits - Stock Titan"
+          ]
+        }
+      },
+      {
+        "ticker": "PWR",
+        "name": "Quanta Services, Inc",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 50,
+        "rs": 89,
+        "canslim_score": 65,
+        "composite": 66.3,
+        "_price": 568.21,
+        "_entry": 571.05,
+        "_stop": 535.01,
+        "_target": 631.11,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 24.03,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "PWR Stock: Goldman Sachs Raises Price Target to $685, Maintains - GuruFocus",
+            "Quanta Services (NYSE:PWR) Stock Price Expected to Rise, Bank of America Analyst Says - MarketBeat",
+            "How Does GE Vernova Stock Compare With Peers? - Trefis"
+          ]
+        }
+      },
+      {
+        "ticker": "TER",
+        "name": "Teradyne, Inc.",
+        "sector": "Technology",
+        "status": "ACTION",
+        "vcp": 40,
+        "rs": 96,
+        "canslim_score": 70,
+        "composite": 66.3,
+        "_price": 329.09,
+        "_entry": 332.38,
+        "_stop": 296.12,
+        "_target": 368.64,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 18.13,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "TER Teradyne, Inc. (NASDAQ) Pre-market $315.90 Feb 23 2026: AI tailwinds - Meyka",
+            "Four chip tests for AI to autos: Teradyne’s India summit showcase - Stock Titan",
+            "Aspen Wealth Strategies LLC Buys Shares of 4,193 Teradyne, Inc. $TER - MarketBeat"
+          ]
+        }
+      },
+      {
+        "ticker": "LRCX",
+        "name": "Lam Research Corpora",
+        "sector": "Technology",
+        "status": "ACTION",
+        "vcp": 45,
+        "rs": 95,
+        "canslim_score": 80,
+        "composite": 66.1,
+        "_price": 244.25,
+        "_entry": 246.69,
+        "_stop": 222.89,
+        "_target": 270.49,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 11.9,
+        "news_summary": {
+          "score": 50.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Jim Cramer on Lam Research: “Put a Quarter of the Position on It If You Want to Buy Lam Research, and Then Leg In” - Yahoo Finance",
+            "Lam Research: Don't Chase The Stock (Rating Downgrade) - Seeking Alpha",
+            "Lam Research Stock Rises As Chip-Gear Firm Tops Targets - Investor's Business Daily"
+          ]
+        }
+      },
+      {
+        "ticker": "SCCO",
+        "name": "Southern Copper Corp",
+        "sector": "Basic Materials",
+        "status": "ACTION",
+        "vcp": 50,
+        "rs": 92,
+        "canslim_score": 75,
+        "composite": 66.0,
+        "_price": 210.69,
+        "_entry": 211.74,
+        "_stop": 194.72,
+        "_target": 240.12,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 11.35,
+        "news_summary": {
+          "score": 50.0,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "28,975 Shares in Southern Copper Corporation $SCCO Purchased by Empirical Asset Management LLC - MarketBeat",
+            "Why Southern Copper Stock Jumped 130%? - Trefis",
+            "FCX vs. SCCO: Which Copper Mining Giant Should You Bet on Now? - The Globe and Mail"
+          ]
+        }
+      },
+      {
+        "ticker": "ATI",
+        "name": "ATI Inc.",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 35,
+        "rs": 95,
+        "canslim_score": 65,
+        "composite": 65.9,
+        "_price": 161.04,
+        "_entry": 162.65,
+        "_stop": 152.49,
+        "_target": 172.81,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 5.08,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Strong",
+          "catalyst_count": 2,
+          "article_count": 5,
+          "headlines": [
+            "ATI Stock Surges 25% With A 12-day Winning Spree On Record Earnings - Trefis",
+            "Is It Too Late To Consider ATI (ATI) After A 179% One Year Rally? - Yahoo Finance",
+            "ATI Announces Multi-Year $500 Million Share Repurchase Program - PR Newswire"
+          ]
+        }
+      },
+      {
+        "ticker": "GE",
+        "name": "GE Aerospace",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 55,
+        "rs": 82,
+        "canslim_score": 65,
+        "composite": 65.6,
+        "_price": 345.64,
+        "_entry": 347.37,
+        "_stop": 331.83,
+        "_target": 373.27,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 10.36,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "GE Just Hit Another Record. No One Noticed. - Barron's",
+            "GE Aerospace Flies Into Buy Range With Its 'AI Wingmate' In Tow - Investor's Business Daily",
+            "GE Aerospace $GE Shares Bought by Empirical Asset Management LLC - MarketBeat"
+          ]
+        }
+      },
+      {
+        "ticker": "RRX",
+        "name": "Regal Rexnord Corpor",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 40,
+        "rs": 87,
+        "canslim_score": 70,
+        "composite": 65.4,
+        "_price": 223.69,
+        "_entry": 225.93,
+        "_stop": 203.93,
+        "_target": 247.93,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 11.0,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "3 Cash-Producing Stocks Walking a Fine Line - Finviz",
+            "Regal Rexnord Corp (RRX) Shares Up 3.44% on Feb 24 - GuruFocus",
+            "How To YieldBoost RRX To 21.3% Using Options - Nasdaq"
+          ]
+        }
+      },
+      {
+        "ticker": "ADI",
+        "name": "Analog Devices, Inc.",
+        "sector": "Technology",
+        "status": "ACTION",
+        "vcp": 50,
+        "rs": 81,
+        "canslim_score": 70,
+        "composite": 65.0,
+        "_price": 356.09,
+        "_entry": 357.87,
+        "_stop": 341.45,
+        "_target": 385.23,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 10.94,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Strong",
+          "catalyst_count": 2,
+          "article_count": 5,
+          "headlines": [
+            "6,530 Shares in Analog Devices, Inc. $ADI Bought by Fox Run Management L.L.C. - MarketBeat",
+            "Surging Earnings Estimates Signal Upside for Analog Devices (ADI) Stock - Finviz",
+            "Analog Devices Gets Blizzard Of Price-Target Hikes - Investor's Business Daily"
+          ]
+        }
+      }
+    ],
+    "sector": [
+      {
+        "sector": "Industrials",
+        "action_count": 12,
+        "avg_vcp": 49.6
+      },
+      {
+        "sector": "Technology",
+        "action_count": 9,
+        "avg_vcp": 42.8
+      },
+      {
+        "sector": "Consumer Cyclical",
+        "action_count": 2,
+        "avg_vcp": 55.0
+      },
+      {
+        "sector": "Basic Materials",
+        "action_count": 2,
+        "avg_vcp": 42.5
+      },
+      {
+        "sector": "Energy",
+        "action_count": 2,
+        "avg_vcp": 65.0
+      },
+      {
+        "sector": "Utilities",
+        "action_count": 1,
+        "avg_vcp": 45.0
+      },
+      {
+        "sector": "Healthcare",
+        "action_count": 1,
+        "avg_vcp": 75.0
+      },
+      {
+        "sector": "Consumer Defensive",
+        "action_count": 1,
+        "avg_vcp": 90.0
+      }
+    ]
+  }
+}

@@ -1,0 +1,7802 @@
+[
+  {
+    "ticker": "NVDA",
+    "scores": {
+      "vcp": 53,
+      "rs": 57,
+      "ses": 0,
+      "ecr_rank": 35,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 47.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BKNG",
+    "scores": {
+      "vcp": 5,
+      "rs": 7,
+      "ses": 20,
+      "ecr_rank": 11,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 8.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AAPL",
+    "scores": {
+      "vcp": 65,
+      "rs": 43,
+      "ses": 5,
+      "ecr_rank": 39,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 47.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "GOOGL",
+    "scores": {
+      "vcp": 40,
+      "rs": 79,
+      "ses": 20,
+      "ecr_rank": 42,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 45.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "GOOG",
+    "scores": {
+      "vcp": 40,
+      "rs": 78,
+      "ses": 30,
+      "ecr_rank": 45,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 46.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MSFT",
+    "scores": {
+      "vcp": 35,
+      "rs": 10,
+      "ses": 0,
+      "ecr_rank": 19,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 18.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AMZN",
+    "scores": {
+      "vcp": 25,
+      "rs": 14,
+      "ses": 25,
+      "ecr_rank": 24,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 22.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "META",
+    "scores": {
+      "vcp": 40,
+      "rs": 18,
+      "ses": 35,
+      "ecr_rank": 34,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 30.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VOO",
+    "scores": {
+      "vcp": 90,
+      "rs": 37,
+      "ses": 10,
+      "ecr_rank": 50,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 48.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "TSM",
+    "scores": {
+      "vcp": 55,
+      "rs": 87,
+      "ses": 20,
+      "ecr_rank": 54,
+      "canslim": 80,
+      "pf": 1.25,
+      "composite": 67.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MELI",
+    "scores": {
+      "vcp": 0,
+      "rs": 5,
+      "ses": 25,
+      "ecr_rank": 9,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 10.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ASML",
+    "scores": {
+      "vcp": 48,
+      "rs": 90,
+      "ses": 15,
+      "ecr_rank": 52,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 57.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "LLY",
+    "scores": {
+      "vcp": 50,
+      "rs": 45,
+      "ses": 0,
+      "ecr_rank": 32,
+      "canslim": 65,
+      "pf": 0.0,
+      "composite": 47.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AVGO",
+    "scores": {
+      "vcp": 60,
+      "rs": 59,
+      "ses": 0,
+      "ecr_rank": 38,
+      "canslim": 50,
+      "pf": 0.0,
+      "composite": 48.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "KLAC",
+    "scores": {
+      "vcp": 40,
+      "rs": 89,
+      "ses": 5,
+      "ecr_rank": 45,
+      "canslim": 55,
+      "pf": 0.0,
+      "composite": 54.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "TSLA",
+    "scores": {
+      "vcp": 55,
+      "rs": 60,
+      "ses": 10,
+      "ecr_rank": 39,
+      "canslim": 15,
+      "pf": 1.25,
+      "composite": 37.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SPY",
+    "scores": {
+      "vcp": 75,
+      "rs": 37,
+      "ses": 10,
+      "ecr_rank": 44,
+      "canslim": 15,
+      "pf": 2.5,
+      "composite": 38.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "IVV",
+    "scores": {
+      "vcp": 100,
+      "rs": 37,
+      "ses": 10,
+      "ecr_rank": 54,
+      "canslim": 20,
+      "pf": 2.5,
+      "composite": 48.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "FICO",
+    "scores": {
+      "vcp": 5,
+      "rs": 7,
+      "ses": 0,
+      "ecr_rank": 5,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 11.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "COST",
+    "scores": {
+      "vcp": 68,
+      "rs": 26,
+      "ses": 10,
+      "ecr_rank": 39,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 40.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "TDG",
+    "scores": {
+      "vcp": 30,
+      "rs": 17,
+      "ses": 10,
+      "ecr_rank": 22,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 24.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "FIX",
+    "scores": {
+      "vcp": 63,
+      "rs": 97,
+      "ses": 30,
+      "ecr_rank": 64,
+      "canslim": 85,
+      "pf": 1.25,
+      "composite": 75.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "BLK",
+    "scores": {
+      "vcp": 43,
+      "rs": 32,
+      "ses": 15,
+      "ecr_rank": 32,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 34.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MPWR",
+    "scores": {
+      "vcp": 48,
+      "rs": 83,
+      "ses": 10,
+      "ecr_rank": 44,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 47.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "WMT",
+    "scores": {
+      "vcp": 58,
+      "rs": 65,
+      "ses": 15,
+      "ecr_rank": 43,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 45.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "GS",
+    "scores": {
+      "vcp": 63,
+      "rs": 72,
+      "ses": 15,
+      "ecr_rank": 46,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 46.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "GWW",
+    "scores": {
+      "vcp": 45,
+      "rs": 42,
+      "ses": 10,
+      "ecr_rank": 32,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 32.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "JPM",
+    "scores": {
+      "vcp": 50,
+      "rs": 38,
+      "ses": 15,
+      "ecr_rank": 35,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 31.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "PH",
+    "scores": {
+      "vcp": 70,
+      "rs": 76,
+      "ses": 35,
+      "ecr_rank": 57,
+      "canslim": 50,
+      "pf": 2.5,
+      "composite": 60.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CAT",
+    "scores": {
+      "vcp": 48,
+      "rs": 90,
+      "ses": 40,
+      "ecr_rank": 61,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 60.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "QQQ",
+    "scores": {
+      "vcp": 63,
+      "rs": 37,
+      "ses": 5,
+      "ecr_rank": 37,
+      "canslim": 10,
+      "pf": 2.5,
+      "composite": 33.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MCK",
+    "scores": {
+      "vcp": 60,
+      "rs": 78,
+      "ses": 45,
+      "ecr_rank": 57,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 60.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "GEV",
+    "scores": {
+      "vcp": 50,
+      "rs": 93,
+      "ses": 65,
+      "ecr_rank": 69,
+      "canslim": 80,
+      "pf": 1.25,
+      "composite": 72.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MA",
+    "scores": {
+      "vcp": 30,
+      "rs": 14,
+      "ses": 5,
+      "ecr_rank": 20,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 25.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "V",
+    "scores": {
+      "vcp": 30,
+      "rs": 14,
+      "ses": 0,
+      "ecr_rank": 18,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 18.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MU",
+    "scores": {
+      "vcp": 35,
+      "rs": 97,
+      "ses": 10,
+      "ecr_rank": 47,
+      "canslim": 85,
+      "pf": 0.0,
+      "composite": 64.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "URI",
+    "scores": {
+      "vcp": 30,
+      "rs": 47,
+      "ses": 5,
+      "ecr_rank": 25,
+      "canslim": 0,
+      "pf": 0.0,
+      "composite": 22.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VTI",
+    "scores": {
+      "vcp": 75,
+      "rs": 38,
+      "ses": 10,
+      "ecr_rank": 44,
+      "canslim": 15,
+      "pf": 2.5,
+      "composite": 39.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ARGX",
+    "scores": {
+      "vcp": 50,
+      "rs": 33,
+      "ses": 10,
+      "ecr_rank": 33,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 36.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "REGN",
+    "scores": {
+      "vcp": 68,
+      "rs": 43,
+      "ses": 20,
+      "ecr_rank": 44,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 43.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VGT",
+    "scores": {
+      "vcp": 63,
+      "rs": 39,
+      "ses": 5,
+      "ecr_rank": 38,
+      "canslim": 5,
+      "pf": 2.5,
+      "composite": 32.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "AZN",
+    "scores": {
+      "vcp": 53,
+      "rs": 64,
+      "ses": 30,
+      "ecr_rank": 45,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 53.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "JNJ",
+    "scores": {
+      "vcp": 70,
+      "rs": 74,
+      "ses": 65,
+      "ecr_rank": 66,
+      "canslim": 45,
+      "pf": 2.5,
+      "composite": 61.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "NOC",
+    "scores": {
+      "vcp": 58,
+      "rs": 75,
+      "ses": 10,
+      "ecr_rank": 44,
+      "canslim": 15,
+      "pf": 1.25,
+      "composite": 42.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "EME",
+    "scores": {
+      "vcp": 45,
+      "rs": 81,
+      "ses": 10,
+      "ecr_rank": 41,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 46.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VUG",
+    "scores": {
+      "vcp": 63,
+      "rs": 29,
+      "ses": 5,
+      "ecr_rank": 36,
+      "canslim": 5,
+      "pf": 2.5,
+      "composite": 29.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "XOM",
+    "scores": {
+      "vcp": 58,
+      "rs": 72,
+      "ses": 20,
+      "ecr_rank": 46,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 47.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "LMT",
+    "scores": {
+      "vcp": 58,
+      "rs": 77,
+      "ses": 25,
+      "ecr_rank": 50,
+      "canslim": 20,
+      "pf": 1.25,
+      "composite": 46.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "HD",
+    "scores": {
+      "vcp": 63,
+      "rs": 20,
+      "ses": 0,
+      "ecr_rank": 33,
+      "canslim": 25,
+      "pf": 2.5,
+      "composite": 33.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DE",
+    "scores": {
+      "vcp": 35,
+      "rs": 68,
+      "ses": 50,
+      "ecr_rank": 45,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 41.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ULTA",
+    "scores": {
+      "vcp": 90,
+      "rs": 86,
+      "ses": 30,
+      "ecr_rank": 69,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 67.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "SNDK",
+    "scores": {
+      "vcp": 35,
+      "rs": 99,
+      "ses": 10,
+      "ecr_rank": 47,
+      "canslim": 60,
+      "pf": 0.0,
+      "composite": 57.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "LIN",
+    "scores": {
+      "vcp": 40,
+      "rs": 44,
+      "ses": 45,
+      "ecr_rank": 41,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 42.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "TMO",
+    "scores": {
+      "vcp": 30,
+      "rs": 17,
+      "ses": 15,
+      "ecr_rank": 23,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 17.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VXUS",
+    "scores": {
+      "vcp": 75,
+      "rs": 62,
+      "ses": 20,
+      "ecr_rank": 51,
+      "canslim": 15,
+      "pf": 2.5,
+      "composite": 45.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MLM",
+    "scores": {
+      "vcp": 68,
+      "rs": 62,
+      "ses": 10,
+      "ecr_rank": 45,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 47.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "TDY",
+    "scores": {
+      "vcp": 60,
+      "rs": 72,
+      "ses": 40,
+      "ecr_rank": 53,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 48.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "IDXX",
+    "scores": {
+      "vcp": 55,
+      "rs": 52,
+      "ses": 5,
+      "ecr_rank": 36,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 40.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "GE",
+    "scores": {
+      "vcp": 55,
+      "rs": 80,
+      "ses": 65,
+      "ecr_rank": 62,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 63.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CASY",
+    "scores": {
+      "vcp": 65,
+      "rs": 80,
+      "ses": 70,
+      "ecr_rank": 67,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 61.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CMI",
+    "scores": {
+      "vcp": 53,
+      "rs": 79,
+      "ses": 10,
+      "ecr_rank": 44,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 48.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ISRG",
+    "scores": {
+      "vcp": 35,
+      "rs": 15,
+      "ses": 5,
+      "ecr_rank": 22,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 25.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "AMAT",
+    "scores": {
+      "vcp": 33,
+      "rs": 93,
+      "ses": 25,
+      "ecr_rank": 50,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 52.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "GLD",
+    "scores": {
+      "vcp": 58,
+      "rs": 84,
+      "ses": 10,
+      "ecr_rank": 48,
+      "canslim": 15,
+      "pf": 1.25,
+      "composite": 45.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "HCA",
+    "scores": {
+      "vcp": 53,
+      "rs": 76,
+      "ses": 20,
+      "ecr_rank": 46,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 54.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "LITE",
+    "scores": {
+      "vcp": 30,
+      "rs": 98,
+      "ses": 80,
+      "ecr_rank": 66,
+      "canslim": 65,
+      "pf": 0.0,
+      "composite": 64.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ABBV",
+    "scores": {
+      "vcp": 63,
+      "rs": 32,
+      "ses": 0,
+      "ecr_rank": 35,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 37.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ORCL",
+    "scores": {
+      "vcp": 15,
+      "rs": 6,
+      "ses": 0,
+      "ecr_rank": 9,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 9.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "PWR",
+    "scores": {
+      "vcp": 50,
+      "rs": 89,
+      "ses": 40,
+      "ecr_rank": 59,
+      "canslim": 65,
+      "pf": 1.25,
+      "composite": 64.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "VRTX",
+    "scores": {
+      "vcp": 53,
+      "rs": 35,
+      "ses": 10,
+      "ecr_rank": 35,
+      "canslim": 15,
+      "pf": 1.25,
+      "composite": 31.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "AXP",
+    "scores": {
+      "vcp": 45,
+      "rs": 28,
+      "ses": 5,
+      "ecr_rank": 29,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 25.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AMGN",
+    "scores": {
+      "vcp": 60,
+      "rs": 62,
+      "ses": 40,
+      "ecr_rank": 51,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 56.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MSCI",
+    "scores": {
+      "vcp": 40,
+      "rs": 21,
+      "ses": 10,
+      "ecr_rank": 27,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 30.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AMD",
+    "scores": {
+      "vcp": 30,
+      "rs": 79,
+      "ses": 5,
+      "ecr_rank": 33,
+      "canslim": 40,
+      "pf": 0.0,
+      "composite": 42.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SPOT",
+    "scores": {
+      "vcp": 15,
+      "rs": 7,
+      "ses": 0,
+      "ecr_rank": 9,
+      "canslim": 45,
+      "pf": 0.0,
+      "composite": 20.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CACI",
+    "scores": {
+      "vcp": 55,
+      "rs": 76,
+      "ses": 5,
+      "ecr_rank": 42,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 44.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "LII",
+    "scores": {
+      "vcp": 33,
+      "rs": 21,
+      "ses": 30,
+      "ecr_rank": 30,
+      "canslim": 15,
+      "pf": 1.25,
+      "composite": 24.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "CVX",
+    "scores": {
+      "vcp": 70,
+      "rs": 57,
+      "ses": 45,
+      "ecr_rank": 55,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 51.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MCD",
+    "scores": {
+      "vcp": 75,
+      "rs": 38,
+      "ses": 55,
+      "ecr_rank": 57,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 51.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "UNH",
+    "scores": {
+      "vcp": 20,
+      "rs": 6,
+      "ses": 15,
+      "ecr_rank": 15,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 11.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "TT",
+    "scores": {
+      "vcp": 28,
+      "rs": 61,
+      "ses": 30,
+      "ecr_rank": 34,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 39.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "LRCX",
+    "scores": {
+      "vcp": 43,
+      "rs": 95,
+      "ses": 10,
+      "ecr_rank": 50,
+      "canslim": 65,
+      "pf": 1.25,
+      "composite": 61.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "HUBB",
+    "scores": {
+      "vcp": 70,
+      "rs": 68,
+      "ses": 30,
+      "ecr_rank": 53,
+      "canslim": 50,
+      "pf": 2.5,
+      "composite": 57.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "APP",
+    "scores": {
+      "vcp": 15,
+      "rs": 32,
+      "ses": 10,
+      "ecr_rank": 19,
+      "canslim": 55,
+      "pf": 0.0,
+      "composite": 31.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SPGI",
+    "scores": {
+      "vcp": 0,
+      "rs": 7,
+      "ses": 25,
+      "ecr_rank": 11,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 12.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "POWL",
+    "scores": {
+      "vcp": 35,
+      "rs": 95,
+      "ses": 15,
+      "ecr_rank": 48,
+      "canslim": 55,
+      "pf": 0.0,
+      "composite": 55.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BLD",
+    "scores": {
+      "vcp": 30,
+      "rs": 66,
+      "ses": 10,
+      "ecr_rank": 30,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 33.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DIA",
+    "scores": {
+      "vcp": 75,
+      "rs": 39,
+      "ses": 10,
+      "ecr_rank": 44,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 45.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "PG",
+    "scores": {
+      "vcp": 50,
+      "rs": 28,
+      "ses": 55,
+      "ecr_rank": 46,
+      "canslim": 15,
+      "pf": 2.5,
+      "composite": 33.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "BABA",
+    "scores": {
+      "vcp": 45,
+      "rs": 27,
+      "ses": 40,
+      "ecr_rank": 39,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 34.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MCO",
+    "scores": {
+      "vcp": 30,
+      "rs": 17,
+      "ses": 5,
+      "ecr_rank": 21,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 22.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ETN",
+    "scores": {
+      "vcp": 45,
+      "rs": 54,
+      "ses": 5,
+      "ecr_rank": 33,
+      "canslim": 45,
+      "pf": 0.0,
+      "composite": 42.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SNPS",
+    "scores": {
+      "vcp": 15,
+      "rs": 9,
+      "ses": 0,
+      "ecr_rank": 11,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 9.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MSI",
+    "scores": {
+      "vcp": 50,
+      "rs": 50,
+      "ses": 75,
+      "ecr_rank": 55,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 52.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "FN",
+    "scores": {
+      "vcp": 30,
+      "rs": 92,
+      "ses": 5,
+      "ecr_rank": 43,
+      "canslim": 55,
+      "pf": 0.0,
+      "composite": 52.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "CRWD",
+    "scores": {
+      "vcp": 0,
+      "rs": 9,
+      "ses": 10,
+      "ecr_rank": 8,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 7.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SYK",
+    "scores": {
+      "vcp": 45,
+      "rs": 24,
+      "ses": 30,
+      "ecr_rank": 36,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 37.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "AMP",
+    "scores": {
+      "vcp": 30,
+      "rs": 18,
+      "ses": 5,
+      "ecr_rank": 21,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 20.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "STX",
+    "scores": {
+      "vcp": 35,
+      "rs": 97,
+      "ses": 0,
+      "ecr_rank": 44,
+      "canslim": 80,
+      "pf": 0.0,
+      "composite": 62.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ADI",
+    "scores": {
+      "vcp": 50,
+      "rs": 79,
+      "ses": 45,
+      "ecr_rank": 53,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 58.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "PLTR",
+    "scores": {
+      "vcp": 15,
+      "rs": 48,
+      "ses": 0,
+      "ecr_rank": 18,
+      "canslim": 55,
+      "pf": 0.0,
+      "composite": 33.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "IBM",
+    "scores": {
+      "vcp": 20,
+      "rs": 11,
+      "ses": 25,
+      "ecr_rank": 21,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 20.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VO",
+    "scores": {
+      "vcp": 75,
+      "rs": 39,
+      "ses": 10,
+      "ecr_rank": 44,
+      "canslim": 15,
+      "pf": 2.5,
+      "composite": 39.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MDGL",
+    "scores": {
+      "vcp": 35,
+      "rs": 29,
+      "ses": 5,
+      "ecr_rank": 25,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 24.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "INTU",
+    "scores": {
+      "vcp": 5,
+      "rs": 1,
+      "ses": 5,
+      "ecr_rank": 3,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 9.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "UTHR",
+    "scores": {
+      "vcp": 63,
+      "rs": 79,
+      "ses": 30,
+      "ecr_rank": 54,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 56.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BAC",
+    "scores": {
+      "vcp": 50,
+      "rs": 39,
+      "ses": 15,
+      "ecr_rank": 35,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 32.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "RTX",
+    "scores": {
+      "vcp": 73,
+      "rs": 73,
+      "ses": 10,
+      "ecr_rank": 49,
+      "canslim": 55,
+      "pf": 2.5,
+      "composite": 58.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "NVS",
+    "scores": {
+      "vcp": 60,
+      "rs": 77,
+      "ses": 65,
+      "ecr_rank": 63,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 63.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "BND",
+    "scores": {
+      "vcp": 75,
+      "rs": 25,
+      "ses": 50,
+      "ecr_rank": 54,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 46.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "FDX",
+    "scores": {
+      "vcp": 50,
+      "rs": 85,
+      "ses": 75,
+      "ecr_rank": 65,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 59.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "NFLX",
+    "scores": {
+      "vcp": 25,
+      "rs": 8,
+      "ses": 0,
+      "ecr_rank": 14,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 21.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "PM",
+    "scores": {
+      "vcp": 60,
+      "rs": 55,
+      "ses": 40,
+      "ecr_rank": 49,
+      "canslim": 65,
+      "pf": 2.5,
+      "composite": 56.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "TPL",
+    "scores": {
+      "vcp": 53,
+      "rs": 83,
+      "ses": 75,
+      "ecr_rank": 65,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 62.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SMH",
+    "scores": {
+      "vcp": 65,
+      "rs": 80,
+      "ses": 10,
+      "ecr_rank": 49,
+      "canslim": 15,
+      "pf": 1.25,
+      "composite": 46.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MS",
+    "scores": {
+      "vcp": 53,
+      "rs": 61,
+      "ses": 10,
+      "ecr_rank": 38,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 41.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "NVMI",
+    "scores": {
+      "vcp": 45,
+      "rs": 86,
+      "ses": 5,
+      "ecr_rank": 43,
+      "canslim": 55,
+      "pf": 0.0,
+      "composite": 54.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AXON",
+    "scores": {
+      "vcp": 15,
+      "rs": 15,
+      "ses": 15,
+      "ecr_rank": 17,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 15.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CB",
+    "scores": {
+      "vcp": 65,
+      "rs": 61,
+      "ses": 55,
+      "ecr_rank": 57,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 55.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "TMUS",
+    "scores": {
+      "vcp": 33,
+      "rs": 15,
+      "ses": 35,
+      "ecr_rank": 30,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 27.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MEDP",
+    "scores": {
+      "vcp": 20,
+      "rs": 24,
+      "ses": 20,
+      "ecr_rank": 23,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 20.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SHW",
+    "scores": {
+      "vcp": 53,
+      "rs": 25,
+      "ses": 10,
+      "ecr_rank": 33,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 35.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MAR",
+    "scores": {
+      "vcp": 58,
+      "rs": 64,
+      "ses": 35,
+      "ecr_rank": 49,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 47.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VB",
+    "scores": {
+      "vcp": 75,
+      "rs": 46,
+      "ses": 10,
+      "ecr_rank": 45,
+      "canslim": 15,
+      "pf": 2.5,
+      "composite": 40.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "SAP",
+    "scores": {
+      "vcp": 15,
+      "rs": 4,
+      "ses": 10,
+      "ecr_rank": 11,
+      "canslim": 45,
+      "pf": 0.0,
+      "composite": 20.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "KO",
+    "scores": {
+      "vcp": 60,
+      "rs": 50,
+      "ses": 60,
+      "ecr_rank": 54,
+      "canslim": 55,
+      "pf": 2.5,
+      "composite": 54.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "INTC",
+    "scores": {
+      "vcp": 45,
+      "rs": 87,
+      "ses": 25,
+      "ecr_rank": 51,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 48.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "GD",
+    "scores": {
+      "vcp": 63,
+      "rs": 60,
+      "ses": 10,
+      "ecr_rank": 42,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 44.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CVNA",
+    "scores": {
+      "vcp": 20,
+      "rs": 58,
+      "ses": 15,
+      "ecr_rank": 26,
+      "canslim": 55,
+      "pf": 0.0,
+      "composite": 39.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "LOW",
+    "scores": {
+      "vcp": 50,
+      "rs": 31,
+      "ses": 10,
+      "ecr_rank": 33,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 31.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MRK",
+    "scores": {
+      "vcp": 58,
+      "rs": 70,
+      "ses": 40,
+      "ecr_rank": 52,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 52.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "HII",
+    "scores": {
+      "vcp": 45,
+      "rs": 92,
+      "ses": 10,
+      "ecr_rank": 51,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 59.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ROK",
+    "scores": {
+      "vcp": 63,
+      "rs": 64,
+      "ses": 10,
+      "ecr_rank": 43,
+      "canslim": 15,
+      "pf": 1.25,
+      "composite": 41.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VTV",
+    "scores": {
+      "vcp": 75,
+      "rs": 49,
+      "ses": 45,
+      "ecr_rank": 56,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 49.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "TXN",
+    "scores": {
+      "vcp": 45,
+      "rs": 41,
+      "ses": 10,
+      "ecr_rank": 32,
+      "canslim": 40,
+      "pf": 0.0,
+      "composite": 37.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BA",
+    "scores": {
+      "vcp": 70,
+      "rs": 56,
+      "ses": 10,
+      "ecr_rank": 44,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 49.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "WSO",
+    "scores": {
+      "vcp": 38,
+      "rs": 20,
+      "ses": 35,
+      "ecr_rank": 34,
+      "canslim": 20,
+      "pf": 1.25,
+      "composite": 27.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "RACE",
+    "scores": {
+      "vcp": 33,
+      "rs": 10,
+      "ses": 25,
+      "ecr_rank": 26,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 23.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "COR",
+    "scores": {
+      "vcp": 65,
+      "rs": 67,
+      "ses": 5,
+      "ecr_rank": 43,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 46.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CYBR",
+    "scores": {
+      "vcp": 30,
+      "rs": 15,
+      "ses": 5,
+      "ecr_rank": 20,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 19.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "UNP",
+    "scores": {
+      "vcp": 55,
+      "rs": 51,
+      "ses": 75,
+      "ecr_rank": 57,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 51.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "DY",
+    "scores": {
+      "vcp": 63,
+      "rs": 92,
+      "ses": 20,
+      "ecr_rank": 61,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 66.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ELV",
+    "scores": {
+      "vcp": 40,
+      "rs": 14,
+      "ses": 15,
+      "ecr_rank": 27,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 21.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "STRL",
+    "scores": {
+      "vcp": 35,
+      "rs": 96,
+      "ses": 25,
+      "ecr_rank": 51,
+      "canslim": 60,
+      "pf": 0.0,
+      "composite": 58.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "CSL",
+    "scores": {
+      "vcp": 30,
+      "rs": 53,
+      "ses": 55,
+      "ecr_rank": 42,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 38.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SITM",
+    "scores": {
+      "vcp": 45,
+      "rs": 91,
+      "ses": 15,
+      "ecr_rank": 52,
+      "canslim": 40,
+      "pf": 0.0,
+      "composite": 53.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MGK",
+    "scores": {
+      "vcp": 63,
+      "rs": 29,
+      "ses": 5,
+      "ecr_rank": 36,
+      "canslim": 10,
+      "pf": 2.5,
+      "composite": 31.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AGX",
+    "scores": {
+      "vcp": 40,
+      "rs": 96,
+      "ses": 55,
+      "ecr_rank": 62,
+      "canslim": 90,
+      "pf": 1.25,
+      "composite": 72.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "LHX",
+    "scores": {
+      "vcp": 65,
+      "rs": 82,
+      "ses": 5,
+      "ecr_rank": 48,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 49.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CSCO",
+    "scores": {
+      "vcp": 55,
+      "rs": 47,
+      "ses": 5,
+      "ecr_rank": 35,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 38.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "WWD",
+    "scores": {
+      "vcp": 45,
+      "rs": 90,
+      "ses": 50,
+      "ecr_rank": 61,
+      "canslim": 65,
+      "pf": 1.25,
+      "composite": 64.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CME",
+    "scores": {
+      "vcp": 60,
+      "rs": 62,
+      "ses": 50,
+      "ecr_rank": 53,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 56.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "RY",
+    "scores": {
+      "vcp": 75,
+      "rs": 66,
+      "ses": 10,
+      "ecr_rank": 48,
+      "canslim": 25,
+      "pf": 2.5,
+      "composite": 48.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "WDC",
+    "scores": {
+      "vcp": 35,
+      "rs": 98,
+      "ses": 0,
+      "ecr_rank": 44,
+      "canslim": 60,
+      "pf": 0.0,
+      "composite": 56.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "RCL",
+    "scores": {
+      "vcp": 30,
+      "rs": 55,
+      "ses": 15,
+      "ecr_rank": 30,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 34.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SNA",
+    "scores": {
+      "vcp": 75,
+      "rs": 49,
+      "ses": 25,
+      "ecr_rank": 50,
+      "canslim": 20,
+      "pf": 2.5,
+      "composite": 44.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "RL",
+    "scores": {
+      "vcp": 55,
+      "rs": 65,
+      "ses": 15,
+      "ecr_rank": 42,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 51.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "PEP",
+    "scores": {
+      "vcp": 60,
+      "rs": 49,
+      "ses": 55,
+      "ecr_rank": 53,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 49.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "SAIA",
+    "scores": {
+      "vcp": 45,
+      "rs": 61,
+      "ses": 20,
+      "ecr_rank": 38,
+      "canslim": 20,
+      "pf": 1.25,
+      "composite": 37.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "HON",
+    "scores": {
+      "vcp": 50,
+      "rs": 52,
+      "ses": 45,
+      "ecr_rank": 46,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 44.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MUSA",
+    "scores": {
+      "vcp": 20,
+      "rs": 14,
+      "ses": 5,
+      "ecr_rank": 16,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 14.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DPZ",
+    "scores": {
+      "vcp": 35,
+      "rs": 11,
+      "ses": 0,
+      "ecr_rank": 19,
+      "canslim": 5,
+      "pf": 1.25,
+      "composite": 15.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MDB",
+    "scores": {
+      "vcp": 25,
+      "rs": 42,
+      "ses": 10,
+      "ecr_rank": 24,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 23.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AON",
+    "scores": {
+      "vcp": 33,
+      "rs": 10,
+      "ses": 5,
+      "ecr_rank": 20,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 27.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "HSBC",
+    "scores": {
+      "vcp": 70,
+      "rs": 82,
+      "ses": 15,
+      "ecr_rank": 54,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 55.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "IWM",
+    "scores": {
+      "vcp": 75,
+      "rs": 51,
+      "ses": 10,
+      "ecr_rank": 45,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 46.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "HLT",
+    "scores": {
+      "vcp": 68,
+      "rs": 54,
+      "ses": 40,
+      "ecr_rank": 52,
+      "canslim": 45,
+      "pf": 2.5,
+      "composite": 52.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CRS",
+    "scores": {
+      "vcp": 35,
+      "rs": 89,
+      "ses": 55,
+      "ecr_rank": 57,
+      "canslim": 75,
+      "pf": 1.25,
+      "composite": 64.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CEG",
+    "scores": {
+      "vcp": 25,
+      "rs": 40,
+      "ses": 25,
+      "ecr_rank": 29,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 28.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CDNS",
+    "scores": {
+      "vcp": 30,
+      "rs": 27,
+      "ses": 0,
+      "ecr_rank": 21,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 20.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "HEI",
+    "scores": {
+      "vcp": 45,
+      "rs": 50,
+      "ses": 5,
+      "ecr_rank": 32,
+      "canslim": 45,
+      "pf": 0.0,
+      "composite": 41.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ECL",
+    "scores": {
+      "vcp": 70,
+      "rs": 48,
+      "ses": 55,
+      "ecr_rank": 57,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 49.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "NSC",
+    "scores": {
+      "vcp": 65,
+      "rs": 60,
+      "ses": 60,
+      "ecr_rank": 58,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 56.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "WFC",
+    "scores": {
+      "vcp": 50,
+      "rs": 33,
+      "ses": 5,
+      "ecr_rank": 32,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 29.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "OIH",
+    "scores": {
+      "vcp": 50,
+      "rs": 82,
+      "ses": 50,
+      "ecr_rank": 56,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 52.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "VEA",
+    "scores": {
+      "vcp": 75,
+      "rs": 65,
+      "ses": 35,
+      "ecr_rank": 56,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 54.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ITW",
+    "scores": {
+      "vcp": 58,
+      "rs": 47,
+      "ses": 55,
+      "ecr_rank": 52,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 43.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "VV",
+    "scores": {
+      "vcp": 65,
+      "rs": 36,
+      "ses": 5,
+      "ecr_rank": 38,
+      "canslim": 15,
+      "pf": 2.5,
+      "composite": 35.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CRM",
+    "scores": {
+      "vcp": 15,
+      "rs": 3,
+      "ses": 5,
+      "ecr_rank": 9,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 12.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ADBE",
+    "scores": {
+      "vcp": 15,
+      "rs": 2,
+      "ses": 15,
+      "ecr_rank": 10,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 13.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ALNY",
+    "scores": {
+      "vcp": 25,
+      "rs": 28,
+      "ses": 10,
+      "ecr_rank": 22,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 22.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "CPAY",
+    "scores": {
+      "vcp": 33,
+      "rs": 23,
+      "ses": 20,
+      "ecr_rank": 28,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 31.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BAP",
+    "scores": {
+      "vcp": 58,
+      "rs": 87,
+      "ses": 10,
+      "ecr_rank": 51,
+      "canslim": 65,
+      "pf": 1.25,
+      "composite": 62.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "IDCC",
+    "scores": {
+      "vcp": 50,
+      "rs": 82,
+      "ses": 5,
+      "ecr_rank": 43,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 52.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CI",
+    "scores": {
+      "vcp": 45,
+      "rs": 21,
+      "ses": 25,
+      "ecr_rank": 34,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 33.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "TER",
+    "scores": {
+      "vcp": 40,
+      "rs": 96,
+      "ses": 45,
+      "ecr_rank": 59,
+      "canslim": 65,
+      "pf": 1.25,
+      "composite": 63.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ACN",
+    "scores": {
+      "vcp": 10,
+      "rs": 1,
+      "ses": 15,
+      "ecr_rank": 8,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 6.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "TRV",
+    "scores": {
+      "vcp": 65,
+      "rs": 52,
+      "ses": 50,
+      "ecr_rank": 54,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 56.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "OEF",
+    "scores": {
+      "vcp": 65,
+      "rs": 33,
+      "ses": 5,
+      "ecr_rank": 38,
+      "canslim": 10,
+      "pf": 2.5,
+      "composite": 33.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ROP",
+    "scores": {
+      "vcp": 15,
+      "rs": 2,
+      "ses": 10,
+      "ecr_rank": 9,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 13.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DHR",
+    "scores": {
+      "vcp": 40,
+      "rs": 19,
+      "ses": 10,
+      "ecr_rank": 27,
+      "canslim": 0,
+      "pf": 0.0,
+      "composite": 19.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "EG",
+    "scores": {
+      "vcp": 45,
+      "rs": 25,
+      "ses": 25,
+      "ecr_rank": 34,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 34.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "LPLA",
+    "scores": {
+      "vcp": 20,
+      "rs": 10,
+      "ses": 10,
+      "ecr_rank": 16,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 21.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "CIEN",
+    "scores": {
+      "vcp": 38,
+      "rs": 97,
+      "ses": 70,
+      "ecr_rank": 66,
+      "canslim": 65,
+      "pf": 1.25,
+      "composite": 66.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "PEN",
+    "scores": {
+      "vcp": 68,
+      "rs": 52,
+      "ses": 40,
+      "ecr_rank": 52,
+      "canslim": 60,
+      "pf": 2.5,
+      "composite": 56.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SCCO",
+    "scores": {
+      "vcp": 50,
+      "rs": 93,
+      "ses": 15,
+      "ecr_rank": 54,
+      "canslim": 70,
+      "pf": 1.25,
+      "composite": 64.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "RS",
+    "scores": {
+      "vcp": 30,
+      "rs": 33,
+      "ses": 10,
+      "ecr_rank": 25,
+      "canslim": 0,
+      "pf": 0.0,
+      "composite": 19.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "HWM",
+    "scores": {
+      "vcp": 45,
+      "rs": 88,
+      "ses": 70,
+      "ecr_rank": 65,
+      "canslim": 80,
+      "pf": 1.25,
+      "composite": 69.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "GILD",
+    "scores": {
+      "vcp": 45,
+      "rs": 62,
+      "ses": 10,
+      "ecr_rank": 36,
+      "canslim": 45,
+      "pf": 0.0,
+      "composite": 44.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VIG",
+    "scores": {
+      "vcp": 75,
+      "rs": 36,
+      "ses": 10,
+      "ecr_rank": 44,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 43.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "COF",
+    "scores": {
+      "vcp": 35,
+      "rs": 22,
+      "ses": 0,
+      "ecr_rank": 22,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 23.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "WAT",
+    "scores": {
+      "vcp": 35,
+      "rs": 9,
+      "ses": 15,
+      "ecr_rank": 23,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 17.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "APD",
+    "scores": {
+      "vcp": 38,
+      "rs": 18,
+      "ses": 25,
+      "ecr_rank": 30,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 27.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "APH",
+    "scores": {
+      "vcp": 40,
+      "rs": 88,
+      "ses": 0,
+      "ecr_rank": 42,
+      "canslim": 60,
+      "pf": 0.0,
+      "composite": 54.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "EVR",
+    "scores": {
+      "vcp": 30,
+      "rs": 48,
+      "ses": 0,
+      "ecr_rank": 24,
+      "canslim": 60,
+      "pf": 0.0,
+      "composite": 39.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VRT",
+    "scores": {
+      "vcp": 40,
+      "rs": 94,
+      "ses": 55,
+      "ecr_rank": 62,
+      "canslim": 85,
+      "pf": 1.25,
+      "composite": 70.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "C",
+    "scores": {
+      "vcp": 53,
+      "rs": 69,
+      "ses": 10,
+      "ecr_rank": 41,
+      "canslim": 20,
+      "pf": 1.25,
+      "composite": 41.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AMG",
+    "scores": {
+      "vcp": 53,
+      "rs": 84,
+      "ses": 10,
+      "ecr_rank": 46,
+      "canslim": 70,
+      "pf": 1.25,
+      "composite": 60.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VMC",
+    "scores": {
+      "vcp": 63,
+      "rs": 48,
+      "ses": 15,
+      "ecr_rank": 42,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 47.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "TJX",
+    "scores": {
+      "vcp": 65,
+      "rs": 56,
+      "ses": 50,
+      "ecr_rank": 54,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 56.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "IBP",
+    "scores": {
+      "vcp": 43,
+      "rs": 83,
+      "ses": 20,
+      "ecr_rank": 45,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 51.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "PRAX",
+    "scores": {
+      "vcp": 73,
+      "rs": 98,
+      "ses": 40,
+      "ecr_rank": 71,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 67.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "AEM",
+    "scores": {
+      "vcp": 45,
+      "rs": 92,
+      "ses": 15,
+      "ecr_rank": 52,
+      "canslim": 75,
+      "pf": 1.25,
+      "composite": 64.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "AEIS",
+    "scores": {
+      "vcp": 40,
+      "rs": 95,
+      "ses": 40,
+      "ecr_rank": 58,
+      "canslim": 95,
+      "pf": 1.25,
+      "composite": 72.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "WTW",
+    "scores": {
+      "vcp": 20,
+      "rs": 16,
+      "ses": 0,
+      "ecr_rank": 15,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 18.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "TYL",
+    "scores": {
+      "vcp": 5,
+      "rs": 1,
+      "ses": 0,
+      "ecr_rank": 2,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 12.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BURL",
+    "scores": {
+      "vcp": 63,
+      "rs": 59,
+      "ses": 20,
+      "ecr_rank": 45,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 50.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "WM",
+    "scores": {
+      "vcp": 65,
+      "rs": 28,
+      "ses": 0,
+      "ecr_rank": 35,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 38.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "QQQM",
+    "scores": {
+      "vcp": 63,
+      "rs": 37,
+      "ses": 5,
+      "ecr_rank": 37,
+      "canslim": 10,
+      "pf": 2.5,
+      "composite": 33.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "JLL",
+    "scores": {
+      "vcp": 20,
+      "rs": 33,
+      "ses": 5,
+      "ecr_rank": 20,
+      "canslim": 55,
+      "pf": 0.0,
+      "composite": 32.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "CLS",
+    "scores": {
+      "vcp": 30,
+      "rs": 88,
+      "ses": 0,
+      "ecr_rank": 39,
+      "canslim": 55,
+      "pf": 0.0,
+      "composite": 50.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "PGR",
+    "scores": {
+      "vcp": 40,
+      "rs": 8,
+      "ses": 0,
+      "ecr_rank": 20,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 22.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ANET",
+    "scores": {
+      "vcp": 35,
+      "rs": 47,
+      "ses": 0,
+      "ecr_rank": 26,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 32.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "PNC",
+    "scores": {
+      "vcp": 65,
+      "rs": 49,
+      "ses": 15,
+      "ecr_rank": 43,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 46.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ABT",
+    "scores": {
+      "vcp": 35,
+      "rs": 13,
+      "ses": 75,
+      "ecr_rank": 42,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 30.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "AYI",
+    "scores": {
+      "vcp": 30,
+      "rs": 16,
+      "ses": 20,
+      "ecr_rank": 25,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 24.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "RSP",
+    "scores": {
+      "vcp": 75,
+      "rs": 41,
+      "ses": 30,
+      "ecr_rank": 50,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 49.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "FTAI",
+    "scores": {
+      "vcp": 38,
+      "rs": 93,
+      "ses": 20,
+      "ecr_rank": 51,
+      "canslim": 65,
+      "pf": 1.25,
+      "composite": 60.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "SHEL",
+    "scores": {
+      "vcp": 70,
+      "rs": 51,
+      "ses": 25,
+      "ecr_rank": 48,
+      "canslim": 45,
+      "pf": 2.5,
+      "composite": 51.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "RNR",
+    "scores": {
+      "vcp": 63,
+      "rs": 63,
+      "ses": 25,
+      "ecr_rank": 47,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 54.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "WCC",
+    "scores": {
+      "vcp": 53,
+      "rs": 76,
+      "ses": 5,
+      "ecr_rank": 41,
+      "canslim": 15,
+      "pf": 1.25,
+      "composite": 41.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "NDSN",
+    "scores": {
+      "vcp": 58,
+      "rs": 71,
+      "ses": 40,
+      "ecr_rank": 52,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 50.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CBOE",
+    "scores": {
+      "vcp": 65,
+      "rs": 69,
+      "ses": 60,
+      "ecr_rank": 60,
+      "canslim": 70,
+      "pf": 1.25,
+      "composite": 65.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "DIS",
+    "scores": {
+      "vcp": 35,
+      "rs": 17,
+      "ses": 5,
+      "ecr_rank": 23,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 30.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "FERG",
+    "scores": {
+      "vcp": 70,
+      "rs": 68,
+      "ses": 40,
+      "ecr_rank": 56,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 55.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "QCOM",
+    "scores": {
+      "vcp": 25,
+      "rs": 13,
+      "ses": 10,
+      "ecr_rank": 19,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 22.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ADP",
+    "scores": {
+      "vcp": 15,
+      "rs": 4,
+      "ses": 5,
+      "ecr_rank": 9,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 7.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "TEL",
+    "scores": {
+      "vcp": 55,
+      "rs": 70,
+      "ses": 5,
+      "ecr_rank": 40,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 44.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "SLV",
+    "scores": {
+      "vcp": 30,
+      "rs": 95,
+      "ses": 5,
+      "ecr_rank": 43,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 39.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "LECO",
+    "scores": {
+      "vcp": 55,
+      "rs": 66,
+      "ses": 15,
+      "ecr_rank": 42,
+      "canslim": 40,
+      "pf": 0.0,
+      "composite": 47.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "WAB",
+    "scores": {
+      "vcp": 60,
+      "rs": 75,
+      "ses": 70,
+      "ecr_rank": 63,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 61.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "FNV",
+    "scores": {
+      "vcp": 45,
+      "rs": 88,
+      "ses": 15,
+      "ecr_rank": 48,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 47.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "VXF",
+    "scores": {
+      "vcp": 75,
+      "rs": 40,
+      "ses": 20,
+      "ecr_rank": 47,
+      "canslim": 20,
+      "pf": 2.5,
+      "composite": 42.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "LH",
+    "scores": {
+      "vcp": 60,
+      "rs": 40,
+      "ses": 25,
+      "ecr_rank": 43,
+      "canslim": 45,
+      "pf": 2.5,
+      "composite": 45.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "NXPI",
+    "scores": {
+      "vcp": 50,
+      "rs": 29,
+      "ses": 15,
+      "ecr_rank": 34,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 31.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "NVO",
+    "scores": {
+      "vcp": 0,
+      "rs": 0,
+      "ses": 20,
+      "ecr_rank": 6,
+      "canslim": 0,
+      "pf": 0.0,
+      "composite": 2.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BX",
+    "scores": {
+      "vcp": 10,
+      "rs": 3,
+      "ses": 25,
+      "ecr_rank": 13,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 12.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VZ",
+    "scores": {
+      "vcp": 35,
+      "rs": 56,
+      "ses": 50,
+      "ecr_rank": 42,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 42.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "SHOP",
+    "scores": {
+      "vcp": 15,
+      "rs": 18,
+      "ses": 5,
+      "ecr_rank": 15,
+      "canslim": 40,
+      "pf": 0.0,
+      "composite": 22.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "RMD",
+    "scores": {
+      "vcp": 53,
+      "rs": 26,
+      "ses": 15,
+      "ecr_rank": 35,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 37.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "RGLD",
+    "scores": {
+      "vcp": 50,
+      "rs": 89,
+      "ses": 5,
+      "ecr_rank": 48,
+      "canslim": 75,
+      "pf": 1.25,
+      "composite": 63.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "VBR",
+    "scores": {
+      "vcp": 75,
+      "rs": 47,
+      "ses": 30,
+      "ecr_rank": 51,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 47.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "FFIV",
+    "scores": {
+      "vcp": 70,
+      "rs": 19,
+      "ses": 5,
+      "ecr_rank": 37,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 38.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "NEE",
+    "scores": {
+      "vcp": 68,
+      "rs": 61,
+      "ses": 5,
+      "ecr_rank": 43,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 49.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "KRYS",
+    "scores": {
+      "vcp": 53,
+      "rs": 84,
+      "ses": 10,
+      "ecr_rank": 46,
+      "canslim": 65,
+      "pf": 1.25,
+      "composite": 59.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "CLH",
+    "scores": {
+      "vcp": 60,
+      "rs": 71,
+      "ses": 60,
+      "ecr_rank": 59,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 55.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "T",
+    "scores": {
+      "vcp": 33,
+      "rs": 30,
+      "ses": 45,
+      "ecr_rank": 36,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 39.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AIT",
+    "scores": {
+      "vcp": 63,
+      "rs": 47,
+      "ses": 25,
+      "ecr_rank": 45,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 46.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "AME",
+    "scores": {
+      "vcp": 70,
+      "rs": 63,
+      "ses": 25,
+      "ecr_rank": 50,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 52.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "JBL",
+    "scores": {
+      "vcp": 60,
+      "rs": 83,
+      "ses": 20,
+      "ecr_rank": 51,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 53.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "WING",
+    "scores": {
+      "vcp": 20,
+      "rs": 30,
+      "ses": 5,
+      "ecr_rank": 19,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 25.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "RSG",
+    "scores": {
+      "vcp": 55,
+      "rs": 22,
+      "ses": 5,
+      "ecr_rank": 32,
+      "canslim": 10,
+      "pf": 2.5,
+      "composite": 27.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MTZ",
+    "scores": {
+      "vcp": 50,
+      "rs": 90,
+      "ses": 55,
+      "ecr_rank": 66,
+      "canslim": 90,
+      "pf": 1.25,
+      "composite": 74.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "GRMN",
+    "scores": {
+      "vcp": 35,
+      "rs": 59,
+      "ses": 70,
+      "ecr_rank": 49,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 51.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "SCHW",
+    "scores": {
+      "vcp": 40,
+      "rs": 43,
+      "ses": 10,
+      "ecr_rank": 31,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 35.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "KEYS",
+    "scores": {
+      "vcp": 40,
+      "rs": 90,
+      "ses": 75,
+      "ecr_rank": 68,
+      "canslim": 80,
+      "pf": 1.25,
+      "composite": 70.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ADSK",
+    "scores": {
+      "vcp": 15,
+      "rs": 6,
+      "ses": 5,
+      "ecr_rank": 11,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 11.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AVAV",
+    "scores": {
+      "vcp": 10,
+      "rs": 67,
+      "ses": 0,
+      "ecr_rank": 20,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 26.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "CAH",
+    "scores": {
+      "vcp": 65,
+      "rs": 84,
+      "ses": 15,
+      "ecr_rank": 52,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 58.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "TRGP",
+    "scores": {
+      "vcp": 50,
+      "rs": 67,
+      "ses": 65,
+      "ecr_rank": 55,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 55.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CTAS",
+    "scores": {
+      "vcp": 55,
+      "rs": 22,
+      "ses": 20,
+      "ecr_rank": 36,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 34.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "PODD",
+    "scores": {
+      "vcp": 25,
+      "rs": 9,
+      "ses": 0,
+      "ecr_rank": 14,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 19.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "LNG",
+    "scores": {
+      "vcp": 40,
+      "rs": 34,
+      "ses": 45,
+      "ecr_rank": 40,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 43.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "STE",
+    "scores": {
+      "vcp": 43,
+      "rs": 31,
+      "ses": 5,
+      "ecr_rank": 28,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 35.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "NEM",
+    "scores": {
+      "vcp": 43,
+      "rs": 94,
+      "ses": 10,
+      "ecr_rank": 50,
+      "canslim": 65,
+      "pf": 1.25,
+      "composite": 60.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "PANW",
+    "scores": {
+      "vcp": 15,
+      "rs": 5,
+      "ses": 15,
+      "ecr_rank": 13,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 9.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "CHTR",
+    "scores": {
+      "vcp": 20,
+      "rs": 12,
+      "ses": 50,
+      "ecr_rank": 29,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 21.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AJG",
+    "scores": {
+      "vcp": 15,
+      "rs": 5,
+      "ses": 5,
+      "ecr_rank": 10,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 17.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ARM",
+    "scores": {
+      "vcp": 25,
+      "rs": 21,
+      "ses": 45,
+      "ecr_rank": 31,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 36.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "HSY",
+    "scores": {
+      "vcp": 50,
+      "rs": 72,
+      "ses": 70,
+      "ecr_rank": 58,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 51.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "BHP",
+    "scores": {
+      "vcp": 50,
+      "rs": 85,
+      "ses": 35,
+      "ecr_rank": 53,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 58.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MRSH",
+    "scores": {
+      "vcp": 43,
+      "rs": 13,
+      "ses": 5,
+      "ecr_rank": 25,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 28.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MKSI",
+    "scores": {
+      "vcp": 35,
+      "rs": 94,
+      "ses": 10,
+      "ecr_rank": 47,
+      "canslim": 70,
+      "pf": 0.0,
+      "composite": 59.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MTB",
+    "scores": {
+      "vcp": 68,
+      "rs": 51,
+      "ses": 10,
+      "ecr_rank": 43,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 47.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ROST",
+    "scores": {
+      "vcp": 65,
+      "rs": 74,
+      "ses": 80,
+      "ecr_rank": 68,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 61.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "WST",
+    "scores": {
+      "vcp": 35,
+      "rs": 30,
+      "ses": 20,
+      "ecr_rank": 30,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 26.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "FSLR",
+    "scores": {
+      "vcp": 35,
+      "rs": 28,
+      "ses": 5,
+      "ecr_rank": 25,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 30.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MTSI",
+    "scores": {
+      "vcp": 45,
+      "rs": 91,
+      "ses": 20,
+      "ecr_rank": 54,
+      "canslim": 70,
+      "pf": 1.25,
+      "composite": 63.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "JNUG",
+    "scores": {
+      "vcp": 38,
+      "rs": 98,
+      "ses": 15,
+      "ecr_rank": 49,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 49.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ALL",
+    "scores": {
+      "vcp": 65,
+      "rs": 36,
+      "ses": 25,
+      "ecr_rank": 44,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 49.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "COHR",
+    "scores": {
+      "vcp": 30,
+      "rs": 96,
+      "ses": 5,
+      "ecr_rank": 43,
+      "canslim": 55,
+      "pf": 0.0,
+      "composite": 53.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ZBRA",
+    "scores": {
+      "vcp": 10,
+      "rs": 7,
+      "ses": 0,
+      "ecr_rank": 7,
+      "canslim": 0,
+      "pf": 0.0,
+      "composite": 5.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "NET",
+    "scores": {
+      "vcp": 20,
+      "rs": 26,
+      "ses": 0,
+      "ecr_rank": 17,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 21.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VLO",
+    "scores": {
+      "vcp": 55,
+      "rs": 77,
+      "ses": 45,
+      "ecr_rank": 55,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 51.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "HUBS",
+    "scores": {
+      "vcp": 5,
+      "rs": 0,
+      "ses": 0,
+      "ecr_rank": 2,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 10.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DOV",
+    "scores": {
+      "vcp": 53,
+      "rs": 58,
+      "ses": 60,
+      "ecr_rank": 53,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 48.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "POOL",
+    "scores": {
+      "vcp": 10,
+      "rs": 3,
+      "ses": 0,
+      "ecr_rank": 5,
+      "canslim": 0,
+      "pf": 0.0,
+      "composite": 3.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "RIO",
+    "scores": {
+      "vcp": 60,
+      "rs": 84,
+      "ses": 15,
+      "ecr_rank": 51,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 56.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MPC",
+    "scores": {
+      "vcp": 38,
+      "rs": 65,
+      "ses": 45,
+      "ecr_rank": 44,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 49.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "PKG",
+    "scores": {
+      "vcp": 68,
+      "rs": 42,
+      "ses": 30,
+      "ecr_rank": 47,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 44.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "TD",
+    "scores": {
+      "vcp": 75,
+      "rs": 78,
+      "ses": 30,
+      "ecr_rank": 59,
+      "canslim": 55,
+      "pf": 2.5,
+      "composite": 63.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "PDD",
+    "scores": {
+      "vcp": 45,
+      "rs": 13,
+      "ses": 10,
+      "ecr_rank": 27,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 35.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "COP",
+    "scores": {
+      "vcp": 60,
+      "rs": 55,
+      "ses": 35,
+      "ecr_rank": 48,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 47.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "GLW",
+    "scores": {
+      "vcp": 38,
+      "rs": 96,
+      "ses": 55,
+      "ecr_rank": 61,
+      "canslim": 85,
+      "pf": 1.25,
+      "composite": 70.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MMM",
+    "scores": {
+      "vcp": 53,
+      "rs": 34,
+      "ses": 30,
+      "ecr_rank": 41,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 38.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DASH",
+    "scores": {
+      "vcp": 15,
+      "rs": 8,
+      "ses": 0,
+      "ecr_rank": 10,
+      "canslim": 40,
+      "pf": 0.0,
+      "composite": 19.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ITA",
+    "scores": {
+      "vcp": 65,
+      "rs": 75,
+      "ses": 10,
+      "ecr_rank": 47,
+      "canslim": 15,
+      "pf": 1.25,
+      "composite": 45.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "UBER",
+    "scores": {
+      "vcp": 25,
+      "rs": 13,
+      "ses": 0,
+      "ecr_rank": 16,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 15.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SPXC",
+    "scores": {
+      "vcp": 83,
+      "rs": 72,
+      "ses": 10,
+      "ecr_rank": 53,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 55.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "EA",
+    "scores": {
+      "vcp": 65,
+      "rs": 67,
+      "ses": 5,
+      "ecr_rank": 43,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 46.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "AGG",
+    "scores": {
+      "vcp": 75,
+      "rs": 25,
+      "ses": 45,
+      "ecr_rank": 52,
+      "canslim": 20,
+      "pf": 2.5,
+      "composite": 41.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "THC",
+    "scores": {
+      "vcp": 45,
+      "rs": 85,
+      "ses": 65,
+      "ecr_rank": 60,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 57.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "BDX",
+    "scores": {
+      "vcp": 58,
+      "rs": 68,
+      "ses": 35,
+      "ecr_rank": 49,
+      "canslim": 15,
+      "pf": 1.25,
+      "composite": 43.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "PFE",
+    "scores": {
+      "vcp": 70,
+      "rs": 31,
+      "ses": 20,
+      "ecr_rank": 44,
+      "canslim": 20,
+      "pf": 2.5,
+      "composite": 38.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "UHS",
+    "scores": {
+      "vcp": 40,
+      "rs": 30,
+      "ses": 0,
+      "ecr_rank": 26,
+      "canslim": 45,
+      "pf": 0.0,
+      "composite": 34.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ICE",
+    "scores": {
+      "vcp": 23,
+      "rs": 17,
+      "ses": 10,
+      "ecr_rank": 20,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 25.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "NUGT",
+    "scores": {
+      "vcp": 33,
+      "rs": 98,
+      "ses": 15,
+      "ecr_rank": 47,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 48.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "NOW",
+    "scores": {
+      "vcp": 5,
+      "rs": 1,
+      "ses": 5,
+      "ecr_rank": 3,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 9.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "NTRA",
+    "scores": {
+      "vcp": 35,
+      "rs": 57,
+      "ses": 0,
+      "ecr_rank": 27,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 32.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VYM",
+    "scores": {
+      "vcp": 75,
+      "rs": 46,
+      "ses": 45,
+      "ecr_rank": 55,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 48.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "JBHT",
+    "scores": {
+      "vcp": 60,
+      "rs": 78,
+      "ses": 25,
+      "ecr_rank": 51,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 53.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "XLK",
+    "scores": {
+      "vcp": 63,
+      "rs": 40,
+      "ses": 5,
+      "ecr_rank": 38,
+      "canslim": 5,
+      "pf": 2.5,
+      "composite": 32.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "BMO",
+    "scores": {
+      "vcp": 70,
+      "rs": 71,
+      "ses": 25,
+      "ecr_rank": 52,
+      "canslim": 55,
+      "pf": 2.5,
+      "composite": 58.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "NXST",
+    "scores": {
+      "vcp": 45,
+      "rs": 81,
+      "ses": 60,
+      "ecr_rank": 57,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 55.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "FDN",
+    "scores": {
+      "vcp": 35,
+      "rs": 15,
+      "ses": 15,
+      "ecr_rank": 25,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 21.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SNOW",
+    "scores": {
+      "vcp": 15,
+      "rs": 10,
+      "ses": 0,
+      "ecr_rank": 11,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 11.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DRI",
+    "scores": {
+      "vcp": 75,
+      "rs": 45,
+      "ses": 30,
+      "ecr_rank": 51,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 48.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "GNRC",
+    "scores": {
+      "vcp": 30,
+      "rs": 86,
+      "ses": 65,
+      "ecr_rank": 55,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 53.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ASND",
+    "scores": {
+      "vcp": 58,
+      "rs": 70,
+      "ses": 30,
+      "ecr_rank": 49,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 48.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "EMR",
+    "scores": {
+      "vcp": 53,
+      "rs": 59,
+      "ses": 5,
+      "ecr_rank": 36,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 45.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "WSM",
+    "scores": {
+      "vcp": 68,
+      "rs": 39,
+      "ses": 0,
+      "ecr_rank": 38,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 43.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "IEMG",
+    "scores": {
+      "vcp": 70,
+      "rs": 66,
+      "ses": 10,
+      "ecr_rank": 47,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 48.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "VRSN",
+    "scores": {
+      "vcp": 20,
+      "rs": 11,
+      "ses": 5,
+      "ecr_rank": 15,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 19.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "TTWO",
+    "scores": {
+      "vcp": 25,
+      "rs": 16,
+      "ses": 5,
+      "ecr_rank": 18,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 20.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "EXP",
+    "scores": {
+      "vcp": 43,
+      "rs": 22,
+      "ses": 5,
+      "ecr_rank": 27,
+      "canslim": 20,
+      "pf": 1.25,
+      "composite": 26.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "RGA",
+    "scores": {
+      "vcp": 45,
+      "rs": 49,
+      "ses": 40,
+      "ecr_rank": 42,
+      "canslim": 65,
+      "pf": 1.25,
+      "composite": 50.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ODFL",
+    "scores": {
+      "vcp": 38,
+      "rs": 66,
+      "ses": 30,
+      "ecr_rank": 40,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 39.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "VST",
+    "scores": {
+      "vcp": 35,
+      "rs": 37,
+      "ses": 20,
+      "ecr_rank": 31,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 30.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MDT",
+    "scores": {
+      "vcp": 60,
+      "rs": 25,
+      "ses": 0,
+      "ecr_rank": 33,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 33.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "UL",
+    "scores": {
+      "vcp": 50,
+      "rs": 45,
+      "ses": 60,
+      "ecr_rank": 50,
+      "canslim": 50,
+      "pf": 2.5,
+      "composite": 48.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "BUD",
+    "scores": {
+      "vcp": 50,
+      "rs": 71,
+      "ses": 55,
+      "ecr_rank": 53,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 54.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "VT",
+    "scores": {
+      "vcp": 75,
+      "rs": 49,
+      "ses": 10,
+      "ecr_rank": 45,
+      "canslim": 15,
+      "pf": 2.5,
+      "composite": 41.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "RRX",
+    "scores": {
+      "vcp": 40,
+      "rs": 87,
+      "ses": 70,
+      "ecr_rank": 61,
+      "canslim": 70,
+      "pf": 1.25,
+      "composite": 64.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "JCI",
+    "scores": {
+      "vcp": 50,
+      "rs": 83,
+      "ses": 70,
+      "ecr_rank": 62,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 59.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "IJR",
+    "scores": {
+      "vcp": 75,
+      "rs": 46,
+      "ses": 15,
+      "ecr_rank": 46,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 47.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "R",
+    "scores": {
+      "vcp": 60,
+      "rs": 72,
+      "ses": 40,
+      "ecr_rank": 53,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 54.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ONTO",
+    "scores": {
+      "vcp": 43,
+      "rs": 86,
+      "ses": 10,
+      "ecr_rank": 43,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 46.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "TKO",
+    "scores": {
+      "vcp": 70,
+      "rs": 71,
+      "ses": 30,
+      "ecr_rank": 54,
+      "canslim": 75,
+      "pf": 1.25,
+      "composite": 65.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MOD",
+    "scores": {
+      "vcp": 38,
+      "rs": 94,
+      "ses": 60,
+      "ecr_rank": 63,
+      "canslim": 65,
+      "pf": 1.25,
+      "composite": 64.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "EXPE",
+    "scores": {
+      "vcp": 25,
+      "rs": 20,
+      "ses": 5,
+      "ecr_rank": 19,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 20.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AIZ",
+    "scores": {
+      "vcp": 53,
+      "rs": 31,
+      "ses": 10,
+      "ecr_rank": 34,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 39.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SPXL",
+    "scores": {
+      "vcp": 63,
+      "rs": 53,
+      "ses": 10,
+      "ecr_rank": 41,
+      "canslim": 10,
+      "pf": 2.5,
+      "composite": 37.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "XPO",
+    "scores": {
+      "vcp": 40,
+      "rs": 87,
+      "ses": 50,
+      "ecr_rank": 56,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 56.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "NUE",
+    "scores": {
+      "vcp": 55,
+      "rs": 60,
+      "ses": 15,
+      "ecr_rank": 40,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 36.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VWO",
+    "scores": {
+      "vcp": 75,
+      "rs": 53,
+      "ses": 10,
+      "ecr_rank": 46,
+      "canslim": 15,
+      "pf": 2.5,
+      "composite": 42.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "DGX",
+    "scores": {
+      "vcp": 60,
+      "rs": 58,
+      "ses": 65,
+      "ecr_rank": 57,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 58.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "DUK",
+    "scores": {
+      "vcp": 60,
+      "rs": 38,
+      "ses": 50,
+      "ecr_rank": 50,
+      "canslim": 55,
+      "pf": 2.5,
+      "composite": 50.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "VOE",
+    "scores": {
+      "vcp": 75,
+      "rs": 50,
+      "ses": 50,
+      "ecr_rank": 57,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 51.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "FIVE",
+    "scores": {
+      "vcp": 70,
+      "rs": 92,
+      "ses": 75,
+      "ecr_rank": 80,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 70.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "FANG",
+    "scores": {
+      "vcp": 58,
+      "rs": 43,
+      "ses": 25,
+      "ecr_rank": 42,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 45.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "IEX",
+    "scores": {
+      "vcp": 60,
+      "rs": 50,
+      "ses": 25,
+      "ecr_rank": 44,
+      "canslim": 20,
+      "pf": 2.5,
+      "composite": 40.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "BIIB",
+    "scores": {
+      "vcp": 78,
+      "rs": 66,
+      "ses": 15,
+      "ecr_rank": 51,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 50.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "COIN",
+    "scores": {
+      "vcp": 0,
+      "rs": 4,
+      "ses": 5,
+      "ecr_rank": 3,
+      "canslim": 0,
+      "pf": 0.0,
+      "composite": 1.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "PSX",
+    "scores": {
+      "vcp": 58,
+      "rs": 54,
+      "ses": 35,
+      "ecr_rank": 47,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 50.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ITT",
+    "scores": {
+      "vcp": 60,
+      "rs": 68,
+      "ses": 40,
+      "ecr_rank": 52,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 52.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "UPS",
+    "scores": {
+      "vcp": 48,
+      "rs": 51,
+      "ses": 45,
+      "ecr_rank": 45,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 43.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "VSEC",
+    "scores": {
+      "vcp": 45,
+      "rs": 90,
+      "ses": 5,
+      "ecr_rank": 47,
+      "canslim": 70,
+      "pf": 1.25,
+      "composite": 60.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "STLD",
+    "scores": {
+      "vcp": 58,
+      "rs": 74,
+      "ses": 25,
+      "ecr_rank": 49,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 47.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ENSG",
+    "scores": {
+      "vcp": 45,
+      "rs": 77,
+      "ses": 70,
+      "ecr_rank": 58,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 57.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "XLI",
+    "scores": {
+      "vcp": 75,
+      "rs": 62,
+      "ses": 45,
+      "ecr_rank": 58,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 55.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "BWXT",
+    "scores": {
+      "vcp": 58,
+      "rs": 84,
+      "ses": 0,
+      "ecr_rank": 45,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 55.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DHI",
+    "scores": {
+      "vcp": 43,
+      "rs": 43,
+      "ses": 20,
+      "ecr_rank": 35,
+      "canslim": 15,
+      "pf": 1.25,
+      "composite": 31.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DKS",
+    "scores": {
+      "vcp": 78,
+      "rs": 19,
+      "ses": 20,
+      "ecr_rank": 45,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 42.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "EFX",
+    "scores": {
+      "vcp": 15,
+      "rs": 12,
+      "ses": 10,
+      "ecr_rank": 15,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 17.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "SBUX",
+    "scores": {
+      "vcp": 48,
+      "rs": 23,
+      "ses": 15,
+      "ecr_rank": 32,
+      "canslim": 5,
+      "pf": 1.25,
+      "composite": 24.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "XLV",
+    "scores": {
+      "vcp": 75,
+      "rs": 32,
+      "ses": 20,
+      "ecr_rank": 46,
+      "canslim": 15,
+      "pf": 2.5,
+      "composite": 38.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "GTLS",
+    "scores": {
+      "vcp": 75,
+      "rs": 33,
+      "ses": 0,
+      "ecr_rank": 40,
+      "canslim": 70,
+      "pf": 2.5,
+      "composite": 53.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "RH",
+    "scores": {
+      "vcp": 35,
+      "rs": 5,
+      "ses": 0,
+      "ecr_rank": 16,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 16.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "CRH",
+    "scores": {
+      "vcp": 93,
+      "rs": 41,
+      "ses": 15,
+      "ecr_rank": 53,
+      "canslim": 20,
+      "pf": 2.5,
+      "composite": 47.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "WPM",
+    "scores": {
+      "vcp": 45,
+      "rs": 91,
+      "ses": 15,
+      "ecr_rank": 52,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 59.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "VEEV",
+    "scores": {
+      "vcp": 15,
+      "rs": 3,
+      "ses": 5,
+      "ecr_rank": 9,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 15.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "HDB",
+    "scores": {
+      "vcp": 35,
+      "rs": 20,
+      "ses": 15,
+      "ecr_rank": 26,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 27.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SLAB",
+    "scores": {
+      "vcp": 35,
+      "rs": 86,
+      "ses": 55,
+      "ecr_rank": 53,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 56.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "BSX",
+    "scores": {
+      "vcp": 15,
+      "rs": 3,
+      "ses": 15,
+      "ecr_rank": 12,
+      "canslim": 45,
+      "pf": 0.0,
+      "composite": 20.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "HUM",
+    "scores": {
+      "vcp": 10,
+      "rs": 3,
+      "ses": 20,
+      "ecr_rank": 11,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 7.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AN",
+    "scores": {
+      "vcp": 40,
+      "rs": 19,
+      "ses": 0,
+      "ecr_rank": 24,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 19.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "CR",
+    "scores": {
+      "vcp": 53,
+      "rs": 55,
+      "ses": 70,
+      "ecr_rank": 55,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 49.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "LEU",
+    "scores": {
+      "vcp": 10,
+      "rs": 81,
+      "ses": 15,
+      "ecr_rank": 29,
+      "canslim": 0,
+      "pf": 0.0,
+      "composite": 26.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VRSK",
+    "scores": {
+      "vcp": 15,
+      "rs": 6,
+      "ses": 0,
+      "ecr_rank": 8,
+      "canslim": 0,
+      "pf": 0.0,
+      "composite": 6.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "FBT",
+    "scores": {
+      "vcp": 63,
+      "rs": 44,
+      "ses": 10,
+      "ecr_rank": 40,
+      "canslim": 25,
+      "pf": 2.5,
+      "composite": 39.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CHRW",
+    "scores": {
+      "vcp": 40,
+      "rs": 86,
+      "ses": 5,
+      "ecr_rank": 40,
+      "canslim": 45,
+      "pf": 0.0,
+      "composite": 49.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "IBKR",
+    "scores": {
+      "vcp": 63,
+      "rs": 68,
+      "ses": 10,
+      "ecr_rank": 44,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 46.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BE",
+    "scores": {
+      "vcp": 38,
+      "rs": 98,
+      "ses": 15,
+      "ecr_rank": 49,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 55.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AVY",
+    "scores": {
+      "vcp": 65,
+      "rs": 35,
+      "ses": 35,
+      "ecr_rank": 47,
+      "canslim": 25,
+      "pf": 2.5,
+      "composite": 41.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "YUM",
+    "scores": {
+      "vcp": 70,
+      "rs": 42,
+      "ses": 45,
+      "ecr_rank": 53,
+      "canslim": 50,
+      "pf": 2.5,
+      "composite": 52.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ATO",
+    "scores": {
+      "vcp": 65,
+      "rs": 52,
+      "ses": 90,
+      "ecr_rank": 66,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 59.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "TQQQ",
+    "scores": {
+      "vcp": 40,
+      "rs": 43,
+      "ses": 5,
+      "ecr_rank": 29,
+      "canslim": 0,
+      "pf": 0.0,
+      "composite": 24.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BK",
+    "scores": {
+      "vcp": 63,
+      "rs": 65,
+      "ses": 10,
+      "ecr_rank": 43,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 44.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "IJH",
+    "scores": {
+      "vcp": 75,
+      "rs": 45,
+      "ses": 20,
+      "ecr_rank": 48,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 46.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "WCN",
+    "scores": {
+      "vcp": 33,
+      "rs": 15,
+      "ses": 5,
+      "ecr_rank": 21,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 30.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "NRG",
+    "scores": {
+      "vcp": 33,
+      "rs": 76,
+      "ses": 45,
+      "ecr_rank": 45,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 46.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "FDS",
+    "scores": {
+      "vcp": 5,
+      "rs": 1,
+      "ses": 0,
+      "ecr_rank": 2,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 9.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ALGN",
+    "scores": {
+      "vcp": 33,
+      "rs": 53,
+      "ses": 35,
+      "ecr_rank": 36,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 38.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "EFA",
+    "scores": {
+      "vcp": 75,
+      "rs": 59,
+      "ses": 40,
+      "ecr_rank": 56,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 51.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "LULU",
+    "scores": {
+      "vcp": 65,
+      "rs": 6,
+      "ses": 10,
+      "ecr_rank": 32,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 32.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "AWI",
+    "scores": {
+      "vcp": 30,
+      "rs": 25,
+      "ses": 5,
+      "ecr_rank": 22,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 24.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DELL",
+    "scores": {
+      "vcp": 55,
+      "rs": 23,
+      "ses": 5,
+      "ecr_rank": 32,
+      "canslim": 20,
+      "pf": 1.25,
+      "composite": 30.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ABNB",
+    "scores": {
+      "vcp": 50,
+      "rs": 28,
+      "ses": 15,
+      "ecr_rank": 34,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 37.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "BOOT",
+    "scores": {
+      "vcp": 53,
+      "rs": 69,
+      "ses": 30,
+      "ecr_rank": 47,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 55.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "IQV",
+    "scores": {
+      "vcp": 25,
+      "rs": 7,
+      "ses": 15,
+      "ecr_rank": 18,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 13.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "PLXS",
+    "scores": {
+      "vcp": 48,
+      "rs": 79,
+      "ses": 20,
+      "ecr_rank": 45,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 54.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ZS",
+    "scores": {
+      "vcp": 5,
+      "rs": 2,
+      "ses": 5,
+      "ecr_rank": 4,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 5.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "IAU",
+    "scores": {
+      "vcp": 58,
+      "rs": 85,
+      "ses": 10,
+      "ecr_rank": 49,
+      "canslim": 15,
+      "pf": 1.25,
+      "composite": 46.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AEP",
+    "scores": {
+      "vcp": 70,
+      "rs": 57,
+      "ses": 55,
+      "ecr_rank": 58,
+      "canslim": 50,
+      "pf": 2.5,
+      "composite": 57.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "BR",
+    "scores": {
+      "vcp": 15,
+      "rs": 5,
+      "ses": 5,
+      "ecr_rank": 10,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 17.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "TXRH",
+    "scores": {
+      "vcp": 58,
+      "rs": 30,
+      "ses": 10,
+      "ecr_rank": 36,
+      "canslim": 10,
+      "pf": 2.5,
+      "composite": 30.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CBRE",
+    "scores": {
+      "vcp": 30,
+      "rs": 19,
+      "ses": 5,
+      "ecr_rank": 21,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 23.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SO",
+    "scores": {
+      "vcp": 60,
+      "rs": 36,
+      "ses": 40,
+      "ecr_rank": 47,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 44.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "BMY",
+    "scores": {
+      "vcp": 70,
+      "rs": 54,
+      "ses": 55,
+      "ecr_rank": 58,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 50.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "NTES",
+    "scores": {
+      "vcp": 35,
+      "rs": 18,
+      "ses": 40,
+      "ecr_rank": 33,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 22.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ALB",
+    "scores": {
+      "vcp": 40,
+      "rs": 92,
+      "ses": 5,
+      "ecr_rank": 47,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 48.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "LYV",
+    "scores": {
+      "vcp": 43,
+      "rs": 40,
+      "ses": 30,
+      "ecr_rank": 37,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 34.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "EOG",
+    "scores": {
+      "vcp": 38,
+      "rs": 26,
+      "ses": 25,
+      "ecr_rank": 32,
+      "canslim": 10,
+      "pf": 1.25,
+      "composite": 25.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "PCAR",
+    "scores": {
+      "vcp": 68,
+      "rs": 53,
+      "ses": 10,
+      "ecr_rank": 43,
+      "canslim": 15,
+      "pf": 2.5,
+      "composite": 40.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "RJF",
+    "scores": {
+      "vcp": 50,
+      "rs": 24,
+      "ses": 5,
+      "ecr_rank": 30,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 27.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AXSM",
+    "scores": {
+      "vcp": 45,
+      "rs": 57,
+      "ses": 50,
+      "ecr_rank": 46,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 41.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "LDOS",
+    "scores": {
+      "vcp": 45,
+      "rs": 44,
+      "ses": 10,
+      "ecr_rank": 33,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 35.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "CMCSA",
+    "scores": {
+      "vcp": 53,
+      "rs": 20,
+      "ses": 45,
+      "ecr_rank": 43,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 37.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MSTR",
+    "scores": {
+      "vcp": 0,
+      "rs": 0,
+      "ses": 5,
+      "ecr_rank": 1,
+      "canslim": 0,
+      "pf": 0.0,
+      "composite": 0.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MO",
+    "scores": {
+      "vcp": 45,
+      "rs": 58,
+      "ses": 40,
+      "ecr_rank": 44,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 43.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "BTI",
+    "scores": {
+      "vcp": 70,
+      "rs": 73,
+      "ses": 30,
+      "ecr_rank": 54,
+      "canslim": 65,
+      "pf": 2.5,
+      "composite": 63.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "GSK",
+    "scores": {
+      "vcp": 43,
+      "rs": 80,
+      "ses": 45,
+      "ecr_rank": 51,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 55.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ZTS",
+    "scores": {
+      "vcp": 60,
+      "rs": 11,
+      "ses": 15,
+      "ecr_rank": 34,
+      "canslim": 20,
+      "pf": 1.25,
+      "composite": 29.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "TPR",
+    "scores": {
+      "vcp": 45,
+      "rs": 88,
+      "ses": 70,
+      "ecr_rank": 66,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 64.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CVS",
+    "scores": {
+      "vcp": 53,
+      "rs": 46,
+      "ses": 25,
+      "ecr_rank": 41,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 40.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CINF",
+    "scores": {
+      "vcp": 63,
+      "rs": 40,
+      "ses": 5,
+      "ecr_rank": 38,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 44.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DG",
+    "scores": {
+      "vcp": 90,
+      "rs": 89,
+      "ses": 35,
+      "ecr_rank": 73,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 69.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "BIDU",
+    "scores": {
+      "vcp": 30,
+      "rs": 64,
+      "ses": 40,
+      "ecr_rank": 39,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 31.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "TLT",
+    "scores": {
+      "vcp": 65,
+      "rs": 23,
+      "ses": 45,
+      "ecr_rank": 48,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 40.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CM",
+    "scores": {
+      "vcp": 80,
+      "rs": 82,
+      "ses": 45,
+      "ecr_rank": 67,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 61.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "LQD",
+    "scores": {
+      "vcp": 65,
+      "rs": 24,
+      "ses": 50,
+      "ecr_rank": 50,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 43.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "STZ",
+    "scores": {
+      "vcp": 53,
+      "rs": 20,
+      "ses": 10,
+      "ecr_rank": 32,
+      "canslim": 0,
+      "pf": 1.25,
+      "composite": 23.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SE",
+    "scores": {
+      "vcp": 15,
+      "rs": 6,
+      "ses": 0,
+      "ecr_rank": 9,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 17.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MASI",
+    "scores": {
+      "vcp": 30,
+      "rs": 45,
+      "ses": 50,
+      "ecr_rank": 39,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 34.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "INSM",
+    "scores": {
+      "vcp": 55,
+      "rs": 75,
+      "ses": 10,
+      "ecr_rank": 43,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 46.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "WDAY",
+    "scores": {
+      "vcp": 5,
+      "rs": 0,
+      "ses": 5,
+      "ecr_rank": 3,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 9.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "IBB",
+    "scores": {
+      "vcp": 75,
+      "rs": 55,
+      "ses": 15,
+      "ecr_rank": 48,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 49.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "COKE",
+    "scores": {
+      "vcp": 35,
+      "rs": 83,
+      "ses": 75,
+      "ecr_rank": 58,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 54.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "HOOD",
+    "scores": {
+      "vcp": 15,
+      "rs": 41,
+      "ses": 0,
+      "ecr_rank": 17,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 26.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "H",
+    "scores": {
+      "vcp": 53,
+      "rs": 53,
+      "ses": 5,
+      "ecr_rank": 35,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 48.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DVY",
+    "scores": {
+      "vcp": 75,
+      "rs": 45,
+      "ses": 50,
+      "ecr_rank": 57,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 50.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "WMS",
+    "scores": {
+      "vcp": 55,
+      "rs": 73,
+      "ses": 35,
+      "ecr_rank": 50,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 50.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "RDDT",
+    "scores": {
+      "vcp": 15,
+      "rs": 5,
+      "ses": 5,
+      "ecr_rank": 10,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 11.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "OSK",
+    "scores": {
+      "vcp": 43,
+      "rs": 82,
+      "ses": 45,
+      "ecr_rank": 52,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 50.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "APPF",
+    "scores": {
+      "vcp": 15,
+      "rs": 4,
+      "ses": 0,
+      "ecr_rank": 8,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 12.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DAVE",
+    "scores": {
+      "vcp": 5,
+      "rs": 75,
+      "ses": 5,
+      "ecr_rank": 22,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 32.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CHKP",
+    "scores": {
+      "vcp": 15,
+      "rs": 4,
+      "ses": 5,
+      "ecr_rank": 9,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 10.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MKTX",
+    "scores": {
+      "vcp": 35,
+      "rs": 27,
+      "ses": 30,
+      "ecr_rank": 32,
+      "canslim": 10,
+      "pf": 1.25,
+      "composite": 24.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "UBS",
+    "scores": {
+      "vcp": 40,
+      "rs": 41,
+      "ses": 35,
+      "ecr_rank": 38,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 31.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "FCX",
+    "scores": {
+      "vcp": 50,
+      "rs": 88,
+      "ses": 10,
+      "ecr_rank": 49,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 53.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ENS",
+    "scores": {
+      "vcp": 40,
+      "rs": 82,
+      "ses": 5,
+      "ecr_rank": 39,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 45.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SOXL",
+    "scores": {
+      "vcp": 30,
+      "rs": 94,
+      "ses": 10,
+      "ecr_rank": 45,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 44.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AER",
+    "scores": {
+      "vcp": 65,
+      "rs": 71,
+      "ses": 20,
+      "ecr_rank": 49,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 58.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CL",
+    "scores": {
+      "vcp": 50,
+      "rs": 51,
+      "ses": 70,
+      "ecr_rank": 53,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 47.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "HIG",
+    "scores": {
+      "vcp": 65,
+      "rs": 48,
+      "ses": 45,
+      "ecr_rank": 52,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 55.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "NKE",
+    "scores": {
+      "vcp": 68,
+      "rs": 10,
+      "ses": 20,
+      "ecr_rank": 38,
+      "canslim": 0,
+      "pf": 1.25,
+      "composite": 26.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ARES",
+    "scores": {
+      "vcp": 5,
+      "rs": 2,
+      "ses": 15,
+      "ecr_rank": 7,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 8.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "NGG",
+    "scores": {
+      "vcp": 60,
+      "rs": 76,
+      "ses": 70,
+      "ecr_rank": 63,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 59.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "THG",
+    "scores": {
+      "vcp": 73,
+      "rs": 32,
+      "ses": 20,
+      "ecr_rank": 45,
+      "canslim": 55,
+      "pf": 2.5,
+      "composite": 50.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "IMO",
+    "scores": {
+      "vcp": 48,
+      "rs": 81,
+      "ses": 25,
+      "ecr_rank": 48,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 49.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "JAZZ",
+    "scores": {
+      "vcp": 53,
+      "rs": 70,
+      "ses": 60,
+      "ecr_rank": 56,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 49.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ACWI",
+    "scores": {
+      "vcp": 75,
+      "rs": 48,
+      "ses": 10,
+      "ecr_rank": 45,
+      "canslim": 15,
+      "pf": 2.5,
+      "composite": 41.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ORLY",
+    "scores": {
+      "vcp": 45,
+      "rs": 16,
+      "ses": 0,
+      "ecr_rank": 25,
+      "canslim": 15,
+      "pf": 1.25,
+      "composite": 23.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "GRID",
+    "scores": {
+      "vcp": 70,
+      "rs": 74,
+      "ses": 45,
+      "ecr_rank": 59,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 55.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CRWV",
+    "scores": {
+      "vcp": 15,
+      "rs": 89,
+      "ses": 10,
+      "ecr_rank": 36,
+      "canslim": 45,
+      "pf": 0.0,
+      "composite": 44.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "HLI",
+    "scores": {
+      "vcp": 30,
+      "rs": 16,
+      "ses": 5,
+      "ecr_rank": 20,
+      "canslim": 50,
+      "pf": 0.0,
+      "composite": 29.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "EPAM",
+    "scores": {
+      "vcp": 20,
+      "rs": 1,
+      "ses": 25,
+      "ecr_rank": 15,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 10.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "TOL",
+    "scores": {
+      "vcp": 58,
+      "rs": 67,
+      "ses": 20,
+      "ecr_rank": 45,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 46.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ALLE",
+    "scores": {
+      "vcp": 30,
+      "rs": 34,
+      "ses": 0,
+      "ecr_rank": 23,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 28.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "NTRS",
+    "scores": {
+      "vcp": 68,
+      "rs": 61,
+      "ses": 5,
+      "ecr_rank": 43,
+      "canslim": 10,
+      "pf": 2.5,
+      "composite": 40.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "TGT",
+    "scores": {
+      "vcp": 50,
+      "rs": 41,
+      "ses": 35,
+      "ecr_rank": 42,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 37.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "AFL",
+    "scores": {
+      "vcp": 63,
+      "rs": 32,
+      "ses": 20,
+      "ecr_rank": 41,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 41.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CNI",
+    "scores": {
+      "vcp": 45,
+      "rs": 50,
+      "ses": 45,
+      "ecr_rank": 44,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 45.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "FUTU",
+    "scores": {
+      "vcp": 25,
+      "rs": 34,
+      "ses": 10,
+      "ecr_rank": 23,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 27.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SDY",
+    "scores": {
+      "vcp": 75,
+      "rs": 44,
+      "ses": 55,
+      "ecr_rank": 58,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 49.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "PTC",
+    "scores": {
+      "vcp": 45,
+      "rs": 12,
+      "ses": 10,
+      "ecr_rank": 27,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 35.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "SNX",
+    "scores": {
+      "vcp": 55,
+      "rs": 36,
+      "ses": 0,
+      "ecr_rank": 33,
+      "canslim": 40,
+      "pf": 0.0,
+      "composite": 39.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "IT",
+    "scores": {
+      "vcp": 5,
+      "rs": 0,
+      "ses": 15,
+      "ecr_rank": 6,
+      "canslim": 0,
+      "pf": 0.0,
+      "composite": 2.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DTE",
+    "scores": {
+      "vcp": 43,
+      "rs": 38,
+      "ses": 45,
+      "ecr_rank": 42,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 43.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DDOG",
+    "scores": {
+      "vcp": 15,
+      "rs": 12,
+      "ses": 0,
+      "ecr_rank": 11,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 11.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BNDX",
+    "scores": {
+      "vcp": 55,
+      "rs": 22,
+      "ses": 70,
+      "ecr_rank": 51,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 41.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CCJ",
+    "scores": {
+      "vcp": 45,
+      "rs": 91,
+      "ses": 5,
+      "ecr_rank": 49,
+      "canslim": 55,
+      "pf": 0.0,
+      "composite": 57.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "GM",
+    "scores": {
+      "vcp": 53,
+      "rs": 77,
+      "ses": 0,
+      "ecr_rank": 40,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 43.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MIDD",
+    "scores": {
+      "vcp": 70,
+      "rs": 54,
+      "ses": 40,
+      "ecr_rank": 53,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 50.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "XLF",
+    "scores": {
+      "vcp": 63,
+      "rs": 23,
+      "ses": 10,
+      "ecr_rank": 37,
+      "canslim": 25,
+      "pf": 2.5,
+      "composite": 35.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "DXJ",
+    "scores": {
+      "vcp": 70,
+      "rs": 78,
+      "ses": 80,
+      "ecr_rank": 72,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 62.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "GDX",
+    "scores": {
+      "vcp": 45,
+      "rs": 93,
+      "ses": 15,
+      "ecr_rank": 52,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 51.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MATX",
+    "scores": {
+      "vcp": 48,
+      "rs": 74,
+      "ses": 30,
+      "ecr_rank": 46,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 46.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BNS",
+    "scores": {
+      "vcp": 75,
+      "rs": 73,
+      "ses": 15,
+      "ecr_rank": 51,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 55.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MNST",
+    "scores": {
+      "vcp": 70,
+      "rs": 80,
+      "ses": 60,
+      "ecr_rank": 66,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 59.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "JBTM",
+    "scores": {
+      "vcp": 58,
+      "rs": 44,
+      "ses": 10,
+      "ecr_rank": 38,
+      "canslim": 35,
+      "pf": 2.5,
+      "composite": 41.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "EXPD",
+    "scores": {
+      "vcp": 30,
+      "rs": 44,
+      "ses": 5,
+      "ecr_rank": 25,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 29.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "PHM",
+    "scores": {
+      "vcp": 58,
+      "rs": 56,
+      "ses": 30,
+      "ecr_rank": 46,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 44.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "JKHY",
+    "scores": {
+      "vcp": 30,
+      "rs": 16,
+      "ses": 0,
+      "ecr_rank": 18,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 18.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ATI",
+    "scores": {
+      "vcp": 35,
+      "rs": 95,
+      "ses": 80,
+      "ecr_rank": 68,
+      "canslim": 65,
+      "pf": 1.25,
+      "composite": 65.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "WMB",
+    "scores": {
+      "vcp": 60,
+      "rs": 69,
+      "ses": 55,
+      "ecr_rank": 57,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 58.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "VSS",
+    "scores": {
+      "vcp": 75,
+      "rs": 63,
+      "ses": 25,
+      "ecr_rank": 52,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 53.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "VEU",
+    "scores": {
+      "vcp": 75,
+      "rs": 63,
+      "ses": 25,
+      "ecr_rank": 52,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 53.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MORN",
+    "scores": {
+      "vcp": 0,
+      "rs": 2,
+      "ses": 5,
+      "ecr_rank": 1,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 2.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "PRIM",
+    "scores": {
+      "vcp": 70,
+      "rs": 87,
+      "ses": 5,
+      "ecr_rank": 54,
+      "canslim": 65,
+      "pf": 0.0,
+      "composite": 65.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ENB",
+    "scores": {
+      "vcp": 70,
+      "rs": 54,
+      "ses": 35,
+      "ecr_rank": 52,
+      "canslim": 60,
+      "pf": 2.5,
+      "composite": 57.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "STT",
+    "scores": {
+      "vcp": 75,
+      "rs": 63,
+      "ses": 10,
+      "ecr_rank": 48,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 52.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "LABU",
+    "scores": {
+      "vcp": 45,
+      "rs": 91,
+      "ses": 15,
+      "ecr_rank": 52,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 47.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VONG",
+    "scores": {
+      "vcp": 63,
+      "rs": 30,
+      "ses": 5,
+      "ecr_rank": 36,
+      "canslim": 5,
+      "pf": 2.5,
+      "composite": 29.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CRL",
+    "scores": {
+      "vcp": 25,
+      "rs": 21,
+      "ses": 15,
+      "ecr_rank": 23,
+      "canslim": 0,
+      "pf": 0.0,
+      "composite": 15.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AU",
+    "scores": {
+      "vcp": 35,
+      "rs": 97,
+      "ses": 15,
+      "ecr_rank": 48,
+      "canslim": 95,
+      "pf": 1.25,
+      "composite": 68.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "EAT",
+    "scores": {
+      "vcp": 20,
+      "rs": 18,
+      "ses": 5,
+      "ecr_rank": 17,
+      "canslim": 40,
+      "pf": 0.0,
+      "composite": 24.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VCIT",
+    "scores": {
+      "vcp": 75,
+      "rs": 26,
+      "ses": 50,
+      "ecr_rank": 54,
+      "canslim": 20,
+      "pf": 2.5,
+      "composite": 42.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "WTFC",
+    "scores": {
+      "vcp": 68,
+      "rs": 52,
+      "ses": 25,
+      "ecr_rank": 47,
+      "canslim": 50,
+      "pf": 2.5,
+      "composite": 52.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "USB",
+    "scores": {
+      "vcp": 68,
+      "rs": 58,
+      "ses": 15,
+      "ecr_rank": 45,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 49.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "ESGU",
+    "scores": {
+      "vcp": 65,
+      "rs": 35,
+      "ses": 10,
+      "ecr_rank": 40,
+      "canslim": 15,
+      "pf": 2.5,
+      "composite": 35.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "NU",
+    "scores": {
+      "vcp": 30,
+      "rs": 35,
+      "ses": 15,
+      "ecr_rank": 27,
+      "canslim": 45,
+      "pf": 0.0,
+      "composite": 34.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "A",
+    "scores": {
+      "vcp": 35,
+      "rs": 11,
+      "ses": 25,
+      "ecr_rank": 27,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 18.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "VDE",
+    "scores": {
+      "vcp": 60,
+      "rs": 64,
+      "ses": 50,
+      "ecr_rank": 54,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 50.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CAMT",
+    "scores": {
+      "vcp": 35,
+      "rs": 91,
+      "ses": 10,
+      "ecr_rank": 47,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 50.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MRVL",
+    "scores": {
+      "vcp": 60,
+      "rs": 14,
+      "ses": 15,
+      "ecr_rank": 35,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 27.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "WEX",
+    "scores": {
+      "vcp": 30,
+      "rs": 17,
+      "ses": 20,
+      "ecr_rank": 25,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 19.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DLTR",
+    "scores": {
+      "vcp": 40,
+      "rs": 78,
+      "ses": 20,
+      "ecr_rank": 41,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 42.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BMI",
+    "scores": {
+      "vcp": 25,
+      "rs": 8,
+      "ses": 20,
+      "ecr_rank": 20,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 21.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "VICR",
+    "scores": {
+      "vcp": 35,
+      "rs": 97,
+      "ses": 25,
+      "ecr_rank": 51,
+      "canslim": 90,
+      "pf": 1.25,
+      "composite": 67.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "XYL",
+    "scores": {
+      "vcp": 40,
+      "rs": 19,
+      "ses": 5,
+      "ecr_rank": 25,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 27.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "CP",
+    "scores": {
+      "vcp": 50,
+      "rs": 56,
+      "ses": 75,
+      "ecr_rank": 56,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 52.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "XLE",
+    "scores": {
+      "vcp": 60,
+      "rs": 63,
+      "ses": 50,
+      "ecr_rank": 54,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 50.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "UAL",
+    "scores": {
+      "vcp": 55,
+      "rs": 55,
+      "ses": 15,
+      "ecr_rank": 40,
+      "canslim": 25,
+      "pf": 1.25,
+      "composite": 40.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ARW",
+    "scores": {
+      "vcp": 28,
+      "rs": 75,
+      "ses": 50,
+      "ecr_rank": 44,
+      "canslim": 65,
+      "pf": 1.25,
+      "composite": 52.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BN",
+    "scores": {
+      "vcp": 50,
+      "rs": 34,
+      "ses": 5,
+      "ecr_rank": 32,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 34.5
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "CRDO",
+    "scores": {
+      "vcp": 10,
+      "rs": 69,
+      "ses": 0,
+      "ecr_rank": 20,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 26.9
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "PPG",
+    "scores": {
+      "vcp": 48,
+      "rs": 46,
+      "ses": 25,
+      "ecr_rank": 39,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 43.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SITE",
+    "scores": {
+      "vcp": 40,
+      "rs": 36,
+      "ses": 5,
+      "ecr_rank": 28,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 28.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "IRTC",
+    "scores": {
+      "vcp": 25,
+      "rs": 24,
+      "ses": 0,
+      "ecr_rank": 19,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 18.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "J",
+    "scores": {
+      "vcp": 40,
+      "rs": 31,
+      "ses": 10,
+      "ecr_rank": 29,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 26.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DVA",
+    "scores": {
+      "vcp": 15,
+      "rs": 59,
+      "ses": 65,
+      "ecr_rank": 39,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 40.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ALAB",
+    "scores": {
+      "vcp": 10,
+      "rs": 33,
+      "ses": 5,
+      "ecr_rank": 16,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 17.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "AWK",
+    "scores": {
+      "vcp": 45,
+      "rs": 22,
+      "ses": 25,
+      "ecr_rank": 34,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 32.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "PJT",
+    "scores": {
+      "vcp": 20,
+      "rs": 11,
+      "ses": 15,
+      "ecr_rank": 18,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 19.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "EWY",
+    "scores": {
+      "vcp": 40,
+      "rs": 94,
+      "ses": 50,
+      "ecr_rank": 61,
+      "canslim": 55,
+      "pf": 1.25,
+      "composite": 61.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "LCII",
+    "scores": {
+      "vcp": 45,
+      "rs": 60,
+      "ses": 10,
+      "ecr_rank": 35,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 39.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "EL",
+    "scores": {
+      "vcp": 40,
+      "rs": 73,
+      "ses": 5,
+      "ecr_rank": 35,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 42.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "SLB",
+    "scores": {
+      "vcp": 60,
+      "rs": 73,
+      "ses": 35,
+      "ecr_rank": 52,
+      "canslim": 20,
+      "pf": 1.25,
+      "composite": 47.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "SRE",
+    "scores": {
+      "vcp": 65,
+      "rs": 60,
+      "ses": 55,
+      "ecr_rank": 56,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 54.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "IEF",
+    "scores": {
+      "vcp": 65,
+      "rs": 26,
+      "ses": 50,
+      "ecr_rank": 50,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 44.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "SANM",
+    "scores": {
+      "vcp": 40,
+      "rs": 85,
+      "ses": 10,
+      "ecr_rank": 41,
+      "canslim": 40,
+      "pf": 0.0,
+      "composite": 48.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ENTG",
+    "scores": {
+      "vcp": 38,
+      "rs": 81,
+      "ses": 20,
+      "ecr_rank": 42,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 44.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "LEN",
+    "scores": {
+      "vcp": 70,
+      "rs": 12,
+      "ses": 0,
+      "ecr_rank": 34,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 28.7
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BPOP",
+    "scores": {
+      "vcp": 53,
+      "rs": 69,
+      "ses": 25,
+      "ecr_rank": 45,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 51.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "SATS",
+    "scores": {
+      "vcp": 45,
+      "rs": 96,
+      "ses": 0,
+      "ecr_rank": 48,
+      "canslim": 20,
+      "pf": 0.0,
+      "composite": 47.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "GL",
+    "scores": {
+      "vcp": 63,
+      "rs": 46,
+      "ses": 30,
+      "ecr_rank": 46,
+      "canslim": 50,
+      "pf": 1.25,
+      "composite": 49.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "SPYG",
+    "scores": {
+      "vcp": 63,
+      "rs": 34,
+      "ses": 5,
+      "ecr_rank": 37,
+      "canslim": 10,
+      "pf": 2.5,
+      "composite": 32.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "KMB",
+    "scores": {
+      "vcp": 45,
+      "rs": 13,
+      "ses": 60,
+      "ecr_rank": 42,
+      "canslim": 15,
+      "pf": 1.25,
+      "composite": 29.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ED",
+    "scores": {
+      "vcp": 60,
+      "rs": 42,
+      "ses": 5,
+      "ecr_rank": 37,
+      "canslim": 45,
+      "pf": 2.5,
+      "composite": 43.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CRUS",
+    "scores": {
+      "vcp": 60,
+      "rs": 67,
+      "ses": 30,
+      "ecr_rank": 49,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 57.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CFR",
+    "scores": {
+      "vcp": 60,
+      "rs": 39,
+      "ses": 40,
+      "ecr_rank": 47,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 42.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CCEP",
+    "scores": {
+      "vcp": 50,
+      "rs": 65,
+      "ses": 75,
+      "ecr_rank": 58,
+      "canslim": 60,
+      "pf": 1.25,
+      "composite": 58.1
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "WEC",
+    "scores": {
+      "vcp": 65,
+      "rs": 35,
+      "ses": 35,
+      "ecr_rank": 47,
+      "canslim": 50,
+      "pf": 2.5,
+      "composite": 48.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "CPA",
+    "scores": {
+      "vcp": 58,
+      "rs": 77,
+      "ses": 15,
+      "ecr_rank": 46,
+      "canslim": 40,
+      "pf": 1.25,
+      "composite": 51.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "XLY",
+    "scores": {
+      "vcp": 63,
+      "rs": 27,
+      "ses": 10,
+      "ecr_rank": 37,
+      "canslim": 10,
+      "pf": 2.5,
+      "composite": 31.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "FLUT",
+    "scores": {
+      "vcp": 5,
+      "rs": 0,
+      "ses": 20,
+      "ecr_rank": 8,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 5.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "GDXJ",
+    "scores": {
+      "vcp": 45,
+      "rs": 95,
+      "ses": 15,
+      "ecr_rank": 52,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 51.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MDLZ",
+    "scores": {
+      "vcp": 48,
+      "rs": 21,
+      "ses": 25,
+      "ecr_rank": 35,
+      "canslim": 20,
+      "pf": 2.5,
+      "composite": 30.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ENVA",
+    "scores": {
+      "vcp": 30,
+      "rs": 66,
+      "ses": 0,
+      "ecr_rank": 28,
+      "canslim": 35,
+      "pf": 0.0,
+      "composite": 37.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "LSTR",
+    "scores": {
+      "vcp": 33,
+      "rs": 38,
+      "ses": 10,
+      "ecr_rank": 27,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 30.7
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "GLDM",
+    "scores": {
+      "vcp": 58,
+      "rs": 85,
+      "ses": 10,
+      "ecr_rank": 49,
+      "canslim": 15,
+      "pf": 1.25,
+      "composite": 46.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BDC",
+    "scores": {
+      "vcp": 38,
+      "rs": 70,
+      "ses": 65,
+      "ecr_rank": 51,
+      "canslim": 65,
+      "pf": 1.25,
+      "composite": 56.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MANH",
+    "scores": {
+      "vcp": 10,
+      "rs": 4,
+      "ses": 5,
+      "ecr_rank": 7,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 9.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BP",
+    "scores": {
+      "vcp": 70,
+      "rs": 42,
+      "ses": 15,
+      "ecr_rank": 44,
+      "canslim": 10,
+      "pf": 2.5,
+      "composite": 37.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "HRI",
+    "scores": {
+      "vcp": 30,
+      "rs": 27,
+      "ses": 0,
+      "ecr_rank": 21,
+      "canslim": 15,
+      "pf": 0.0,
+      "composite": 21.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "BSV",
+    "scores": {
+      "vcp": 75,
+      "rs": 24,
+      "ses": 25,
+      "ecr_rank": 46,
+      "canslim": 30,
+      "pf": 2.5,
+      "composite": 41.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "XLC",
+    "scores": {
+      "vcp": 65,
+      "rs": 35,
+      "ses": 10,
+      "ecr_rank": 40,
+      "canslim": 15,
+      "pf": 2.5,
+      "composite": 35.5
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "MOH",
+    "scores": {
+      "vcp": 0,
+      "rs": 2,
+      "ses": 5,
+      "ecr_rank": 2,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 4.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "FTNT",
+    "scores": {
+      "vcp": 20,
+      "rs": 9,
+      "ses": 10,
+      "ecr_rank": 16,
+      "canslim": 25,
+      "pf": 0.0,
+      "composite": 18.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "B",
+    "scores": {
+      "vcp": 43,
+      "rs": 93,
+      "ses": 10,
+      "ecr_rank": 50,
+      "canslim": 70,
+      "pf": 1.25,
+      "composite": 62.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "HDV",
+    "scores": {
+      "vcp": 70,
+      "rs": 49,
+      "ses": 75,
+      "ecr_rank": 63,
+      "canslim": 40,
+      "pf": 2.5,
+      "composite": 54.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ETR",
+    "scores": {
+      "vcp": 70,
+      "rs": 57,
+      "ses": 70,
+      "ecr_rank": 62,
+      "canslim": 70,
+      "pf": 2.5,
+      "composite": 64.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "ATR",
+    "scores": {
+      "vcp": 35,
+      "rs": 31,
+      "ses": 45,
+      "ecr_rank": 37,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 33.3
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "IBN",
+    "scores": {
+      "vcp": 55,
+      "rs": 29,
+      "ses": 15,
+      "ecr_rank": 36,
+      "canslim": 45,
+      "pf": 2.5,
+      "composite": 40.4
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "NOVT",
+    "scores": {
+      "vcp": 45,
+      "rs": 29,
+      "ses": 0,
+      "ecr_rank": 27,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 25.1
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "DEO",
+    "scores": {
+      "vcp": 20,
+      "rs": 8,
+      "ses": 10,
+      "ecr_rank": 15,
+      "canslim": 0,
+      "pf": 0.0,
+      "composite": 10.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "NLR",
+    "scores": {
+      "vcp": 40,
+      "rs": 81,
+      "ses": 5,
+      "ecr_rank": 38,
+      "canslim": 10,
+      "pf": 0.0,
+      "composite": 37.3
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "IDA",
+    "scores": {
+      "vcp": 70,
+      "rs": 56,
+      "ses": 40,
+      "ecr_rank": 53,
+      "canslim": 25,
+      "pf": 2.5,
+      "composite": 47.6
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "AGCO",
+    "scores": {
+      "vcp": 43,
+      "rs": 70,
+      "ses": 65,
+      "ecr_rank": 53,
+      "canslim": 35,
+      "pf": 1.25,
+      "composite": 48.6
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "PBR",
+    "scores": {
+      "vcp": 50,
+      "rs": 64,
+      "ses": 30,
+      "ecr_rank": 44,
+      "canslim": 30,
+      "pf": 1.25,
+      "composite": 44.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "HYG",
+    "scores": {
+      "vcp": 75,
+      "rs": 23,
+      "ses": 20,
+      "ecr_rank": 45,
+      "canslim": 15,
+      "pf": 2.5,
+      "composite": 36.8
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "FAS",
+    "scores": {
+      "vcp": 25,
+      "rs": 8,
+      "ses": 5,
+      "ecr_rank": 16,
+      "canslim": 0,
+      "pf": 0.0,
+      "composite": 11.2
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "MTN",
+    "scores": {
+      "vcp": 40,
+      "rs": 16,
+      "ses": 25,
+      "ecr_rank": 30,
+      "canslim": 30,
+      "pf": 0.0,
+      "composite": 29.0
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "DTM",
+    "scores": {
+      "vcp": 60,
+      "rs": 74,
+      "ses": 65,
+      "ecr_rank": 61,
+      "canslim": 65,
+      "pf": 1.25,
+      "composite": 63.9
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "BG",
+    "scores": {
+      "vcp": 58,
+      "rs": 80,
+      "ses": 25,
+      "ecr_rank": 51,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 55.2
+    },
+    "status": "ACTION"
+  },
+  {
+    "ticker": "SN",
+    "scores": {
+      "vcp": 53,
+      "rs": 58,
+      "ses": 30,
+      "ecr_rank": 44,
+      "canslim": 65,
+      "pf": 1.25,
+      "composite": 54.0
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "OKE",
+    "scores": {
+      "vcp": 48,
+      "rs": 27,
+      "ses": 15,
+      "ecr_rank": 33,
+      "canslim": 45,
+      "pf": 1.25,
+      "composite": 37.8
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "OC",
+    "scores": {
+      "vcp": 20,
+      "rs": 12,
+      "ses": 10,
+      "ecr_rank": 17,
+      "canslim": 0,
+      "pf": 0.0,
+      "composite": 11.4
+    },
+    "status": "WAIT"
+  },
+  {
+    "ticker": "RGEN",
+    "scores": {
+      "vcp": 25,
+      "rs": 9,
+      "ses": 15,
+      "ecr_rank": 19,
+      "canslim": 5,
+      "pf": 0.0,
+      "composite": 13.9
+    },
+    "status": "WAIT"
+  }
+]

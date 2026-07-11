@@ -1,0 +1,33 @@
+[
+  {
+    "id": 2,
+    "category": "profile",
+    "quote": "自己紹介します、名前 Naoya...",
+    "summary": {
+      "target": "相棒パートナー（Nao / Naoya）",
+      "note": "AIエージェントKairiのプロデューサー兼開発パートナー。モダンで商用SaaS品質の美しいデザインと洗練された技術選定を重視する。",
+      "tags": [
+        "ユーザー",
+        "Nao",
+        "パートナー"
+      ]
+    }
+  },
+  {
+    "action": "add",
+    "target_id": null,
+    "category": "project",
+    "quote": "今後のタスクとして顔写真に人間には見えへん微調整を加えてAIだけを騙すアプリを作ることを覚えておいて",
+    "summary": {
+      "target": "顔写真保護アプリ",
+      "stance": "約束",
+      "note": "人間の目には見えない敵対的摂動（Adversarial Perturbation）を画像に加え、ArcFace・FaceNet等の顔認識モデルによる不正学習やディープフェイク生成を防止するアプリ。ターゲット市場は日本。未着手。",
+      "tags": [
+        "プロジェクト",
+        "約束",
+        "重要"
+      ]
+    },
+    "id": 4
+  }
+]

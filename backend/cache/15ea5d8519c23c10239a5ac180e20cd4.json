@@ -1,0 +1,1 @@
+{"ticker": "NFLX", "queryCount": 1, "resultsCount": 1, "adjusted": true, "results": [{"T": "NFLX", "v": 74990265.0, "vw": 73.9525, "o": 71.69, "c": 73.81, "h": 75.2, "l": 71.53, "t": 1782504000000, "n": 515170}], "status": "OK", "request_id": "da79cc54b95ba4b8fe8bd25f6adb2ab4", "count": 1}

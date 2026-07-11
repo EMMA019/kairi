@@ -1,0 +1,1 @@
+{"ticker": "INTC", "queryCount": 1, "resultsCount": 1, "adjusted": true, "results": [{"T": "INTC", "v": 99475352.0, "vw": 128.5367, "o": 128.705, "c": 128.32, "h": 131.23, "l": 125.5, "t": 1782504000000, "n": 834866}], "status": "OK", "request_id": "2bd90938d1cbe7ae9a067681e224dab7", "count": 1}

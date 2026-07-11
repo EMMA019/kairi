@@ -1,0 +1,1 @@
+{"ticker": "AMZN", "queryCount": 1, "resultsCount": 1, "adjusted": true, "results": [{"T": "AMZN", "v": 248372085.0, "vw": 231.94, "o": 227.205, "c": 232.69, "h": 233.9, "l": 226.125, "t": 1782504000000, "n": 936508}], "status": "OK", "request_id": "1d5d4b781c3a0f73003f2c3c587b509a", "count": 1}

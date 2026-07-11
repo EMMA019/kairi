@@ -1,0 +1,249 @@
+/**
+ * チャット API 連携フック。
+ * メッセージの送受信、SSE ストリーミング、会話履歴管理を統合。
+ */
+import { useState, useCallback, useRef, useEffect } from "react";
+import { getApiUrl } from "../utils/api";
+import { useStreaming } from "./useStreaming";
+import type { ChatMessage, SSEEvent } from "../types";
+
+type ChatStatus = "idle" | "thinking" | "searching" | "responding" | "planning_search";
+
+export function useChat(sessionId: string, onMessageComplete?: () => void) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [status, setStatus] = useState<ChatStatus>("idle");
+  const [streamingContent, setStreamingContent] = useState("");
+  const [streamingReasoning, setStreamingReasoning] = useState<string | undefined>();
+  const [streamingSources, setStreamingSources] = useState<Array<{title: string, url: string}> | undefined>();
+  const [searchQuery, setSearchQuery] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isFetchingHistory, setIsFetchingHistory] = useState(true);
+  const messageIdRef = useRef<number>(0);
+  const streamingContentRef = useRef<string>("");
+  const streamingReasoningRef = useRef<string | undefined>(undefined);
+  const streamingSourcesRef = useRef<Array<{title: string, url: string}> | undefined>(undefined);
+  // メッセージIDのセット（二重保存防止）
+  const messageIdSetRef = useRef<Set<string>>(new Set());
+
+  const onMessageCompleteRef = useRef<(() => void) | undefined>(onMessageComplete);
+  useEffect(() => {
+    onMessageCompleteRef.current = onMessageComplete;
+  }, [onMessageComplete]);
+
+  // セッション切り替え時に即座にUIをクリア
+  useEffect(() => {
+    setMessages([]);
+    setSearchQuery(null);
+    setStreamingContent("");
+    setStreamingReasoning(undefined);
+    setStreamingSources(undefined);
+    streamingReasoningRef.current = undefined;
+    streamingSourcesRef.current = undefined;
+    messageIdSetRef.current.clear();
+    setError(null);
+  }, [sessionId]);
+
+  const handleEvent = useCallback((event: SSEEvent) => {
+    switch (event.type) {
+      case "status":
+        setStatus(event.status as ChatStatus);
+        if (event.status === "searching" && event.query) {
+          setSearchQuery(event.query);
+        }
+        if (event.status === "responding") {
+          setSearchQuery(null);
+        }
+        break;
+
+      case "chunk":
+        if (event.content) {
+          setStreamingContent((prev) => {
+            const next = prev + event.content;
+            streamingContentRef.current = next;
+            return next;
+          });
+        }
+        break;
+
+      case "reasoning":
+        if (event.content) {
+          setStreamingReasoning(event.content);
+          streamingReasoningRef.current = event.content;
+        }
+        break;
+
+      case "sources":
+        if (event.data && Array.isArray(event.data)) {
+          setStreamingSources(event.data);
+          streamingSourcesRef.current = event.data;
+        }
+        break;
+
+      case "done":
+        // ============================================================
+        // 【修正ポイント1】最終コンテンツを確定
+        // ============================================================
+        const finalContent = event.content || streamingContentRef.current;
+        
+        // ============================================================
+        // 【修正ポイント2】二重表示防止：メッセージの重複チェック
+        // ============================================================
+        if (finalContent.trim()) {
+          const aiMessage: ChatMessage = {
+            id: `ai-${++messageIdRef.current}`,
+            role: "assistant",
+            content: finalContent,
+            timestamp: new Date(),
+            reasoning: streamingReasoningRef.current,
+            sources: streamingSourcesRef.current
+          };
+          
+          // 重複チェックを追加（同じ内容のメッセージが既にあれば追加しない）
+          setMessages((prev) => {
+            const lastMsg = prev[prev.length - 1];
+            if (lastMsg && lastMsg.role === "assistant" && lastMsg.content === finalContent) {
+              // 同じ内容のメッセージが既にある場合は追加しない
+              return prev;
+            }
+            // ID重複もチェック
+            const exists = prev.some(m => m.id === aiMessage.id);
+            if (exists) return prev;
+            return [...prev, aiMessage];
+          });
+        } else {
+          // 応答が空だった場合でも、フォールバックメッセージを表示しない（二重表示防止）
+          // 空のままにする
+          // ただし、何も表示されないよりは良いので、必要ならフォールバックを表示してもよい
+          // 今回は二重表示防止を優先して何もしない
+        }
+        
+        // ============================================================
+        // 【修正ポイント3】ストリーミング状態を遅延クリア（一瞬消え防止）
+        // ============================================================
+        setTimeout(() => {
+          setStreamingContent("");
+          streamingContentRef.current = "";
+          setStreamingReasoning(undefined);
+          setStreamingSources(undefined);
+          streamingReasoningRef.current = undefined;
+          streamingSourcesRef.current = undefined;
+          setStatus("idle");
+          setSearchQuery(null);
+        }, 0);
+        
+        if (onMessageCompleteRef.current) {
+          onMessageCompleteRef.current();
+        }
+        break;
+
+      case "error":
+        setError(event.message || "An error occurred");
+        setStatus("idle");
+        setStreamingContent("");
+        break;
+    }
+  }, []);  // 依存配列を空にして再生成を防止（値はrefで追跡）
+
+  const handleError = useCallback((err: Error) => {
+    setError(err.message);
+    setStatus("idle");
+    setStreamingContent("");
+  }, []);
+
+  const { startStream, cancelStream } = useStreaming({
+    onEvent: handleEvent,
+    onError: handleError,
+  });
+
+  const sendMessage = useCallback(
+    async (content: string, mode: string = "chat", forceSearch: boolean = false) => {
+      if (!content.trim() || status !== "idle") return;
+
+      setError(null);
+
+      // ユーザーメッセージを追加
+      const userMessage: ChatMessage = {
+        id: `user-${++messageIdRef.current}`,
+        role: "user",
+        content: content.trim(),
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, userMessage]);
+
+      // SSE ストリーミング開始
+      await startStream({
+        message: content.trim(),
+        session_id: sessionId,
+        mode,
+        force_search: forceSearch,
+      });
+    },
+    [sessionId, status, startStream]
+  );
+
+  const loadHistory = useCallback(async () => {
+    setIsFetchingHistory(true);
+    try {
+      const response = await fetch(getApiUrl(`/api/history/${sessionId}`));
+      if (response.ok) {
+        const data = await response.json();
+        const loaded: ChatMessage[] = data.messages.map(
+          (m: { id: string; role: string; content: string; timestamp: string; reasoning?: string; sources?: any }) => ({
+            id: m.id,
+            role: m.role as "user" | "assistant",
+            content: m.content,
+            timestamp: new Date(m.timestamp),
+            reasoning: m.reasoning,
+            sources: m.sources
+          })
+        );
+        
+        // 履歴読み込み時の重複排除（IDベース）
+        messageIdSetRef.current.clear();
+        const uniqueLoaded = loaded.filter(m => {
+          if (messageIdSetRef.current.has(m.id)) return false;
+          messageIdSetRef.current.add(m.id);
+          return true;
+        });
+        
+        // 履歴読み込み時も重複チェック（内容ベース）
+        const uniqueByContent: ChatMessage[] = [];
+        const contentSet = new Set<string>();
+        for (const msg of uniqueLoaded) {
+          const key = `${msg.role}:${msg.content}`;
+          if (!contentSet.has(key)) {
+            contentSet.add(key);
+            uniqueByContent.push(msg);
+          }
+        }
+        
+        setMessages(uniqueByContent);
+        if (uniqueByContent.length > 0) {
+          messageIdRef.current = uniqueByContent.length;
+        }
+      } else if (response.status === 404) {
+        // 新規セッションの場合は空にする
+        setMessages([]);
+        messageIdSetRef.current.clear();
+      }
+    } catch (err) {
+      console.error("Failed to fetch conversation history:", err);
+    } finally {
+      setIsFetchingHistory(false);
+    }
+  }, [sessionId]);
+
+  return {
+    messages,
+    status,
+    streamingContent,
+    streamingReasoning,
+    streamingSources,
+    searchQuery,
+    error,
+    isFetchingHistory,
+    sendMessage,
+    cancelStream,
+    loadHistory,
+  };
+}

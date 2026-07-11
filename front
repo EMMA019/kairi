@@ -1,0 +1,130 @@
+/**
+ * ToolPanel — ツール実行履歴と手動実行パネル
+ * AIが呼び出したツール（mcp_call, run_command, search等）の履歴を視覚表示。
+ * フロントエンドから直接ツールを実行することも可能。
+ */
+import { useState, useEffect } from "react";
+import { getApiUrl } from "../utils/api";
+
+interface ToolInfo {
+  name: string;
+  schema: any;
+}
+
+interface CacheInfo {
+  total: number;
+  recent_30min: number;
+}
+
+export function ToolPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const [tools, setTools] = useState<ToolInfo[]>([]);
+  const [cacheStatus, setCacheStatus] = useState<Record<string, CacheInfo> | null>(null);
+  const [execResult, setExecResult] = useState<string>("");
+  const [selectedTool, setSelectedTool] = useState<string>("");
+  const [paramInput, setParamInput] = useState<string>("{}");
+
+  useEffect(() => {
+    if (!isOpen) return;
+    fetch(getApiUrl("/api/tools")).then(r => r.json()).then(d => setTools(d.tools || [])).catch(() => {});
+    fetch(getApiUrl("/api/cache/status")).then(r => r.json()).then(d => setCacheStatus(d.status || null)).catch(() => {});
+  }, [isOpen]);
+
+  const handleExecute = async () => {
+    if (!selectedTool) return;
+    try {
+      const params = JSON.parse(paramInput || "{}");
+      const res = await fetch(getApiUrl("/api/tools/execute"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: selectedTool, params }),
+      });
+      const data = await res.json();
+      setExecResult(data.result || "[no result]");
+    } catch (e: any) {
+      setExecResult(`[ERROR] ${e.message}`);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-[#1e1f20] border border-[#3c4043] rounded-xl w-full max-w-lg max-h-[80vh] overflow-auto shadow-2xl">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#3c4043]">
+          <h2 className="text-lg font-bold text-white">🔧 ツールパネル</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white p-1">✕</button>
+        </div>
+
+        {/* ツール一覧 */}
+        <div className="px-4 py-3 border-b border-[#3c4043]">
+          <h3 className="text-sm font-medium text-gray-300 mb-2">📋 登録ツール ({tools.length}件)</h3>
+          <div className="flex flex-wrap gap-2">
+            {tools.map(t => (
+              <button
+                key={t.name}
+                onClick={() => {
+                  setSelectedTool(t.name);
+                  setParamInput(JSON.stringify((t.schema?.properties ? 
+                    Object.fromEntries(Object.keys(t.schema.properties).map(k => [k, ""])) : {}), null, 2));
+                  setExecResult("");
+                }}
+                className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                  selectedTool === t.name
+                    ? "border-blue-500 bg-blue-500/20 text-blue-300"
+                    : "border-[#3c4043] text-gray-400 hover:text-white hover:bg-[#30363d]"
+                }`}
+              >
+                {t.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ツール実行 */}
+        {selectedTool && (
+          <div className="px-4 py-3 border-b border-[#3c4043]">
+            <h3 className="text-sm font-medium text-gray-300 mb-2">
+              🚀 実行: <code className="text-blue-400">{selectedTool}</code>
+            </h3>
+            <textarea
+              value={paramInput}
+              onChange={e => setParamInput(e.target.value)}
+              className="w-full h-20 bg-[#0d1117] border border-[#30363d] rounded-lg p-2 text-xs text-gray-300 font-mono resize-none"
+            />
+            <button
+              onClick={handleExecute}
+              className="mt-2 px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-500 transition-colors"
+            >
+              実行
+            </button>
+            {execResult && (
+              <pre className="mt-2 p-2 bg-[#0d1117] rounded-lg text-xs text-green-400 max-h-32 overflow-auto">
+                {execResult}
+              </pre>
+            )}
+          </div>
+        )}
+
+        {/* キャッシュ状態 */}
+        <div className="px-4 py-3">
+          <h3 className="text-sm font-medium text-gray-300 mb-2">💾 キャッシュ状態</h3>
+          {cacheStatus ? (
+            <div className="space-y-2">
+              {Object.entries(cacheStatus).map(([name, info]) => (
+                <div key={name} className="flex items-center justify-between bg-[#0d1117] rounded-lg px-3 py-2">
+                  <span className="text-xs text-gray-400">{name}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500">計: <b className="text-white">{info.total}</b></span>
+                    <span className="text-xs text-green-400">30分: {info.recent_30min}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500">読み込み中...</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

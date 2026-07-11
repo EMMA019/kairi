@@ -1,0 +1,923 @@
+{
+  "slug": "daily-2026-03-13",
+  "type": "daily",
+  "date": "2026-03-13",
+  "published_at": "2026-03-13T18:10:34.897598+09:00",
+  "ja": {
+    "title": "2026-03-13 米国株レポート — SPY -1.52% / ACTION 124銘柄",
+    "body": "# 市場分析レポート：2026年3月13日\n**機関投資家アナリスト視点による深度分析**\n\n---\n\n## ① 指数動向と市場全体のモメンタム分析\n\n本日の市場は、**全面的なリスクオフの様相**を強く示しています🔥。S&P 500が-1.52%、NASDAQ 100が-1.72%と主要指数が下落する中、**特に注目すべきはRussell 2000（小型株指数）の-2.15%下落**です💥。1ヶ月パフォーマンスではRussell 2000が-6.62%と大きく下落しており、 **「流動性の質への逃避（Flight to Quality）」が顕著** になっています。小型株→大型株、ハイグロース→バリュー／ディフェンシブへの資金シフトが加速しているのです。\n\nこの環境下でACTION銘柄として浮上しているセクターは、**Energy（エネルギー）8銘柄、Industrials（資本財）5銘柄、Utilities（公益事業）5銘柄**です。これは市場の心理を如実に反映しています。すなわち、 **①インフレヘッジとしてのエネルギー、②景気後期サイクルでも堅調な資本支出・AIインフラ関連、③金利下落期待と安定収益を求める公益事業** への集中投資が行われていると解釈できます。\n\nしかしながら、⚠️**大きな懸念点**があります。大半のACTION銘柄の「触媒」評価が「Weak（弱い）」であり、強力なファンダメンタルズの追い風がない中で、テクニカル（VCP, RS）の強さだけで上昇を試みている構図です。これは市場の上昇基盤が脆弱である可能性を示唆しており、**「テクニカル頼みの相場」** であることを警戒する必要があります。\n\n---\n\n## ② 厳選ACTION銘柄：テクニカル×ファンダメンタルズの合致点\n\nテクニカルの強さ（高VCP・高RS）と、**わずかでもファンダメンタルズの追い風（触媒：Medium以上）が確認できる銘柄**に焦点を当て、その「合致点」を深掘りします🔍。\n\n**1. BG（Bunge Global, 消費者防衛セクター）**\n- **テクニカル**: VCP 70点、RS 88点と非常に強固。Pivot Breakout戦略でリスクリターン比も1:2.0と優れる。\n- **ファンダメンタルズの触媒**: **「中程度（Medium）」**。記事ヘッドラインから、**30億ドルの自社株買い実施と、キャッシュフローの少なくとも50%を株主還元に充てる公約**が強力な材料となっています💪。これは収益力の自信と株主重視の姿勢を示すもので、単なるテクニカル上昇ではなく、ファンダメンタルズが後押しする上昇と評価できます。\n\n**2. HCA（HCA Healthcare, 医療セクター）**\n- **テクニカル**: VCP 68点、RS 83点と健闘。価格がATR上方にある状態での設定。\n- **ファンダメンタルズの触媒**: **「中程度（Medium）」**。 **強気の業績見通し（bullish guidance）と資本還元計画に対するアナリスト目標価格の引き上げ**が継続的に焦点となっています🏥。医療は景気防衛的な特性を持ち、企業の具体的な業績見通しの強さが、テクニカルの突破を正当化しています。\n\n**3. DUK（Duke Energy, 公益事業セクター）**\n- **テクニカル**: VCP 75点と非常に高いが、RS 56点は相対的に低め。安定株のブレイクアウトを捉えようとする動き。\n- **ファンダメンタルズの触材**: **「中程度（Medium）」**。 **10億ドルの転換社債発行提案**がニュースとなっています。これは将来の成長投資（特にデータセンター向け送電網増強など）のための資金調達と読み取れ、単なる利回りプレイではなく**成長性を組み込んだ公益事業株**として再評価される潜在性があります⚡。\n\n**【厳しい目線】MTZ vs VRT（資本財セクター）**\n両社ともAIデータセンター需要などの長期的追い風はあるものの、ニュースヘッドラインには「回避すべき理由」「技術的な懸念」「インサイダー売却」などのネガティブ要素が散見されます。VCP/RSスコアは高くとも、**ファンダメンタルズでの「雑音」が大きいため、現段階での新規参入はリスクが高い**と判断します🚫。テクニカルとファンダメンタルが相反する典型例です。\n\n---\n\n## ③ セクターローテーションの予兆と次なる戦略\n\n現在の市場で明確なのは、**「Growth（成長）」から「Quality & Defense（質と防御）」への大規模なローテーション**が進行中だということです🌀。\n\n1.  **エネルギーセクターの持つ二面性**: ENB, VLO, PBRなどがACTION入りしていますが、ここには **①地政学リスクによる原油価格上懸念（インフレヘッジ）、②高い株主還元（配当・自社株買い）** という2つの異なる魅力が混在しています。現在の市場は後者、すなわち **「キャッシュフローを還元する品質株」** としてエネルギーを再評価している可能性が高いです🛢️💵。\n\n2.  **「インフラ」という共通テーマ**: IndustrialsのPWR（電気・通信インフラ）、VRT（データセンターインフラ）、UtilitiesのETR/DUK（電力インフラ）が集中しています。これは**AIブームの次の受益者**が、ハードウェアメーカーから、それを支える**物理的インフラ企業**にシフトしている証左です🤖➡️🏗️。景気敏感度よりも、確実な資本支出の流れを捉える投資が求められています。\n\n**【次なる戦略提言】**\n- **短期**: 市場の不安定性が高いため、BGやHCAのように**テクニカルとファンダメンタルが明確に一致し、かつディフェンシブ色が強い銘柄**にウエイトを置くことが肝要です。\n- **中長期**: 現在のローテーションは「守り」の姿勢が強い。次の機会は、 **「成長性」と「防御性」を兼ね備えたセクター**、具体的には**AIインフラ・電力インフラ（Industrials, Utilitiesの一部）と、財務体質が強固で積極的な株主還元を行うエネルギー／素材株**の交差点を探すことになるでしょう。\n- **最大のリスク**: 現在のACTION銘柄群は、市場の不安の中で「比較的マシ」と見られているに過ぎません。**市場全体のさらなる急落（パニックセリング）には巻き込まれるリスクが高い**ため、ストップ注文の適切な設定と、ポジションサイズの厳格な管理が今ほど重要な時はありません⚖️。\n\n**結論：市場は「質への逃避」段階にある。ファンダメンタルズの根拠なきテクニカル上昇は危険。キャッシュフローと株主還元という「実質」で選別せよ。**"
+  },
+  "data": {
+    "action_count": 124,
+    "wait_count": 476,
+    "actions": [
+      {
+        "ticker": "MTZ",
+        "name": "MasTec, Inc.",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 48,
+        "rs": 94,
+        "canslim_score": 90,
+        "composite": 73.0,
+        "_price": 296.95,
+        "_entry": 299.92,
+        "_stop": 268.33,
+        "_target": 331.51,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 15.8,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "3 Reasons to Avoid MTZ and 1 Stock to Buy Instead - Yahoo Finance",
+            "MasTec, Inc. $MTZ Shares Sold by Atika Capital Management LLC - MarketBeat",
+            "MasTec: Excellent Q4 Report And Strong Growth, But Technical Stock Concerns Surfaced - Seeking Alpha"
+          ]
+        }
+      },
+      {
+        "ticker": "BG",
+        "name": "Bunge Global S.A.",
+        "sector": "Consumer Defensive",
+        "status": "ACTION",
+        "vcp": 70,
+        "rs": 88,
+        "canslim_score": 65,
+        "composite": 67.7,
+        "_price": 125.83,
+        "_entry": 127.79,
+        "_stop": 121.49,
+        "_target": 140.39,
+        "_rr": 2.0,
+        "_entry_method": "pivot_breakout",
+        "_atr_used": 4.2,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "Bunge Global (NYSE:BG) Stock Price Expected to Rise, Morgan Stanley Analyst Says - MarketBeat",
+            "Bunge stock hits 52-week high at $124.8 amid strong market performance - Investing.com",
+            "Bunge plans $3B buyback, promises at least 50% of cash back to investors - Stock Titan"
+          ]
+        }
+      },
+      {
+        "ticker": "PWR",
+        "name": "Quanta Services, Inc",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 60,
+        "rs": 92,
+        "canslim_score": 65,
+        "composite": 67.1,
+        "_price": 566.91,
+        "_entry": 569.74,
+        "_stop": 537.43,
+        "_target": 623.58,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 21.54,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Quanta Services, Inc. $PWR Shares Acquired by Franklin Resources Inc. - MarketBeat",
+            "Quanta Stock Up 38% in 6 Months: Should Investors Still Buy PWR Now? - Yahoo Finance",
+            "Should Quanta’s Record Backlog and Bullish 2026 Outlook Require Action From Quanta Services (PWR) Investors? - simplywall.st"
+          ]
+        }
+      },
+      {
+        "ticker": "VRT",
+        "name": "Vertiv Holdings Co",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 38,
+        "rs": 96,
+        "canslim_score": 70,
+        "composite": 64.3,
+        "_price": 265.38,
+        "_entry": 268.03,
+        "_stop": 238.82,
+        "_target": 297.24,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 14.61,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Why Vertiv (VRT) Is Up 6.3% After S&P 500 Entry, New Debt And AI Data Center Push - simplywall.st",
+            "Is It Too Late To Consider Vertiv (VRT) After Its 18x Three Year Surge? - Yahoo Finance",
+            "Vertiv Holdings Co. $VRT Shares Sold by Employees Retirement System of Texas - MarketBeat"
+          ]
+        }
+      },
+      {
+        "ticker": "ETR",
+        "name": "Entergy Corporation",
+        "sector": "Utilities",
+        "status": "ACTION",
+        "vcp": 70,
+        "rs": 65,
+        "canslim_score": 70,
+        "composite": 62.4,
+        "_price": 104.52,
+        "_entry": 108.47,
+        "_stop": 105.29,
+        "_target": 114.83,
+        "_rr": 2.0,
+        "_entry_method": "pivot_breakout",
+        "_atr_used": 2.12,
+        "news_summary": {
+          "score": 60.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "ETR Stock Today, March 12: $5B Data-Center Deals Lift Outlook - Meyka",
+            "Krones (ETR:KRN) Stock Price Down 0.3% - What's Next? - MarketBeat",
+            "Entergy (ETR) Sees Analyst Raise Price Target - Finviz"
+          ]
+        }
+      },
+      {
+        "ticker": "HCA",
+        "name": "HCA Healthcare, Inc.",
+        "sector": "Healthcare",
+        "status": "ACTION",
+        "vcp": 68,
+        "rs": 83,
+        "canslim_score": 55,
+        "composite": 61.4,
+        "_price": 532.58,
+        "_entry": 535.24,
+        "_stop": 513.01,
+        "_target": 572.29,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 14.82,
+        "news_summary": {
+          "score": 33.3,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "Is HCA Healthcare (HCA) Attractively Priced After Strong 70% One-Year Share Return? - simplywall.st",
+            "Bank of Montreal Can Cuts Stock Holdings in HCA Healthcare, Inc. $HCA - MarketBeat",
+            "HCA rises 3.2% as bullish guidance and capital-return plans stay in focus amid fresh analyst target hikes - Quiver Quantitative"
+          ]
+        }
+      },
+      {
+        "ticker": "ENB",
+        "name": "Enbridge Inc.",
+        "sector": "Energy",
+        "status": "ACTION",
+        "vcp": 70,
+        "rs": 63,
+        "canslim_score": 70,
+        "composite": 61.3,
+        "_price": 53.63,
+        "_entry": 54.69,
+        "_stop": 53.48,
+        "_target": 57.1,
+        "_rr": 1.99,
+        "_entry_method": "pivot_breakout",
+        "_atr_used": 0.81,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Enbridge Inc (ENB) is Attracting Investor Attention: Here is What You Should Know - Yahoo Finance",
+            "Enbridge: When Quality Is Overpriced (NYSE:ENB) - Seeking Alpha",
+            "Van ECK Associates Corp Buys 59,154 Shares of Enbridge Inc $ENB - MarketBeat"
+          ]
+        }
+      },
+      {
+        "ticker": "UTHR",
+        "name": "United Therapeutics ",
+        "sector": "Healthcare",
+        "status": "ACTION",
+        "vcp": 60,
+        "rs": 85,
+        "canslim_score": 55,
+        "composite": 60.4,
+        "_price": 532.82,
+        "_entry": 535.48,
+        "_stop": 500.27,
+        "_target": 594.16,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 23.47,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "United Therapeutics sends $1.5B upfront for stock, $500M left - Stock Titan",
+            "UTHR: Cantor Fitzgerald Maintains Overweight Rating and Increases Price Target | UTHR Stock News - GuruFocus",
+            "United Therapeutics: Ralinepag Is The Ultimate Defense Against Yutrepia (Rating Upgrade) - Seeking Alpha"
+          ]
+        }
+      },
+      {
+        "ticker": "ROST",
+        "name": "Ross Stores, Inc.",
+        "sector": "Consumer Cyclical",
+        "status": "ACTION",
+        "vcp": 65,
+        "rs": 84,
+        "canslim_score": 45,
+        "composite": 59.8,
+        "_price": 209.84,
+        "_entry": 210.89,
+        "_stop": 201.91,
+        "_target": 225.86,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 5.99,
+        "news_summary": {
+          "score": -33.3,
+          "label": "Bearish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Bristol John W & Co. Inc. NY Lowers Stock Holdings in Ross Stores, Inc. $ROST - MarketBeat",
+            "Insider Sale: PRESIDENT of $ROST Sells 2,556 Shares - Quiver Quantitative",
+            "Ross Stores (ROST) is Benefitting from a Better Value Offering - Yahoo Finance"
+          ]
+        }
+      },
+      {
+        "ticker": "PBR",
+        "name": "Petróleo Brasileiro ",
+        "sector": "Energy",
+        "status": "ACTION",
+        "vcp": 40,
+        "rs": 87,
+        "canslim_score": 60,
+        "composite": 59.6,
+        "_price": 18.97,
+        "_entry": 19.16,
+        "_stop": 17.92,
+        "_target": 20.4,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 0.62,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Petroleo Brasileiro S.A.- Petrobras (NYSE:PBR) Receives Consensus Recommendation of \"Moderate Buy\" from Brokerages - MarketBeat",
+            "Brazil suspends tax on diesel after Iran war spiked prices (PBR:NYSE) - Seeking Alpha",
+            "Petrobras (PBR) Surges 5.3%: Is This an Indication of Further Gains? - Yahoo Finance"
+          ]
+        }
+      },
+      {
+        "ticker": "COKE",
+        "name": "Coca-Cola Consolidat",
+        "sector": "Consumer Defensive",
+        "status": "ACTION",
+        "vcp": 35,
+        "rs": 88,
+        "canslim_score": 55,
+        "composite": 59.2,
+        "_price": 209.7,
+        "_entry": 211.8,
+        "_stop": 197.04,
+        "_target": 226.56,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 7.38,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "How Investors Are Reacting To Coca-Cola Consolidated (COKE) Hitting Record Highs After 16-Year Revenue Streak - simplywall.st",
+            "KO Stock Quote Price and Forecast - CNN",
+            "Coca-Cola Stock Is Interesting, but Here's What I'd Buy Instead - Yahoo Finance"
+          ]
+        }
+      },
+      {
+        "ticker": "ATO",
+        "name": "Atmos Energy Corpora",
+        "sector": "Utilities",
+        "status": "ACTION",
+        "vcp": 70,
+        "rs": 64,
+        "canslim_score": 55,
+        "composite": 59.1,
+        "_price": 186.79,
+        "_entry": 189.74,
+        "_stop": 185.07,
+        "_target": 199.08,
+        "_rr": 2.0,
+        "_entry_method": "pivot_breakout",
+        "_atr_used": 3.11,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Atmos Energy: A Stable Income Growth Stock In Uncertain Times (NYSE:ATO) - Seeking Alpha",
+            "Is Atmos Energy (ATO) Pricing Truly Justified After Strong Multi Year Share Price Performance - simplywall.st",
+            "Schroder Investment Management Group Buys 19,738 Shares of Atmos Energy Corporation $ATO - MarketBeat"
+          ]
+        }
+      },
+      {
+        "ticker": "VLO",
+        "name": "Valero Energy Corpor",
+        "sector": "Energy",
+        "status": "ACTION",
+        "vcp": 45,
+        "rs": 90,
+        "canslim_score": 45,
+        "composite": 57.9,
+        "_price": 235.81,
+        "_entry": 238.17,
+        "_stop": 219.9,
+        "_target": 256.44,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 9.14,
+        "news_summary": {
+          "score": 50.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Insider Sale: SVP of $VLO Sells 8,311 Shares - Quiver Quantitative",
+            "Valero Energy (VLO) Stock Slides as Market Rises: Facts to Know Before You Trade - Yahoo Finance",
+            "Valero Energy (NYSE:VLO) SVP Sells $1,892,331.59 in Stock - MarketBeat"
+          ]
+        }
+      },
+      {
+        "ticker": "DUK",
+        "name": "Duke Energy Corporat",
+        "sector": "Utilities",
+        "status": "ACTION",
+        "vcp": 75,
+        "rs": 56,
+        "canslim_score": 55,
+        "composite": 57.8,
+        "_price": 131.82,
+        "_entry": 133.87,
+        "_stop": 130.44,
+        "_target": 140.74,
+        "_rr": 2.0,
+        "_entry_method": "pivot_breakout",
+        "_atr_used": 2.29,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "Duke Energy Corporation $DUK Shares Sold by Employees Retirement System of Texas - MarketBeat",
+            "Duke Energy announces proposed offering of $1 billion of convertible senior notes due 2029 - Duke Energy | News Center",
+            "Duke Energy (DUK) Increases Despite Market Slip: Here's What You Need to Know - Yahoo Finance Singapore"
+          ]
+        }
+      },
+      {
+        "ticker": "JNJ",
+        "name": "Johnson & Johnson",
+        "sector": "Healthcare",
+        "status": "ACTION",
+        "vcp": 70,
+        "rs": 78,
+        "canslim_score": 45,
+        "composite": 57.2,
+        "_price": 242.04,
+        "_entry": 252.97,
+        "_stop": 246.28,
+        "_target": 266.36,
+        "_rr": 2.0,
+        "_entry_method": "pivot_breakout",
+        "_atr_used": 4.46,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Is Johnson & Johnson (JNJ) Pricing Reflect Its Strong Multi‑Year Rally And Legal Headline Risks - simplywall.st",
+            "Connor Clark & Lunn Investment Management Ltd. Grows Stock Holdings in Johnson & Johnson $JNJ - MarketBeat",
+            "Does Johnson & Johnson Stock Still Have Room to Run? - Trefis"
+          ]
+        }
+      },
+      {
+        "ticker": "CASY",
+        "name": "Casey's General Stor",
+        "sector": "Consumer Cyclical",
+        "status": "ACTION",
+        "vcp": 65,
+        "rs": 83,
+        "canslim_score": 40,
+        "composite": 56.8,
+        "_price": 673.81,
+        "_entry": 677.18,
+        "_stop": 648.23,
+        "_target": 725.42,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 19.3,
+        "news_summary": {
+          "score": 50.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Insider Sale: Chief Legal Officer of $CASY Sells 200 Shares - Quiver Quantitative",
+            "Katrina Lindsey Sells 200 Shares of Casey's General Stores (NASDAQ:CASY) Stock - MarketBeat",
+            "Stocks making the biggest moves premarket: Kohl's, Casey's General Stores, Vertex Pharmaceuticals and more - CNBC"
+          ]
+        }
+      },
+      {
+        "ticker": "CLH",
+        "name": "Clean Harbors, Inc.",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 70,
+        "rs": 78,
+        "canslim_score": 40,
+        "composite": 56.7,
+        "_price": 289.41,
+        "_entry": 299.61,
+        "_stop": 287.62,
+        "_target": 323.59,
+        "_rr": 2.0,
+        "_entry_method": "pivot_breakout",
+        "_atr_used": 7.99,
+        "news_summary": {
+          "score": 33.3,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "UBS Raises Clean Harbors (CLH) Price Target to $300 | CLH Stock News - GuruFocus",
+            "Is It Too Late To Consider Clean Harbors (CLH) After A 229% Five Year Rally? - simplywall.st",
+            "115,870 Shares in Clean Harbors, Inc. $CLH Purchased by Shannon River Fund Management LLC - MarketBeat"
+          ]
+        }
+      },
+      {
+        "ticker": "IMO",
+        "name": "Imperial Oil Limited",
+        "sector": "Energy",
+        "status": "ACTION",
+        "vcp": 60,
+        "rs": 87,
+        "canslim_score": 40,
+        "composite": 56.6,
+        "_price": 121.54,
+        "_entry": 122.15,
+        "_stop": 116.97,
+        "_target": 130.79,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 3.45,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "How to Take Advantage of moves in (IMO) (IMO:CA) - Stock Traders Daily",
+            "Imperial Oil Limited $IMO Shares Purchased by Mackenzie Financial Corp - MarketBeat",
+            "IMO Price UK Guide 2026: Stocks and Tokens Investing - Bitget"
+          ]
+        }
+      },
+      {
+        "ticker": "AVGO",
+        "name": "Broadcom Inc.",
+        "sector": "Technology",
+        "status": "ACTION",
+        "vcp": 63,
+        "rs": 74,
+        "canslim_score": 55,
+        "composite": 56.5,
+        "_price": 335.97,
+        "_entry": 337.65,
+        "_stop": 316.26,
+        "_target": 373.29,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 14.26,
+        "news_summary": {
+          "score": 0.0,
+          "label": "Neutral",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "Prediction: 2 Stocks That Will Be Worth More Than Amazon 3 Years From Now - The Motley Fool",
+            "Broadcom: A Once-In-A-Generation Opportunity That Won't Last (NASDAQ:AVGO) - Seeking Alpha",
+            "AMD vs. AVGO vs. META vs. MSFT vs. NVDA: Semiconductor & AI Stocks Fall Despite Creating an Open Specification for AI Infrastructure - TipRanks"
+          ]
+        }
+      },
+      {
+        "ticker": "TPL",
+        "name": "Texas Pacific Land C",
+        "sector": "Energy",
+        "status": "ACTION",
+        "vcp": 30,
+        "rs": 86,
+        "canslim_score": 60,
+        "composite": 56.1,
+        "_price": 528.97,
+        "_entry": 534.26,
+        "_stop": 480.15,
+        "_target": 588.37,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 27.05,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Horizon Kinetics buys Texas Pacific Land (TPL) share for $523 - Investing.com Nigeria",
+            "See Texas Pacific’s Permian Basin land: field visit RSVP due March 20 - Stock Titan",
+            "Texas Pacific Land (NYSE:TPL) Shares Down 4.7% - Here's What Happened - MarketBeat"
+          ]
+        }
+      },
+      {
+        "ticker": "PSX",
+        "name": "Phillips 66",
+        "sector": "Energy",
+        "status": "ACTION",
+        "vcp": 50,
+        "rs": 77,
+        "canslim_score": 55,
+        "composite": 55.9,
+        "_price": 174.09,
+        "_entry": 174.96,
+        "_stop": 166.16,
+        "_target": 189.63,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 5.87,
+        "news_summary": {
+          "score": 20.0,
+          "label": "Neutral",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "PSX: Goldman Sachs Raises Price Target Despite Neutral Rating | PSX Stock News - GuruFocus",
+            "Phillips 66 $PSX Stock Holdings Lowered by Barrow Hanley Mewhinney & Strauss LLC - MarketBeat",
+            "Phillips 66 Stock (PSX) Moved Up by 3.09% on Mar 11: Facts Behind the Movement - TradingKey"
+          ]
+        }
+      },
+      {
+        "ticker": "AEP",
+        "name": "American Electric Po",
+        "sector": "Utilities",
+        "status": "ACTION",
+        "vcp": 70,
+        "rs": 69,
+        "canslim_score": 45,
+        "composite": 55.9,
+        "_price": 132.22,
+        "_entry": 135.27,
+        "_stop": 131.64,
+        "_target": 142.54,
+        "_rr": 2.0,
+        "_entry_method": "pivot_breakout",
+        "_atr_used": 2.42,
+        "news_summary": {
+          "score": 50.0,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "American Electric Power Company, Inc. $AEP Shares Sold by Employees Retirement System of Texas - MarketBeat",
+            "A Look At American Electric Power (AEP) Valuation As Recent Total Returns Gain Momentum - simplywall.st",
+            "AEP Plantations Expands Treasury Stock With Latest Share Buyback - TipRanks"
+          ]
+        }
+      },
+      {
+        "ticker": "ENSG",
+        "name": "The Ensign Group, In",
+        "sector": "Healthcare",
+        "status": "ACTION",
+        "vcp": 53,
+        "rs": 82,
+        "canslim_score": 50,
+        "composite": 55.5,
+        "_price": 208.36,
+        "_entry": 209.4,
+        "_stop": 199.75,
+        "_target": 225.48,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 6.43,
+        "news_summary": {
+          "score": 33.3,
+          "label": "Bullish",
+          "catalyst_strength": "Weak",
+          "catalyst_count": 0,
+          "article_count": 5,
+          "headlines": [
+            "Senior operator Ensign Group to discuss growth strategy at Oppenheimer event - Stock Titan",
+            "Barclays PLC Boosts Stock Position in The Ensign Group, Inc. $ENSG - MarketBeat",
+            "Why Ensign Group (ENSG) is a Top Growth Stock for the Long-Term - Yahoo Finance"
+          ]
+        }
+      },
+      {
+        "ticker": "PEN",
+        "name": "Penumbra, Inc.",
+        "sector": "Healthcare",
+        "status": "ACTION",
+        "vcp": 63,
+        "rs": 63,
+        "canslim_score": 60,
+        "composite": 55.4,
+        "_price": 334.99,
+        "_entry": 336.66,
+        "_stop": 332.52,
+        "_target": 343.56,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 2.76,
+        "news_summary": {
+          "score": 33.3,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "PEN Stock Up Following Q4 Earnings & Revenue Beat, Margins Rise - Yahoo Finance",
+            "1 Growth Stock to Stash and 2 We Avoid - StockStory",
+            "Vanguard Group Inc. Sells 25,172 Shares of Penumbra, Inc. $PEN - MarketBeat"
+          ]
+        }
+      },
+      {
+        "ticker": "MPC",
+        "name": "Marathon Petroleum C",
+        "sector": "Energy",
+        "status": "ACTION",
+        "vcp": 50,
+        "rs": 84,
+        "canslim_score": 50,
+        "composite": 55.3,
+        "_price": 230.09,
+        "_entry": 231.24,
+        "_stop": 217.13,
+        "_target": 254.75,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 9.41,
+        "news_summary": {
+          "score": 60.0,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "Marathon Petroleum (MPC) Stock Surges After Blowout Q4 Earnings and Strong Cash Returns - MEXC",
+            "Insider sale of 1,810 MPC shares reported (MPC) - Stock Titan",
+            "Marathon Petroleum Stock: Up 58% Last Year, Can the Rally Continue in 2026? - TIKR.com"
+          ]
+        }
+      },
+      {
+        "ticker": "SHEL",
+        "name": "Shell plc",
+        "sector": "Energy",
+        "status": "ACTION",
+        "vcp": 60,
+        "rs": 73,
+        "canslim_score": 40,
+        "composite": 54.9,
+        "_price": 88.36,
+        "_entry": 88.8,
+        "_stop": 86.2,
+        "_target": 93.14,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 1.74,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "Shell buys back its own stock across six trading venues - Stock Titan",
+            "SHEL Stock Sees Target Price Raised by Piper Sandler Analyst | S - GuruFocus",
+            "Is it time to buy BP and Shell shares as oil breaks through $100 per barrel? - Yahoo Finance UK"
+          ]
+        }
+      },
+      {
+        "ticker": "PLTR",
+        "name": "Palantir Technologie",
+        "sector": "Technology",
+        "status": "ACTION",
+        "vcp": 25,
+        "rs": 79,
+        "canslim_score": 65,
+        "composite": 54.8,
+        "_price": 153.5,
+        "_entry": 155.03,
+        "_stop": 141.67,
+        "_target": 168.39,
+        "_rr": 1.0,
+        "_entry_method": "watchlist_atr",
+        "_atr_used": 6.68,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "Palantir Unveils Nvidia Software Pact, Defense Partnerships At AI Conference - Investor's Business Daily",
+            "Palantir Stock (PLTR) Rises on New AI Partnerships with GE, NVIDIA, Centrus, Ondas - TipRanks",
+            "Inside Palantir’s new LG deal: AI to overhaul factories, energy, logistics - Stock Titan"
+          ]
+        }
+      },
+      {
+        "ticker": "NGG",
+        "name": "National Grid plc",
+        "sector": "Utilities",
+        "status": "ACTION",
+        "vcp": 68,
+        "rs": 77,
+        "canslim_score": 40,
+        "composite": 54.4,
+        "_price": 90.81,
+        "_entry": 91.26,
+        "_stop": 88.62,
+        "_target": 95.65,
+        "_rr": 1.66,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 1.76,
+        "news_summary": {
+          "score": 33.3,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "National Grid Transco (NYSE:NGG) Stock Rating Lowered by Zacks Research - MarketBeat",
+            "National Grid (NGG) – Among the Best Utility Stocks to Buy for Dividends in 2026 - Yahoo Finance",
+            "Understanding Momentum Shifts in (NGG) - Stock Traders Daily"
+          ]
+        }
+      },
+      {
+        "ticker": "NOC",
+        "name": "Northrop Grumman Cor",
+        "sector": "Industrials",
+        "status": "ACTION",
+        "vcp": 68,
+        "rs": 82,
+        "canslim_score": 30,
+        "composite": 53.7,
+        "_price": 736.3,
+        "_entry": 739.98,
+        "_stop": 707.58,
+        "_target": 793.98,
+        "_rr": 1.67,
+        "_entry_method": "price_above_atr",
+        "_atr_used": 21.6,
+        "news_summary": {
+          "score": 100.0,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "Is It Too Late To Consider Northrop Grumman (NOC) After A 52% One Year Rally? - simplywall.st",
+            "NOC Stock Today: March 11 B-21 Refueling Pics, 25% Production Push - Meyka",
+            "Why Northrop Grumman (NOC) Stock Is Trading Up Today - Yahoo Finance"
+          ]
+        }
+      },
+      {
+        "ticker": "TJX",
+        "name": "The TJX Companies, I",
+        "sector": "Consumer Cyclical",
+        "status": "ACTION",
+        "vcp": 73,
+        "rs": 64,
+        "canslim_score": 40,
+        "composite": 53.7,
+        "_price": 155.79,
+        "_entry": 163.49,
+        "_stop": 157.76,
+        "_target": 174.95,
+        "_rr": 2.0,
+        "_entry_method": "pivot_breakout",
+        "_atr_used": 3.82,
+        "news_summary": {
+          "score": 33.3,
+          "label": "Bullish",
+          "catalyst_strength": "Medium",
+          "catalyst_count": 1,
+          "article_count": 5,
+          "headlines": [
+            "TJX Companies (NYSE:TJX) Stock Price Down 1.4% - Time to Sell? - MarketBeat",
+            "TJX stock drops 1.3% despite strong earnings and positive analyst outlook, placing 236th out of 580 million in trading volume - Bitget",
+            "A Look At TJX Companies (TJX) Valuation As Recent Share Moves Draw Fresh Attention - simplywall.st"
+          ]
+        }
+      }
+    ],
+    "sector": [
+      {
+        "sector": "Energy",
+        "action_count": 8,
+        "avg_vcp": 50.6
+      },
+      {
+        "sector": "Industrials",
+        "action_count": 5,
+        "avg_vcp": 56.8
+      },
+      {
+        "sector": "Utilities",
+        "action_count": 5,
+        "avg_vcp": 70.6
+      },
+      {
+        "sector": "Healthcare",
+        "action_count": 5,
+        "avg_vcp": 62.8
+      },
+      {
+        "sector": "Consumer Cyclical",
+        "action_count": 3,
+        "avg_vcp": 67.7
+      },
+      {
+        "sector": "Consumer Defensive",
+        "action_count": 2,
+        "avg_vcp": 52.5
+      },
+      {
+        "sector": "Technology",
+        "action_count": 2,
+        "avg_vcp": 44.0
+      }
+    ]
+  }
+}

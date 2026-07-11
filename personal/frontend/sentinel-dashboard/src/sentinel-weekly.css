@@ -1,0 +1,253 @@
+/* =========================================================
+   SENTINEL WEEKLY CHECK CSS
+   ========================================================= */
+
+/* ── Page ────────────────────────────────────────────────── */
+.wc-page { min-height: 100vh; background: var(--bg); padding-bottom: 4rem; }
+.wc-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 60vh; gap: 1rem;
+  font-family: var(--font-mono); color: var(--muted); text-align: center;
+}
+.wc-code {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.75rem 1.5rem;
+  font-family: var(--font-mono); font-size: 0.8rem; color: var(--green);
+}
+
+/* ── Hero ────────────────────────────────────────────────── */
+.wc-hero { position: relative; padding: 2.5rem 2rem 2rem; overflow: hidden; }
+.wc-hero-bg {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 70% 80% at 50% 0%, rgba(255,184,0,0.07) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(255,184,0,0.02) 0%, transparent 100%);
+  border-bottom: 1px solid rgba(255,184,0,0.12);
+}
+.wc-hero-content { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; }
+.wc-eyebrow {
+  font-family: var(--font-mono); font-size: 0.6rem;
+  color: var(--muted); letter-spacing: 4px; margin-bottom: 0.4rem;
+}
+.wc-title {
+  font-family: var(--font-mono); font-size: 1.6rem; font-weight: 700;
+  color: var(--bright); letter-spacing: 3px; margin-bottom: 1.5rem;
+  display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+}
+.wc-hold-days {
+  font-size: 0.75rem; color: var(--amber);
+  background: rgba(255,184,0,0.1); border: 1px solid rgba(255,184,0,0.2);
+  border-radius: 6px; padding: 0.2rem 0.6rem; letter-spacing: 1px;
+}
+
+/* ── KPI ─────────────────────────────────────────────────── */
+.wc-kpi-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.875rem; }
+.wc-kpi {
+  background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+  border-radius: 10px; padding: 0.875rem 1rem;
+  display: flex; flex-direction: column; gap: 0.2rem; min-width: 110px;
+}
+.wc-kpi-label { font-family: var(--font-mono); font-size: 0.5rem; color: var(--muted); letter-spacing: 2px; }
+.wc-kpi-value { font-family: var(--font-mono); font-size: 1.2rem; font-weight: 700; }
+.wc-kpi-sub   { font-family: var(--font-mono); font-size: 0.55rem; color: var(--dim); }
+.wc-spy-detail {
+  font-family: var(--font-mono); font-size: 0.62rem; color: var(--dim);
+}
+
+/* ── Body ────────────────────────────────────────────────── */
+.wc-body { max-width: 1200px; margin: 0 auto; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
+
+/* ── Metric Tabs ─────────────────────────────────────────── */
+.wc-metric-tabs { display: flex; gap: 0.5rem; }
+.wc-metric-tab {
+  font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 1px;
+  background: none; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 0.4rem 0.875rem; cursor: pointer; transition: all 0.15s;
+}
+.wc-metric-tab:hover { color: var(--text); }
+.wc-metric-active { background: rgba(255,184,0,0.1); color: var(--amber) !important; border-color: rgba(255,184,0,0.35) !important; }
+
+/* ── Page Tabs ───────────────────────────────────────────── */
+.wc-tabs { display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border); }
+.wc-tab {
+  font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 1px;
+  background: none; color: var(--muted); border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.6rem 1rem; cursor: pointer; transition: all 0.15s; margin-bottom: -1px;
+}
+.wc-tab:hover { color: var(--text); }
+.wc-tab-active { color: var(--amber) !important; border-bottom-color: var(--amber) !important; }
+
+/* ── Section ─────────────────────────────────────────────── */
+.wc-section {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 16px; padding: 1.25rem;
+}
+.wc-section-title {
+  font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 2px;
+  color: var(--muted); margin-bottom: 1rem;
+}
+
+/* ── 2 Grid ──────────────────────────────────────────────── */
+.wc-grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 1rem; }
+
+/* ── Band Chart ──────────────────────────────────────────── */
+.wc-band-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 16px; padding: 1.25rem;
+  display: flex; flex-direction: column; gap: 0.55rem;
+}
+.wc-band-title {
+  font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 2px;
+  color: var(--muted); margin-bottom: 0.25rem;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.wc-band-metric {
+  font-size: 0.58rem; color: var(--dim);
+  background: rgba(255,255,255,0.04); border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+}
+.wc-band-row { display: flex; align-items: center; gap: 0.5rem; }
+.wc-band-label {
+  font-family: var(--font-mono); font-size: 0.6rem;
+  color: var(--muted); min-width: 52px;
+}
+.wc-band-track {
+  flex: 1; height: 8px; background: rgba(255,255,255,0.04);
+  border-radius: 4px; position: relative; overflow: hidden;
+}
+.wc-band-center {
+  position: absolute; left: 50%; top: 0; width: 1px;
+  height: 100%; background: rgba(255,255,255,0.1);
+}
+.wc-band-bar-signed {
+  position: absolute; top: 0; height: 100%;
+  border-radius: 2px; transition: width 0.4s, left 0.4s;
+}
+.wc-band-bar-abs {
+  position: absolute; left: 0; top: 0; height: 100%;
+  border-radius: 4px; transition: width 0.4s;
+}
+.wc-band-val {
+  font-family: var(--font-mono); font-size: 0.68rem;
+  font-weight: 700; min-width: 52px; text-align: right;
+}
+.wc-band-n { font-family: var(--font-mono); font-size: 0.55rem; color: var(--dim); min-width: 32px; }
+
+/* ── Ranker ──────────────────────────────────────────────── */
+.wc-rank-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 1rem; }
+.wc-ranker {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 16px; padding: 1.25rem;
+}
+.wc-ranker-title {
+  font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 2px;
+  margin-bottom: 0.875rem; display: flex; align-items: center; gap: 0.4rem;
+}
+.wc-ranker-rows { display: flex; flex-direction: column; gap: 0; }
+.wc-ranker-row {
+  display: grid; grid-template-columns: 20px 52px 1fr auto auto;
+  gap: 0.5rem; align-items: center;
+  padding: 0.45rem 0.25rem;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-family: var(--font-mono); font-size: 0.68rem;
+}
+.wc-ranker-row:last-child { border-bottom: none; }
+.wc-ranker-rank   { font-size: 0.55rem; font-weight: 700; }
+.wc-ranker-ticker {
+  color: var(--bright); font-weight: 700; text-decoration: none;
+  transition: color 0.15s;
+}
+.wc-ranker-ticker:hover { color: var(--green); }
+.wc-ranker-scores { display: flex; gap: 0.4rem; font-size: 0.58rem; }
+.wc-ranker-ret    { font-weight: 700; text-align: right; }
+.wc-ranker-alpha  { font-size: 0.6rem; color: var(--muted); text-align: right; }
+
+/* ── Table ───────────────────────────────────────────────── */
+.wc-filters {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin-bottom: 0.875rem; flex-wrap: wrap;
+}
+.wc-select, .wc-input-sm {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 0.35rem 0.6rem;
+  font-family: var(--font-mono); font-size: 0.65rem;
+  color: var(--bright); outline: none;
+}
+.wc-input-sm   { width: 60px; }
+.wc-filter-label { font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted); }
+.wc-table-wrap { overflow-x: auto; border-radius: 8px; }
+.wc-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 0.65rem; }
+.wc-th {
+  padding: 0.5rem 0.75rem; text-align: left;
+  background: rgba(255,255,255,0.03); color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer; white-space: nowrap; letter-spacing: 0.5px;
+}
+.wc-th:hover { color: var(--text); }
+.wc-tr { border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.1s; }
+.wc-tr:hover { background: rgba(255,255,255,0.02); }
+.wc-tr-win  { border-left: 2px solid rgba(0,255,136,0.2); }
+.wc-tr-loss { border-left: 2px solid rgba(255,51,85,0.2); }
+.wc-td { padding: 0.45rem 0.75rem; color: var(--text); white-space: nowrap; }
+.wc-td-ticker {
+  color: var(--bright); font-weight: 700; text-decoration: none; transition: color 0.15s;
+}
+.wc-td-ticker:hover { color: var(--green); }
+.wc-status {
+  font-size: 0.55rem; font-weight: 700; padding: 0.1rem 0.35rem; border-radius: 3px;
+}
+.wc-action { background: rgba(0,255,136,0.12); color: #00ff88; }
+.wc-wait   { background: rgba(255,184,0,0.1);  color: #ffb800; }
+
+/* ── Pagination ──────────────────────────────────────────── */
+.wc-pagination { display: flex; align-items: center; gap: 1rem; justify-content: center; margin-top: 1rem; }
+.wc-page-btn {
+  font-family: var(--font-mono); font-size: 0.65rem;
+  background: none; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 0.35rem 0.875rem; cursor: pointer; transition: all 0.15s;
+}
+.wc-page-btn:hover:not(:disabled) { color: var(--text); }
+.wc-page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.wc-page-info { font-family: var(--font-mono); font-size: 0.65rem; color: var(--dim); }
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .wc-grid-2, .wc-rank-grid { grid-template-columns: 1fr; }
+  .wc-kpi-row { gap: 0.5rem; }
+  .wc-kpi { min-width: 90px; }
+}
+@media (max-width: 600px) {
+  .wc-hero  { padding: 1.5rem 1rem; }
+  .wc-title { font-size: 1.1rem; }
+  .wc-body  { padding: 1rem; }
+}
+
+/* ── Stop Badge ──────────────────────────────────────────── */
+.wc-stop-badge {
+  font-family: var(--font-mono); font-size: 0.55rem; font-weight: 700;
+  background: rgba(255,51,85,0.15); color: #ff3355;
+  border: 1px solid rgba(255,51,85,0.3);
+  border-radius: 4px; padding: 0.1rem 0.35rem;
+  white-space: nowrap;
+}
+
+/* ── Notice Bar ──────────────────────────────────────────── */
+.wc-notice {
+  display: flex; align-items: flex-start; gap: 0.5rem;
+  background: rgba(255,184,0,0.06); border: 1px solid rgba(255,184,0,0.2);
+  border-radius: 10px; padding: 0.75rem 1rem;
+  font-family: var(--font-mono); font-size: 0.65rem; color: var(--muted);
+  line-height: 1.6;
+}
+
+/* ── Dual Ret in Ranker ──────────────────────────────────── */
+.wc-ranker-dual {
+  display: flex; flex-direction: column; gap: 0.1rem;
+  text-align: right; font-family: var(--font-mono);
+}
+.wc-ranker-mfe-mae {
+  display: flex; gap: 0.3rem; font-family: var(--font-mono);
+}

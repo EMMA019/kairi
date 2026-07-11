@@ -1,0 +1,38 @@
+import { useState, useCallback } from "react";
+import { getApiUrl } from "../utils/api";
+import type { KVEntry } from "../types";
+
+export function useKVMemory() {
+  const [memories, setMemories] = useState<KVEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchMemories = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(getApiUrl("/api/kv"));
+      if (!res.ok) throw new Error("Failed to fetch memories");
+      const data = await res.json();
+      setMemories(data.memories || []);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const deleteMemory = useCallback(async (id: number) => {
+    try {
+      const res = await fetch(getApiUrl(`/api/kv/${id}`), { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete memory");
+      setMemories((prev) => prev.filter((m) => m.id !== id));
+      return true;
+    } catch (err: any) {
+      setError(err.message);
+      return false;
+    }
+  }, []);
+
+  return { memories, isLoading, error, fetchMemories, deleteMemory };
+}

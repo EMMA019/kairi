@@ -1,0 +1,1 @@
+{"ticker": "MSFT", "queryCount": 1, "resultsCount": 1, "adjusted": true, "results": [{"T": "MSFT", "v": 186201631.0, "vw": 371.2916, "o": 357.15, "c": 372.97, "h": 376.61, "l": 355.43, "t": 1782504000000, "n": 1406076}], "status": "OK", "request_id": "b16734609c3a7e2c29a4f5fa0de384fd", "count": 1}

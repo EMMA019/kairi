@@ -1,0 +1,37 @@
+{
+  "indices": {
+    "SPY": {
+      "label": "S&P 500",
+      "quote": {
+        "price": 653.18
+      },
+      "performance": {
+        "ret_1d": -0.34,
+        "ret_5d": -2.63,
+        "ret_1m": -4.97
+      }
+    },
+    "QQQ": {
+      "label": "NASDAQ 100",
+      "quote": {
+        "price": 583.98
+      },
+      "performance": {
+        "ret_1d": -0.68,
+        "ret_5d": -3.2,
+        "ret_1m": -3.93
+      }
+    },
+    "IWM": {
+      "label": "Russell 2000",
+      "quote": {
+        "price": 248.78
+      },
+      "performance": {
+        "ret_1d": 0.54,
+        "ret_5d": -0.51,
+        "ret_1m": -5.53
+      }
+    }
+  }
+}

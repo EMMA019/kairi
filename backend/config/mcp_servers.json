@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "D:/program/chat/backend/workspace"
+      ],
+      "description": "ファイルシステム操作用（存在確認済み）"
+    }
+  }
+}

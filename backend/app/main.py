@@ -1,0 +1,96 @@
+"""
+Kairi Chat AI — FastAPI エントリーポイント
+"""
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import os
+from dotenv import load_dotenv
+
+# .env ファイルから環境変数を読み込み（他のモジュールで環境変数を使うため、最初に行う）
+load_dotenv()
+
+from app.core.database import init_db
+from app.core.news.database import init_db as init_news_db
+from app.core.news.scheduler import setup_scheduler, shutdown_scheduler
+from app.core.cache_manager import init_cache_db
+from app.routers import chat, history, memory, logs, mood, upload, settings, workspace, project, tools
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """アプリケーションのライフサイクル管理"""
+    # 起動時: DB 初期化
+    await init_db()
+    await init_news_db()
+    await init_cache_db()
+    setup_scheduler()  # スタブ（定期RSSは廃止）
+    yield
+    # 終了時: クリーンアップ
+    shutdown_scheduler()
+    from app.core.search.providers.http_client import close_http_client
+    await close_http_client()
+
+
+app = FastAPI(
+    title="Kairi Chat AI",
+    description="自律型AIエージェント with Chat & IDE v2.1",
+    version="2.1.1",
+    lifespan=lifespan,
+)
+
+# CORS 設定（フロントエンド開発・Tailscale・Capacitorモバイルアプリ等を全面許可）
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",   # Vite デフォルト
+        "http://localhost:3000",   # 予備
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+        "http://localhost",        # Capacitor Android/iOS ネイティブ
+        "https://localhost",
+        "capacitor://localhost",
+    ],
+    allow_origin_regex=r"(https?|capacitor)://.*",  # Tailscale (100.x) やLAN内、あらゆるポートとIPからのアクセスを100%許可
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ルーター登録
+app.include_router(chat.router, prefix="/api", tags=["chat"])
+app.include_router(history.router, prefix="/api", tags=["history"])
+app.include_router(memory.router, prefix="/api", tags=["memory"])
+app.include_router(logs.router, prefix="/api", tags=["logs"])
+app.include_router(mood.router, prefix="/api", tags=["mood"])
+app.include_router(upload.router, prefix="/api", tags=["upload"])
+app.include_router(settings.router, prefix="/api", tags=["settings"])
+app.include_router(workspace.router, prefix="/api", tags=["workspace"])
+app.include_router(project.router, prefix="/api", tags=["project"])
+app.include_router(tools.router, prefix="/api", tags=["tools"])
+
+
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pathlib import Path
+
+# フロントエンド静的ビルドフォルダの検出とマウント (買い切りデスクトップアプリ対応)
+FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+if FRONTEND_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIST / "assets")), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        file_path = FRONTEND_DIST / full_path
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(FRONTEND_DIST / "index.html")
+else:
+    @app.get("/")
+    async def root():
+        return {
+            "app": "Kairi Chat AI",
+            "version": "2.1.0",
+            "status": "running",
+            "message": "Frontend build not found. Run `npm run build` in frontend directory.",
+        }

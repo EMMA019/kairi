@@ -1,0 +1,83 @@
+{
+  "generated_at": "2026-02-22T05:12:29.122830",
+  "ticker": "SPXC",
+  "context": {
+    "ticker": "SPXC",
+    "name": "SPX Technologies, Inc.",
+    "price": 242.29,
+    "pivot": 246.68,
+    "scores": {
+      "vcp": 90,
+      "rs": 80,
+      "canslim": 65,
+      "ecr_rank": 71,
+      "ses": 50
+    },
+    "vcp_details": {
+      "score": 90,
+      "atr": 8.156428571428574,
+      "signals": [
+        "V-Contraction Detected",
+        "Volume Dry-up Detected",
+        "Trend Alignment OK",
+        "Near Pivot Point"
+      ],
+      "is_dryup": true,
+      "range_pct": 0.1587,
+      "vol_ratio": 0.43,
+      "breakdown": {
+        "tight": 25,
+        "vol": 30,
+        "ma": 30,
+        "pivot": 5
+      }
+    },
+    "ses_details": {
+      "score": 50,
+      "metrics": {
+        "er": 0.485,
+        "force_ratio": 0.734,
+        "vol_contraction": 0.96,
+        "avg_clv": 0.544
+      },
+      "breakdown": {
+        "fractal_efficiency": 20,
+        "true_force": 20,
+        "volatility_squeeze": 0,
+        "bar_quality": 10
+      }
+    },
+    "ecr_phase": "HOLD/WATCH",
+    "fundamentals": {
+      "pe": 51.551064,
+      "eps_growth": 121.82741116751271,
+      "rev_growth": 13.938662991040662,
+      "market_cap": "12074660982"
+    },
+    "analyst": {},
+    "ownership": {
+      "institutional_pct": 96.91
+    },
+    "news": "【Market Intelligence News】\n【Google News】\n- BofA証券、成長見通しに基づきSPXテクノロジーズ株を「買い」にアップグレード 執筆 - Investing.com - FX | 株式市場 | ファイナンス | 金融ニュース"
+  },
+  "judgment": {
+    "judgment": "WAIT",
+    "confidence": 80,
+    "vcp_score_breakdown": {
+      "tightness": 25,
+      "volume": 30,
+      "ma": 30,
+      "pivot": 5
+    },
+    "reasoning": "VCPスコア90点、EPS成長率121.8%、売上成長13.9%に基づき強気のセットアップだが、株価$242.29はピボット$246.68以下で待機が適切。",
+    "entry_plan": "$246.68以上で買い",
+    "risks": [
+      "ピボット突破失敗による下落リスク",
+      "市場全体のボラティリティ"
+    ],
+    "catalysts": [
+      "BofA証券の買い推奨アップグレード",
+      "成長見通しの改善"
+    ]
+  }
+}

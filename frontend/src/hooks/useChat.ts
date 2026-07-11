@@ -188,14 +188,20 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
       if (response.ok) {
         const data = await response.json();
         const loaded: ChatMessage[] = data.messages.map(
-          (m: { id: string; role: string; content: string; timestamp: string; reasoning?: string; sources?: any }) => ({
-            id: m.id,
-            role: m.role as "user" | "assistant",
-            content: m.content,
-            timestamp: new Date(m.timestamp),
-            reasoning: m.reasoning,
-            sources: m.sources
-          })
+          (m: { id: string; role: string; content: string; timestamp: string; reasoning?: string; sources?: any }) => {
+            let tsStr = m.timestamp;
+            if (typeof tsStr === "string" && !tsStr.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(tsStr)) {
+              tsStr = tsStr.replace(" ", "T") + "Z";
+            }
+            return {
+              id: m.id,
+              role: m.role as "user" | "assistant",
+              content: m.content,
+              timestamp: new Date(tsStr),
+              reasoning: m.reasoning,
+              sources: m.sources
+            };
+          }
         );
         
         // 履歴読み込み時の重複排除（IDベース）

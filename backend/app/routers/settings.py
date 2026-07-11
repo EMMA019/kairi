@@ -66,6 +66,7 @@ _DEFAULT_SETTINGS = {
     "brave_api_key": "",
     "world_news_api_key": "",
     "newsdata_api_key": "",
+    "mapbox_api_key": "",
     "is_licensed": True,
     "license_key": "KAIRI-PRO-ESTABLISHED",
     "app_pin": "",
@@ -90,6 +91,7 @@ class Settings:
             "brave_api_key": "BRAVE_API_KEY",
             "world_news_api_key": "WORLD_NEWS_API_KEY",
             "newsdata_api_key": "NEWSDATA_API_KEY",
+            "mapbox_api_key": "MAPBOX_API_KEY",
         }
         for k, env_key in env_map.items():
             val = self._settings.get(k)
@@ -172,6 +174,7 @@ class SettingsUpdate(BaseModel):
     brave_api_key: Optional[str] = None
     world_news_api_key: Optional[str] = None
     newsdata_api_key: Optional[str] = None
+    mapbox_api_key: Optional[str] = None
     is_licensed: Optional[bool] = None
     license_key: Optional[str] = None
     app_pin: Optional[str] = None

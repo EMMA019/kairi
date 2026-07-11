@@ -70,6 +70,13 @@ app.include_router(project.router, prefix="/api", tags=["project"])
 app.include_router(tools.router, prefix="/api", tags=["tools"])
 
 
+@app.get("/api/ping")
+@app.get("/ping")
+async def ping():
+    """Renderスリープ防止および死活監視用の軽量ヘルスチェックエンドポイント"""
+    return {"status": "ok", "service": "kairi-chat-backend", "alive": True}
+
+
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path

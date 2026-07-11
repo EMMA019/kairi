@@ -161,3 +161,10 @@ def _calc(expression: str) -> str:
         return f"{expression} = {result}"
     except Exception as e:
         return f"[ERROR] 計算エラー: {e}"
+
+
+# 専門ツールモジュールの自動ロード
+try:
+    import app.core.tools.travel
+except Exception as e:
+    logger.warning(f"travelツールのロードに失敗しました: {e}")

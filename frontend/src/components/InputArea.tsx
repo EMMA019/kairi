@@ -169,6 +169,35 @@ export function InputArea({ onSend, onStop, status }: InputAreaProps) {
             </svg>
             <span>Search</span>
           </button>
+
+          {/* 現在地取得ボタン */}
+          <button
+            type="button"
+            onClick={() => {
+              if (disabled || !navigator.geolocation) return;
+              navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  const lat = pos.coords.latitude.toFixed(4);
+                  const lon = pos.coords.longitude.toFixed(4);
+                  const locTag = `[現在地GPS: ${lat}, ${lon}] `;
+                  setInput((prev) => (prev.includes(locTag) ? prev : locTag + prev));
+                },
+                (err) => {
+                  alert("現在地情報を取得できませんでした（GPSの許可をご確認ください）: " + err.message);
+                },
+                { enableHighAccuracy: true, timeout: 8000 }
+              );
+            }}
+            disabled={disabled}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 border bg-transparent text-gray-400 hover:text-emerald-400 border-white/5 hover:border-emerald-500/30"
+            title="現在地のGPS座標を入力欄に追加"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+              <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+            <span>現在地</span>
+          </button>
         </div>
         {/* テキスト入力 */}
         <textarea

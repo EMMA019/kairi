@@ -7,10 +7,22 @@ import os
 import re
 import base64
 from typing import AsyncGenerator
-import anthropic
-import openai
-from google import genai
-from google.genai import types
+try:
+    import anthropic
+except ImportError:
+    anthropic = None
+
+try:
+    import openai
+except ImportError:
+    openai = None
+
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:
+    genai = None
+    types = None
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)

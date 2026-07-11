@@ -43,24 +43,33 @@ async def get_db():
     turso_url = os.environ.get("TURSO_DATABASE_URL", "").strip()
     turso_token = os.environ.get("TURSO_AUTH_TOKEN", "").strip()
 
-    if turso_url and turso_url.startswith("libsql://"):
+    use_turso = False
+    client = None
+
+    if turso_url:
+        if turso_url.startswith("libsql://"):
+            http_url = "https://" + turso_url[len("libsql://"):]
+        else:
+            http_url = turso_url
         try:
             import libsql_client
-            client = libsql_client.create_client(url=turso_url, auth_token=turso_token or None)
-            wrapper = LibSQLConnectionWrapper(client)
-            try:
-                yield wrapper
-            finally:
-                await wrapper.close()
-            return
+            client = libsql_client.create_client(url=http_url, auth_token=turso_token or None)
+            use_turso = True
         except Exception as e:
-            logger.warning(f"TursoクラウドDB接続に失敗しました。ローカルSQLiteを使用します: {e}")
+            logger.warning(f"TursoクラウドDB初期化に失敗しました。ローカルSQLiteを使用します: {e}")
 
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    async with aiosqlite.connect(str(DB_PATH)) as db:
-        await db.execute("PRAGMA journal_mode=WAL;")
-        db.row_factory = aiosqlite.Row
-        yield db
+    if use_turso and client:
+        wrapper = LibSQLConnectionWrapper(client)
+        try:
+            yield wrapper
+        finally:
+            await wrapper.close()
+    else:
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        async with aiosqlite.connect(str(DB_PATH)) as db:
+            await db.execute("PRAGMA journal_mode=WAL;")
+            db.row_factory = aiosqlite.Row
+            yield db
 
 
 async def init_db():

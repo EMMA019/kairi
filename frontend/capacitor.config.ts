@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.taroc.antigravity',
-  appName: 'Antigravity',
+  appId: 'com.taroc.kairi',
+  appName: 'Kairi',
   webDir: 'dist'
 };
 

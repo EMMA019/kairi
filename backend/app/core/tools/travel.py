@@ -211,18 +211,31 @@ def checkin_location(latitude: float, longitude: float, note: str = "") -> str:
 
 @tool_registry.register(
     name="search_nearby_spots",
-    description="現在地の座標（緯度・経度）の周辺にあるグルメ・カフェ・観光地などを Mapbox Search API で探索して厳選提案するツール",
+    description="指定した地名（例: 京都、箱根）または現在地座標の周辺にあるグルメ・ご飯屋さん・カフェ・観光地などを Mapbox Search API で探索して厳選提案・地図表示するツール",
 )
-def search_nearby_spots(latitude: float, longitude: float, query: str = "カフェ") -> str:
-    """周辺スポット厳選コンシェルジュ"""
+def search_nearby_spots(
+    query: str = "ご飯屋さん",
+    place: str = "",
+    latitude: float = 0.0,
+    longitude: float = 0.0,
+) -> str:
+    """周辺スポット＆地名指定グルメ・スポット厳選コンシェルジュ"""
     token = os.environ.get("MAPBOX_API_KEY", "").strip()
-    lat = round(float(latitude), 5)
-    lon = round(float(longitude), 5)
 
     if not token:
-        return f"🍽️ 【周辺「{query}」検索シミュレート】現在地 ({lat}, {lon}) 周辺のおすすめスポットを探しました！ぜひ Mapbox キーをセットしてリアル店舗情報を呼び出してね！"
+        target_label = place if place else f"({latitude}, {longitude})"
+        return f"🍽️ 【「{target_label}」周辺の「{query}」検索シミュレート】おすすめスポットを探しました！ぜひ Mapbox キーをセットしてリアル店舗情報を呼び出してね！"
 
     try:
+        # 地名指定がある場合はまずジオコーディングで中心緯度経度を取得
+        if place and (latitude == 0.0 and longitude == 0.0):
+            lon, lat, center_name = _geocode_place(place, token)
+            target_label = f"{place} ({center_name})"
+        else:
+            lat = round(float(latitude), 5)
+            lon = round(float(longitude), 5)
+            target_label = f"現在地周辺 [{lat}, {lon}]"
+
         url = (
             f"https://api.mapbox.com/geocoding/v5/mapbox.places/{urllib.parse.quote(query)}.json"
             f"?proximity={lon},{lat}&country=jp&language=ja&limit=4&access_token={token}"
@@ -232,7 +245,7 @@ def search_nearby_spots(latitude: float, longitude: float, query: str = "カフ�
             data = json.loads(resp.read().decode())
             features = data.get("features", [])
             if not features:
-                return f"現在地周辺で「{query}」が見つかりませんでした。"
+                return f"「{target_label}」の周辺で「{query}」が見つかりませんでした。"
 
             # 複数ピンマーカーを生成
             pins = []
@@ -253,7 +266,7 @@ def search_nearby_spots(latitude: float, longitude: float, query: str = "カフ�
             )
 
             lines = [
-                f"🌟 **【Kairi周辺厳選コンシェルジュ:「{query}」】**",
+                f"🌟 **【Kairi厳選コンシェルジュ: {target_label} の「{query}」】**",
                 f"![周辺スポットマップ]({static_map_url})",
                 f"",
                 f"📋 **おすすめスポット一覧**",

@@ -143,112 +143,105 @@ export function InputArea({ onSend, onStop, status }: InputAreaProps) {
       {isUploading && <div className="text-xs text-gray-400 mb-2">Uploading...</div>}
       {uploadError && <div className="text-xs text-red-400 mb-2">{uploadError}</div>}
       
-      <div className="input-wrapper relative">
+      <div className="input-wrapper flex flex-col gap-2 relative bg-[#131825]/80 backdrop-blur-md border border-white/10 rounded-2xl p-3 shadow-lg focus-within:border-purple-500/50 transition-all">
         
-        {/* ファイルアップロード ＆ 検索ピルボタン */}
-        <div className="flex pb-1 items-center gap-2">
-          <FileUploadButton 
-            onFileSelect={handleFileSelect} 
-            disabled={disabled || isUploading || attachedFile !== null} 
-          />
-          <button
-            type="button"
-            onClick={() => !disabled && setForceSearchToggle(!forceSearchToggle)}
-            disabled={disabled}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 border ${
-              forceSearchToggle
-                ? "bg-blue-500/15 text-blue-400 border-blue-500/30 shadow-sm"
-                : "bg-transparent text-gray-400 hover:text-gray-300 border-white/5 hover:border-white/10"
-            }`}
-            title="Toggle Web Search"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-            </svg>
-            <span>Search</span>
-          </button>
-
-          {/* 現在地取得ボタン */}
-          <button
-            type="button"
-            onClick={() => {
-              if (disabled || !navigator.geolocation) return;
-              navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                  const lat = pos.coords.latitude.toFixed(4);
-                  const lon = pos.coords.longitude.toFixed(4);
-                  const locTag = `[現在地GPS: ${lat}, ${lon}] `;
-                  setInput((prev) => (prev.includes(locTag) ? prev : locTag + prev));
-                },
-                (err) => {
-                  alert("現在地情報を取得できませんでした（GPSの許可をご確認ください）: " + err.message);
-                },
-                { enableHighAccuracy: true, timeout: 8000 }
-              );
-            }}
-            disabled={disabled}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 border bg-transparent text-gray-400 hover:text-emerald-400 border-white/5 hover:border-emerald-500/30"
-            title="現在地のGPS座標を入力欄に追加"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-              <circle cx="12" cy="10" r="3"></circle>
-            </svg>
-            <span>現在地</span>
-          </button>
-        </div>
-        {/* テキスト入力 */}
+        {/* 上段: フル幅テキスト入力 */}
         <textarea
           ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          placeholder="Type a message..."
+          placeholder="Kairiにメッセージや現在地を送信..."
           rows={1}
           disabled={disabled || isUploading}
-          className="flex-1"
+          className="w-full bg-transparent border-none text-gray-100 text-sm md:text-base resize-none outline-none min-h-[28px] max-h-[160px] leading-relaxed"
           id="message-input"
         />
 
-        {/* 検索ボタン */}
-        <button
-          className="input-btn search mb-1 mr-1"
-          onClick={() => handleSend(true)}
-          disabled={disabled || (!input.trim() && !attachedFile) || isUploading}
-          title="Search & Answer"
-          aria-label="Search & Answer"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        </button>
+        {/* 下段: ツールバーアクション（左: 添付/検索/現在地、右: 送信） */}
+        <div className="flex items-center justify-between w-full pt-1.5 border-t border-white/5">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-0.5">
+            <FileUploadButton 
+              onFileSelect={handleFileSelect} 
+              disabled={disabled || isUploading || attachedFile !== null} 
+            />
+            
+            <button
+              type="button"
+              onClick={() => !disabled && setForceSearchToggle(!forceSearchToggle)}
+              disabled={disabled}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 border shrink-0 ${
+                forceSearchToggle
+                  ? "bg-blue-500/15 text-blue-400 border-blue-500/30 shadow-sm"
+                  : "bg-transparent text-gray-400 hover:text-gray-300 border-white/5 hover:border-white/10"
+              }`}
+              title="Web検索モード"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+              <span>Search</span>
+            </button>
 
-        {/* 送信・停止ボタン */}
-        {isGenerating ? (
-          <button
-            className="input-btn mb-1 bg-red-500 hover:bg-red-400 text-white"
-            onClick={onStop}
-            title="Stop generation"
-            aria-label="Stop generation"
-          >
-            <div className="w-3 h-3 bg-white rounded-sm" />
-          </button>
-        ) : (
-          <button
-            className={`input-btn mb-1 transition-all duration-300 ${
-              input.trim() || attachedFile
-                ? "send"
-                : "bg-black/40 text-gray-500 cursor-not-allowed border border-white/5"
-            }`}
-            onClick={() => handleSend()}
-            disabled={(!input.trim() && !attachedFile) || isUploading}
-            title="Send"
-            aria-label="Send message"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-          </button>
-        )}
+            {/* 現在地取得ボタン */}
+            <button
+              type="button"
+              onClick={() => {
+                if (disabled || !navigator.geolocation) return;
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    const lat = pos.coords.latitude.toFixed(4);
+                    const lon = pos.coords.longitude.toFixed(4);
+                    const locTag = `[現在地GPS: ${lat}, ${lon}] `;
+                    setInput((prev) => (prev.includes(locTag) ? prev : locTag + prev));
+                  },
+                  (err) => {
+                    alert("現在地情報を取得できませんでした（GPSの許可をご確認ください）: " + err.message);
+                  },
+                  { enableHighAccuracy: true, timeout: 8000 }
+                );
+              }}
+              disabled={disabled}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 border bg-transparent text-gray-400 hover:text-emerald-400 border-white/5 hover:border-emerald-500/30 shrink-0"
+              title="現在地のGPS座標を入力欄に追加"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+              </svg>
+              <span>現在地</span>
+            </button>
+          </div>
+
+          {/* 右側: 送信・停止ボタン */}
+          <div className="flex items-center gap-1 shrink-0 ml-2">
+            {isGenerating ? (
+              <button
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-red-500 hover:bg-red-400 text-white transition-all"
+                onClick={onStop}
+                title="生成停止"
+              >
+                <div className="w-3 h-3 bg-white rounded-sm" />
+              </button>
+            ) : (
+              <button
+                className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-300 ${
+                  input.trim() || attachedFile
+                    ? "bg-[#ECECED] text-[#0e0f11] hover:bg-white hover:scale-105 shadow-md"
+                    : "bg-black/40 text-gray-500 cursor-not-allowed border border-white/5"
+                }`}
+                onClick={() => handleSend()}
+                disabled={(!input.trim() && !attachedFile) || isUploading}
+                title="送信"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

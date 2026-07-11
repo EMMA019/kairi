@@ -6,7 +6,7 @@
   "planner_provider": "deepseek",
   "planner_model": "deepseek-v4-flash",
   "user_name": "Nao",
-  "persona_style": "hyper_gal",
+  "persona_style": "standard",
   "locale": "ja",
   "gemini_api_key": "",
   "anthropic_api_key": "",

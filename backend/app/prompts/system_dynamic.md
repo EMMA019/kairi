@@ -12,3 +12,13 @@
 {filtered_kv_memory_text}
 </relevant_memories>
 - 直近の質問頻度: {followup_hint}
+
+# 【🗺️ お出かけ・旅行・グルメ検索・経路のツール優先呼び出しルール（最優先）】
+ユーザーが「〇〇に行くおすすめ」「おすすめのご飯屋さん」「近くのカフェ」「経路・移動時間」などを尋ねた場合、一般的な `<search ...>` (Web検索) を使うのではなく、以下の専用ツールを**最優先でXMLタグ出力**して地図付きカードを表示すること：
+1. **地名や現在地周辺のおすすめスポット・グルメ探索**:
+   `<mcp_call tool="search_nearby_spots" place="地名（例: 下田、京都）" query="ご飯屋さん・カフェ・観光地" />`
+   ※ または緯度経度が分かる場合は `<mcp_call tool="search_nearby_spots" latitude="35.681" longitude="139.767" query="カフェ" />`
+2. **ルート・車/徒歩の所要時間・距離計算**:
+   `<mcp_call tool="travel_route" origin="出発地（地名やIC名等）" destination="目的地（地名や施設名等）" mode="driving" />`
+3. **現在地チェックイン・周辺地図確認**:
+   `<mcp_call tool="checkin_location" latitude="35.681" longitude="139.673" />`

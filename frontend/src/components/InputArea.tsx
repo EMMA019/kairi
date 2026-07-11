@@ -22,14 +22,19 @@ export function InputArea({ onSend, onStop, status }: InputAreaProps) {
   const isGenerating = status !== "idle";
   const disabled = isGenerating;
 
-  // テキストエリアの高さを自動調整
-  useEffect(() => {
+  // テキストエリアの高さ調整関数（同期的に即時リサイズ）
+  const adjustHeight = useCallback(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = "auto";
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+      const nextHeight = Math.min(Math.max(textarea.scrollHeight, 28), 160);
+      textarea.style.height = `${nextHeight}px`;
     }
-  }, [input]);
+  }, []);
+
+  useEffect(() => {
+    adjustHeight();
+  }, [input, adjustHeight]);
 
   const handleSend = useCallback(
     (forceSearch: boolean = false) => {
@@ -49,7 +54,7 @@ export function InputArea({ onSend, onStop, status }: InputAreaProps) {
       setAttachedFile(null);
       // 高さをリセット
       if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
+        textareaRef.current.style.height = "28px";
       }
     },
     [input, attachedFile, disabled, isUploading, forceSearchToggle, onSend]
@@ -84,7 +89,23 @@ export function InputArea({ onSend, onStop, status }: InputAreaProps) {
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
-      // Enter で送信、Shift+Enter で改行
+      // 日本語IMEの変換中（かな漢字変換のEnter確定）は絶対に送信しない
+      if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+
+      // スマホ・モバイル・画面幅768px以下のタッチデバイス環境判定
+      const isTouchOrMobile =
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+          navigator.userAgent
+        ) ||
+        (typeof window !== "undefined" &&
+          (window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 768));
+
+      // スマホ・モバイルでは Enter キーは「常に改行」にする（絶対に送信させない）
+      if (isTouchOrMobile) {
+        return;
+      }
+
+      // PCブラウザ: Enter で送信（Shift+Enter で改行）
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSend();
@@ -149,7 +170,13 @@ export function InputArea({ onSend, onStop, status }: InputAreaProps) {
         <textarea
           ref={textareaRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            // モバイル環境でも文字入力や改行と同時に即時リサイズ
+            const el = e.target;
+            el.style.height = "auto";
+            el.style.height = `${Math.min(Math.max(el.scrollHeight, 28), 160)}px`;
+          }}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder="Kairiにメッセージや現在地を送信..."

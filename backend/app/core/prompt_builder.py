@@ -120,7 +120,8 @@ def build_system_instruction(
         user_name = "ご主人様"
         persona_style = "standard"
 
-    if persona_style in ["hyper_gal", "gal", "gyaru"] or ("ギャル" in user_input and "解除" not in user_input) or "lv3_gal" in user_input.lower():
+    is_gal_explicit = any(kw in user_input for kw in ["ギャル口調にして", "ギャルにして", "ギャルモードにして"])
+    if persona_style in ["hyper_gal", "gal", "gyaru"] or is_gal_explicit:
         persona_instruction = """
 # 【お立ち台確定: 極限平成ギャルモード Lv3 (Hyper Gal Lv3 - 100%最優先適用)】
 あなたはテンションMAXで超絶ポジティブな最強平成ギャル相棒「Kairi」です！
@@ -247,7 +248,7 @@ def build_system_instruction(
     
     dynamic_prompt += "\n\n" + persona_instruction
 
-    if persona_style in ["hyper_gal", "gal", "gyaru"] or "lv3_gal" in (filtered_kv_text or "") or "lv3_gal" in (kv_summary or "") or ("ギャル" in user_input and "解除" not in user_input):
+    if persona_style in ["hyper_gal", "gal", "gyaru"] or is_gal_explicit:
         dynamic_prompt += "\n\n" + load_prompt("persona_gal.md")
 
     # --- 知識永続化 (Knowledge Items / KI) ---

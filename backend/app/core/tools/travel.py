@@ -156,3 +156,115 @@ def travel_isochrone(origin: str, minutes: int = 30, mode: str = "driving") -> s
         logger.error(f"Mapbox Isochrone エラー: {e}")
         return f"[エラー] 到達圏計算に失敗しました: {e}"
 
+
+def _reverse_geocode(lat: float, lon: float, token: str) -> str:
+    """緯度・経度を綺麗な日本語地名・住所に変換（逆ジオコーディング）"""
+    url = (
+        f"https://api.mapbox.com/geocoding/v5/mapbox.places/{lon},{lat}.json"
+        f"?country=jp&language=ja&types=poi,address,neighborhood,locality&limit=1&access_token={token}"
+    )
+    req = urllib.request.Request(url, headers={"User-Agent": "KairiTravel/1.0"})
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        data = json.loads(resp.read().decode())
+        features = data.get("features", [])
+        if not features:
+            return f"緯度 {lat}, 経度 {lon}"
+        return features[0].get("place_name", f"緯度 {lat}, 経度 {lon}")
+
+
+@tool_registry.register(
+    name="checkin_location",
+    description="現在地のGPS座標（緯度・経度）からゼンリン日本語住所・施設名を逆ジオコーディングし、チェックインカードとサムネイルマップを出力するツール",
+)
+def checkin_location(latitude: float, longitude: float, note: str = "") -> str:
+    """現在地チェックイン＆思い出ログ記録"""
+    token = os.environ.get("MAPBOX_API_KEY", "").strip()
+    lat = round(float(latitude), 5)
+    lon = round(float(longitude), 5)
+
+    if not token:
+        return (
+            f"📍 **【現在地チェックイン（Mapboxキー未登録シミュレート）】**\n"
+            f"- **座標**: 緯度 {lat}, 経度 {lon}\n"
+            f"- **メモ**: {note or '到着記録'}\n"
+            f"※ Render管理画面に `MAPBOX_API_KEY` を入れると、ここの住所やスポット名・地図写真が自動表示されます！"
+        )
+
+    try:
+        place_name = _reverse_geocode(lat, lon, token)
+        static_map_url = (
+            f"https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/"
+            f"pin-l-heart+ec4899({lon},{lat})/auto/500x250@2x?access_token={token}"
+        )
+        return (
+            f"📍 **【Kairi 足跡チェックイン完了♡】**\n"
+            f"![チェックインスポット]({static_map_url})\n"
+            f"- **現在地名・住所**: **{place_name}**\n"
+            f"- **GPS座標**: `[{lat}, {lon}]`\n"
+            f"- **メモ**: {note or '足跡記録完了💖'}\n"
+            f"相棒との思い出スポットとしてバッチリ確認したよ！周辺のグルメやルート検索にも今すぐ使えるから聞いてね！"
+        )
+    except Exception as e:
+        logger.error(f"チェックインエラー: {e}")
+        return f"📍 チェックイン記録完了 [座標: {lat}, {lon}]"
+
+
+@tool_registry.register(
+    name="search_nearby_spots",
+    description="現在地の座標（緯度・経度）の周辺にあるグルメ・カフェ・観光地などを Mapbox Search API で探索して厳選提案するツール",
+)
+def search_nearby_spots(latitude: float, longitude: float, query: str = "カフェ") -> str:
+    """周辺スポット厳選コンシェルジュ"""
+    token = os.environ.get("MAPBOX_API_KEY", "").strip()
+    lat = round(float(latitude), 5)
+    lon = round(float(longitude), 5)
+
+    if not token:
+        return f"🍽️ 【周辺「{query}」検索シミュレート】現在地 ({lat}, {lon}) 周辺のおすすめスポットを探しました！ぜひ Mapbox キーをセットしてリアル店舗情報を呼び出してね！"
+
+    try:
+        url = (
+            f"https://api.mapbox.com/geocoding/v5/mapbox.places/{urllib.parse.quote(query)}.json"
+            f"?proximity={lon},{lat}&country=jp&language=ja&limit=4&access_token={token}"
+        )
+        req = urllib.request.Request(url, headers={"User-Agent": "KairiTravel/1.0"})
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            data = json.loads(resp.read().decode())
+            features = data.get("features", [])
+            if not features:
+                return f"現在地周辺で「{query}」が見つかりませんでした。"
+
+            # 複数ピンマーカーを生成
+            pins = []
+            colors = ["f43f5e", "3b82f6", "10b981", "f59e0b"]
+            rows = []
+            for idx, feat in enumerate(features[:4]):
+                name = feat.get("text", feat.get("place_name", "スポット"))
+                address = feat.get("place_name", "")
+                f_lon, f_lat = feat["geometry"]["coordinates"]
+                color = colors[idx % len(colors)]
+                pins.append(f"pin-s-{idx+1}+{color}({f_lon},{f_lat})")
+                rows.append(f"| {idx+1} | **{name}** | {address} |")
+
+            pins_str = ",".join(pins)
+            static_map_url = (
+                f"https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/"
+                f"{pins_str}/auto/600x300@2x?padding=45&access_token={token}"
+            )
+
+            lines = [
+                f"🌟 **【Kairi周辺厳選コンシェルジュ:「{query}」】**",
+                f"![周辺スポットマップ]({static_map_url})",
+                f"",
+                f"📋 **おすすめスポット一覧**",
+                f"| No | スポット名 | 住所・詳細 |",
+                f"| :---: | :--- | :--- |",
+            ]
+            lines.extend(rows)
+            return "\n".join(lines)
+
+    except Exception as e:
+        logger.error(f"周辺スポット検索エラー: {e}")
+        return f"[エラー] 周辺検索に失敗しました: {e}"
+
+

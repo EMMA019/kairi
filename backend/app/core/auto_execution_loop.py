@@ -297,7 +297,7 @@ async def auto_execute_with_retry(
                 if in_tag:
                     tag_buf += c
                     if ">" in tag_buf or "\n" in tag_buf:
-                        if not re.search(r'<(search|read_url|read_file|run_command|file|replace|list_dir|get_hot_stocks|search_news)', tag_buf):
+                        if not re.search(r'<(search|read_url|read_file|run_command|file|replace|list_dir|get_hot_stocks|search_news|mcp_call|escalate)', tag_buf):
                             if yield_sse_func:
                                 yield_sse_func({"type": "chunk", "content": tag_buf})
                         tag_buf = ""

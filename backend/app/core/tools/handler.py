@@ -513,7 +513,7 @@ class ToolHandler:
             # key=value をパース
             params = {}
             for kv in re.findall(r'([a-zA-Z_]+)=(["\'])(.*?)\2', attr_part):
-                params[kv[0]] = kv[3]
+                params[kv[0]] = kv[2]
             
             if tool_name:
                 from app.core.tools.registry import tool_registry

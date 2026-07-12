@@ -12,8 +12,21 @@ logger = get_logger(__name__)
 
 
 def _geocode_place(place: str, token: str) -> tuple[float, float, str]:
-    """地名を緯度・経度に変換 (lng, lat, place_name)"""
-    url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{urllib.parse.quote(place)}.json?country=jp&limit=1&access_token={token}"
+    """地名・施設名を緯度・経度に正確に変換 (lng, lat, place_name)"""
+    # 1. まずOpenStreetMap Nominatimで正確な施設・住所ジオコーディングを試行
+    try:
+        nom_url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{urllib.parse.quote(place)}.json?country=jp&language=ja&limit=1&access_token={token}" if not place else f"https://nominatim.openstreetmap.org/search?format=json&q={urllib.parse.quote(place)}&limit=1&countrycodes=jp"
+        req = urllib.request.Request(nom_url, headers={"User-Agent": "KairiTravel/1.0"})
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            res = json.loads(resp.read().decode())
+            if res and isinstance(res, list) and len(res) > 0:
+                item = res[0]
+                return float(item["lon"]), float(item["lat"]), item.get("name") or item.get("display_name", place)
+    except Exception as e:
+        logger.warning(f"Nominatim geocode fallback triggered for {place}: {e}")
+
+    # 2. Mapbox Geocoding v5 (日本語優先)
+    url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{urllib.parse.quote(place)}.json?country=jp&language=ja&limit=1&access_token={token}"
     req = urllib.request.Request(url, headers={"User-Agent": "KairiTravel/1.0"})
     with urllib.request.urlopen(req, timeout=5) as resp:
         data = json.loads(resp.read().decode())
@@ -21,7 +34,7 @@ def _geocode_place(place: str, token: str) -> tuple[float, float, str]:
         if not features:
             raise ValueError(f"場所「{place}」が見つかりませんでした")
         coords = features[0]["geometry"]["coordinates"]  # [lng, lat]
-        place_name = features[0]["place_name"]
+        place_name = features[0].get("text_ja", features[0].get("place_name", place))
         return coords[0], coords[1], place_name
 
 
@@ -236,28 +249,60 @@ def search_nearby_spots(
             lon = round(float(longitude), 5)
             target_label = f"現在地周辺 [{lat}, {lon}]"
 
-        url = (
-            f"https://api.mapbox.com/geocoding/v5/mapbox.places/{urllib.parse.quote(query)}.json"
-            f"?proximity={lon},{lat}&country=jp&language=ja&limit=4&access_token={token}"
-        )
-        req = urllib.request.Request(url, headers={"User-Agent": "KairiTravel/1.0"})
-        with urllib.request.urlopen(req, timeout=6) as resp:
-            data = json.loads(resp.read().decode())
-            features = data.get("features", [])
-            if not features:
-                return f"「{target_label}」の周辺で「{query}」が見つかりませんでした。"
+        spots = []
+        # 1. Mapbox Geocoding v5
+        try:
+            url = (
+                f"https://api.mapbox.com/geocoding/v5/mapbox.places/{urllib.parse.quote(query)}.json"
+                f"?proximity={lon},{lat}&country=jp&language=ja&limit=4&access_token={token}"
+            )
+            req = urllib.request.Request(url, headers={"User-Agent": "KairiTravel/1.0"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+                for feat in data.get("features", [])[:4]:
+                    f_lon, f_lat = feat["geometry"]["coordinates"]
+                    name = feat.get("text_ja", feat.get("text", "スポット"))
+                    addr = feat.get("place_name_ja", feat.get("place_name", ""))
+                    spots.append({"name": name, "address": addr, "lon": f_lon, "lat": f_lat})
+        except Exception as e:
+            logger.warning(f"Mapbox spot search error: {e}")
 
-            # 複数ピンマーカーを生成
-            pins = []
-            colors = ["f43f5e", "3b82f6", "10b981", "f59e0b"]
-            rows = []
-            for idx, feat in enumerate(features[:4]):
-                name = feat.get("text", feat.get("place_name", "スポット"))
-                address = feat.get("place_name", "")
-                f_lon, f_lat = feat["geometry"]["coordinates"]
-                color = colors[idx % len(colors)]
-                pins.append(f"pin-s-{idx+1}+{color}({f_lon},{f_lat})")
-                rows.append(f"| {idx+1} | **{name}** | {address} |")
+        # 2. Overpass API フォールバック (周辺にスポットが見つからなかった場合)
+        if not spots:
+            try:
+                tag_query = 'node["amenity"="cafe"]' if "カフェ" in query or "cafe" in query.lower() else 'node["tourism"]'
+                overpass_q = f'[out:json][timeout:8];{tag_query}({lat-0.05},{lon-0.05},{lat+0.05},{lon+0.05});out 10;'
+                op_url = "https://overpass-api.de/api/interpreter?data=" + urllib.parse.quote(overpass_q)
+                req = urllib.request.Request(op_url, headers={"User-Agent": "KairiTravel/1.0"})
+                with urllib.request.urlopen(req, timeout=6) as resp:
+                    op_data = json.loads(resp.read().decode())
+                    for el in op_data.get("elements", []):
+                        if "name" in el.get("tags", {}):
+                            spots.append({
+                                "name": el["tags"]["name"],
+                                "address": f"下田エリア ({round(el['lat'],4)}, {round(el['lon'],4)})",
+                                "lon": el["lon"],
+                                "lat": el["lat"]
+                            })
+                            if len(spots) >= 4:
+                                break
+            except Exception as e:
+                logger.warning(f"Overpass fallback error: {e}")
+
+        if not spots:
+            return f"「{target_label}」の周辺で「{query}」が見つかりませんでした。"
+
+        # 複数ピンマーカーを生成
+        pins = []
+        colors = ["f43f5e", "3b82f6", "10b981", "f59e0b"]
+        rows = []
+        for idx, sp in enumerate(spots[:4]):
+            name = sp["name"]
+            address = sp["address"]
+            f_lon, f_lat = sp["lon"], sp["lat"]
+            color = colors[idx % len(colors)]
+            pins.append(f"pin-s-{idx+1}+{color}({f_lon},{f_lat})")
+            rows.append(f"| {idx+1} | **{name}** | {address} |")
 
             pins_str = ",".join(pins)
             static_map_url = (

@@ -557,6 +557,22 @@ async def auto_execute_with_retry(
         logger.warning(f"Fact filter validation warning in auto_execution_loop: {e}")
 
     tool_results_summary = "\n".join(tool_handler.tool_results) if tool_handler.tool_results else ""
+    if not final_accumulated_response.strip():
+        logger.warning("⚠️ final_accumulated_response が空のため、ここまでの結果・履歴から最終回答を復帰します")
+        last_assist = ""
+        for msg in reversed(loop_history):
+            if msg.get("role") == "assistant" and msg.get("content"):
+                clean_content = re.sub(r'<[^>]+>.*?</[^>]+>|<[^>]+/>', '', msg["content"], flags=re.DOTALL).strip()
+                if clean_content:
+                    last_assist = clean_content
+                    break
+        parts = []
+        if last_assist:
+            parts.append(last_assist)
+        if tool_results_summary:
+            parts.append(tool_results_summary)
+        final_accumulated_response = "\n\n".join(parts)
+
     return final_accumulated_response.strip(), tool_results_summary, escalation_history
 
 

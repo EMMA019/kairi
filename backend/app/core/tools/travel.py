@@ -224,13 +224,14 @@ def checkin_location(latitude: float, longitude: float, note: str = "") -> str:
 
 @tool_registry.register(
     name="search_nearby_spots",
-    description="指定した地名（例: 京都、箱根）または現在地座標の周辺にあるグルメ・ご飯屋さん・カフェ・観光地などを Mapbox Search API で探索して厳選提案・地図表示するツール",
+    description="指定した地名または座標周辺のスポット探索・地図表示ツール。Web検索結果等から特定のスポット（5件等）を指定して地図を作成する場合は custom_spots_json に [{'name': '店名', 'address': '住所', 'lat': 緯度, 'lon': 経度}] 形式のJSONで指定可能",
 )
 def search_nearby_spots(
     query: str = "ご飯屋さん",
     place: str = "",
     latitude: float = 0.0,
     longitude: float = 0.0,
+    custom_spots_json: str = "",
 ) -> str:
     """周辺スポット＆地名指定グルメ・スポット厳選コンシェルジュ"""
     token = os.environ.get("MAPBOX_API_KEY", "").strip()
@@ -250,22 +251,28 @@ def search_nearby_spots(
             target_label = f"現在地周辺 [{lat}, {lon}]"
 
         spots = []
+        if custom_spots_json:
+            try:
+                spots = json.loads(custom_spots_json)
+            except Exception as e:
+                logger.warning(f"custom_spots_json parse error: {e}")
         # 1. Mapbox Geocoding v5
-        try:
-            url = (
-                f"https://api.mapbox.com/geocoding/v5/mapbox.places/{urllib.parse.quote(query)}.json"
-                f"?proximity={lon},{lat}&country=jp&language=ja&limit=4&access_token={token}"
-            )
-            req = urllib.request.Request(url, headers={"User-Agent": "KairiTravel/1.0"})
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                data = json.loads(resp.read().decode())
-                for feat in data.get("features", [])[:4]:
-                    f_lon, f_lat = feat["geometry"]["coordinates"]
-                    name = feat.get("text_ja", feat.get("text", "スポット"))
-                    addr = feat.get("place_name_ja", feat.get("place_name", ""))
-                    spots.append({"name": name, "address": addr, "lon": f_lon, "lat": f_lat})
-        except Exception as e:
-            logger.warning(f"Mapbox spot search error: {e}")
+        if not spots:
+            try:
+                url = (
+                    f"https://api.mapbox.com/geocoding/v5/mapbox.places/{urllib.parse.quote(query)}.json"
+                    f"?proximity={lon},{lat}&country=jp&language=ja&limit=5&access_token={token}"
+                )
+                req = urllib.request.Request(url, headers={"User-Agent": "KairiTravel/1.0"})
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    data = json.loads(resp.read().decode())
+                    for feat in data.get("features", [])[:5]:
+                        f_lon, f_lat = feat["geometry"]["coordinates"]
+                        name = feat.get("text_ja", feat.get("text", "スポット"))
+                        addr = feat.get("place_name_ja", feat.get("place_name", ""))
+                        spots.append({"name": name, "address": addr, "lon": f_lon, "lat": f_lat})
+            except Exception as e:
+                logger.warning(f"Mapbox spot search error: {e}")
 
         # 2. Overpass API フォールバック (周辺にスポットが見つからなかった場合)
         if not spots:
@@ -294,9 +301,9 @@ def search_nearby_spots(
 
         # 中心地点＋複数ピンマーカーを生成
         pins = [f"pin-l-star+111827({lon},{lat})"]
-        colors = ["f43f5e", "3b82f6", "10b981", "f59e0b"]
+        colors = ["f43f5e", "3b82f6", "10b981", "f59e0b", "8b5cf6"]
         rows = []
-        for idx, sp in enumerate(spots[:4]):
+        for idx, sp in enumerate(spots[:5]):
             name = sp["name"]
             address = sp["address"]
             f_lon, f_lat = sp["lon"], sp["lat"]

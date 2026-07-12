@@ -440,7 +440,34 @@ def enforce_persona_fact_separation(persona_text: str, verified_facts: list[str]
     validated_text = verify_exit_and_address_entanglement(validated_text)
     validated_text = sanitize_internal_tool_mentions(validated_text)
     validated_text = clean_broken_markdown_tables(validated_text)
+    validated_text = strip_out_of_period_event_mentions(validated_text)
     return validated_text
+
+
+def strip_out_of_period_event_mentions(text: str) -> str:
+    """
+    期間外イベントおよび終了済み催事の余計な言及行を除去するフィルター：
+    「※〇〇は終了しております」「〇〇祭りは〇日まででした」等の
+    ユーザーの訪問対象外期間に関する余計な注意書き・お節介行をクリーンアップする。
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    lines = text.splitlines()
+    cleaned = []
+    out_of_period_patterns = [
+        re.compile(r'.*(?:あじさい祭|花火大会|祭り|催事|イベント).*(?:終了しており|終了済み|期間外|開催されてい(?:た|ました)|対象外|見られません).*', re.IGNORECASE),
+        re.compile(r'^[※*・\-\s]*注意点.*(?:終了|期間外).*', re.IGNORECASE),
+    ]
+
+    for line in lines:
+        stripped = line.strip()
+        if any(pat.match(stripped) for pat in out_of_period_patterns):
+            logger.info(f"🧹 期間外イベントの余計な言及行を除去しました: {stripped}")
+            continue
+        cleaned.append(line)
+
+    return "\n".join(cleaned)
 
 
 def clean_broken_markdown_tables(text: str) -> str:

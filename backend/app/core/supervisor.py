@@ -348,6 +348,9 @@ async def run_supervisor(
 
     final_system_prompt = SUPERVISOR_SYSTEM_PROMPT
 
+    from app.routers.settings import app_settings
+    settings = app_settings.get()
+
     # ユーザー居住地情報をsupervisorプロンプトに注入（検索クエリ生成時の起点最適化）
     user_location = settings.get("user_location", "").strip()
     if user_location:
@@ -357,8 +360,6 @@ async def run_supervisor(
         clean_sys_inst = re.sub(r'# 【出力フォーマット（厳守・列挙値は逸脱禁止）】.*', '', system_instruction, flags=re.DOTALL)
         final_system_prompt += "\n\n【共通システム指示（参考）】\n" + clean_sys_inst.strip()
 
-    from app.routers.settings import app_settings
-    settings = app_settings.get()
     provider = settings.get("supervisor_provider", "deepseek")
     model_name = settings.get("supervisor_model", "deepseek-v4-flash")
 

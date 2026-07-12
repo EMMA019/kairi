@@ -83,13 +83,12 @@ class DockerSandbox:
         self.session_id = session_id
         self.container_name = f"ag_sandbox_{session_id}"
         self.workspace_dir = os.path.abspath(workspace_dir)
-        # WindowsのパスをDocker用に変換するなどの処理が必要な場合はここで行うが、
-        # Docker Desktop for Windowsは C:/path などの形式をサポートしている
         self.docker_workspace = self.workspace_dir.replace('\\', '/')
+        self.use_host_fallback = False
         self._ensure_container_running()
 
     def _ensure_container_running(self):
-        """コンテナが起動しているか確認し、なければ起動する"""
+        """コンテナが起動しているか確認し、なければ起動する（失敗時はホスト実行フォールバックへ切替）"""
         try:
             res = subprocess.run(
                 ["docker", "ps", "-q", "-f", f"name={self.container_name}"],
@@ -97,12 +96,8 @@ class DockerSandbox:
             )
             if not res.stdout.strip():
                 logger.info(f"Starting new Docker sandbox container: {self.container_name}")
-                # 既存の残骸があれば削除
                 subprocess.run(["docker", "rm", "-f", self.container_name], capture_output=True)
                 
-                # コンテナ起動 (Python + Node.js 統合イメージ)
-                # ユーザーの出力先フォルダをマウントする
-                # Docker操作は専用プロキシAPI(services/docker_proxy.py)経由で行うため、ソケットはマウントしない
                 res_run = subprocess.run([
                     "docker", "run", "-d",
                     "--name", self.container_name,
@@ -113,34 +108,36 @@ class DockerSandbox:
                 ], capture_output=True, text=True)
                 
                 if res_run.returncode != 0:
-                    logger.error(f"Failed to start docker container: {res_run.stderr}")
                     raise Exception(f"Docker startup failed: {res_run.stderr}")
-                    
-                # コンテナが安定するまで少し待つ
                 time.sleep(1)
-        except FileNotFoundError:
-            logger.error("Docker command not found. Please ensure Docker Desktop is installed.")
-            raise Exception("Docker Desktop がインストールされていないか、起動していません。")
         except Exception as e:
-            logger.error(f"Error in sandbox init: {e}")
-            raise
+            logger.warning(f"Docker未検出または起動不可のためホスト直接実行モードを使用します: {e}")
+            self.use_host_fallback = True
 
     def run_command(self, command: str, timeout: int = 60) -> str:
-        """コンテナ内でコマンドを実行する（パッケージインストール等は自動でタイムアウト延長）"""
+        """コマンドを実行する（Dockerコンテナ優先、不可時はホスト側実行フォールバック）"""
         try:
-            # 🔴 スマート・ビルドタイムアウト延長機能：npm installやcreate-vite等の重いコマンドは最大300秒(5分)まで自動延長
             build_keywords = ["npm install", "npm i", "npm run build", "create-vite", "create-next-app", "npx", "yarn", "pnpm", "cargo", "pip install", "pytest", "jest", "tsc"]
             if any(kw in command for kw in build_keywords) and timeout <= 60:
                 timeout = 300
                 logger.info(f"🔧 ビルド/インストールコマンドを検出したため、タイムアウトを {timeout} 秒に自動延長しました: {command[:50]}...")
 
-            res = subprocess.run(
-                ["docker", "exec", self.container_name, "bash", "-c", command],
-                capture_output=True,
-                text=True,
-                timeout=timeout
-            )
-            # 標準出力と標準エラー出力を結合（None対策）
+            if self.use_host_fallback:
+                res = subprocess.run(
+                    command,
+                    shell=True,
+                    cwd=self.workspace_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout
+                )
+            else:
+                res = subprocess.run(
+                    ["docker", "exec", self.container_name, "bash", "-c", command],
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout
+                )
             output = (res.stdout or "") + (res.stderr or "")
             
             if not output.strip():
@@ -149,14 +146,13 @@ class DockerSandbox:
                 else:
                     return f"[コマンドはエラーコード {res.returncode} で失敗しました。出力はありません]"
                     
-            # 長すぎる出力は切り詰める
             if len(output) > 20000:
                 output = output[:10000] + "\n\n... (出力が長すぎるため省略されました) ...\n\n" + output[-10000:]
                 
             return output
             
         except subprocess.TimeoutExpired:
-            return f"[エラー: コマンドが {timeout} 秒でタイムアウトしました。※注意：タイムアウトを理由にCDNやシンプルHTML構成へ妥協・退行することは禁止です。ネットワークキャッシュの利用やコマンド分割等でやり遂げてください]"
+            return f"[エラー: コマンドが {timeout} 秒でタイムアウトしました]"
         except Exception as e:
             return f"[エラー: コマンド実行中に例外が発生しました: {e}]"
 

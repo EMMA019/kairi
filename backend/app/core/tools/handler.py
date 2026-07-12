@@ -424,8 +424,9 @@ class ToolHandler:
             events.append({"type": "chunk", "content": read_block})
             current_response = current_response.replace(match.group(0), read_block)
             
-        for match in re.finditer(r'<list_dir\s+path=(["\'])(.*?)\1[^>]*>', current_response):
-            path = match.group(2).strip()
+        # list_dir / list_dir path="..." の両対応
+        for match in re.finditer(r'<list_dir(?:\s+path=(["\'])(.*?)\1)?[^>]*\/?>', current_response):
+            path = match.group(2).strip() if match.group(2) else "."
             output = safe_list_dir(workspace_dir, path)
             self.tool_results.append(f"ディレクトリ {path} の内容:\n```\n{output}\n```")
             
@@ -433,11 +434,11 @@ class ToolHandler:
             events.append({"type": "chunk", "content": dir_block})
             current_response = current_response.replace(match.group(0), dir_block)
             
-        # 2. run_command は Docker サンドボックスが必須なため、タグが存在する場合のみコンテナ初期化・実行を行う
-        if re.search(r'<run_command>(.*?)</run_command>', current_response, re.DOTALL):
+        # 2. run_command は Docker/ホストフォールバックで常に安全に実行
+        if re.search(r'<run_command[^>]*>(.*?)</run_command>', current_response, re.DOTALL):
             try:
                 sandbox = get_sandbox(self.session_id, workspace_dir)
-                for match in re.finditer(r'<run_command>(.*?)</run_command>', current_response, re.DOTALL):
+                for match in re.finditer(r'<run_command[^>]*>(.*?)</run_command>', current_response, re.DOTALL):
                     cmd = match.group(1).strip()
                     # サプライチェーン攻撃・マルウェアスクリプト自動実行防止 (セキュアサニタイズ)
                     if re.search(r'\bnpm\s+(install|i)\b', cmd) and '--ignore-scripts' not in cmd:

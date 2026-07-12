@@ -1,8 +1,12 @@
 import httpx
 import os
+import time
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# 同一リクエスト/ターン内での重複フェッチ・Jina API重複呼び出し防止用キャッシュ (TTL 300秒)
+_RECENT_FETCH_CACHE: dict[str, tuple[float, str]] = {}
 
 def _smart_academic_extract(text: str, max_chars: int = 25000) -> str:
     """学術論文から冒頭部およびDefense Mechanism/実験表/結論など後半セクションを優先抽出"""
@@ -18,6 +22,13 @@ async def fetch_with_jina(url: str) -> str:
     Jina AI Reader公式API。
     任意のURLからクリーンなテキストを取得。
     """
+    now = time.time()
+    if url in _RECENT_FETCH_CACHE:
+        cached_time, cached_text = _RECENT_FETCH_CACHE[url]
+        if now - cached_time < 300:
+            logger.debug(f"Jina AI Reader(キャッシュヒット): {url}")
+            return cached_text
+
     JINA_API_KEY = os.environ.get("JINA_API_KEY")
     jina_url = f"https://r.jina.ai/{url}"
     headers = {"Accept": "text/plain"}
@@ -34,7 +45,9 @@ async def fetch_with_jina(url: str) -> str:
         import re
         text = re.sub(r'!\[.*?\]\(.*?\)', '', raw_text)
         text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
-        return _smart_academic_extract(text)
+        clean_text = _smart_academic_extract(text)
+        _RECENT_FETCH_CACHE[url] = (time.time(), clean_text)
+        return clean_text
     except Exception as e:
         logger.warning(f"Jina AI Reader取得エラー (URL: {url}): {e} -> 直接HTTPスクレイピングにフォールバックします")
         return await fetch_direct_html(url)
@@ -65,6 +78,13 @@ async def _can_fetch_robots(url: str, user_agent: str = "*") -> bool:
 
 async def fetch_direct_html(url: str, depth: int = 0, max_depth: int = 1) -> str:
     """Jina失敗時の直接HTTP+HTMLテキストスクレイピングフォールバック (robots.txt厳守・重要お知らせ1階層追跡対応)"""
+    now = time.time()
+    if url in _RECENT_FETCH_CACHE:
+        cached_time, cached_text = _RECENT_FETCH_CACHE[url]
+        if now - cached_time < 300:
+            logger.debug(f"直接HTTPスクレイピング(キャッシュヒット): {url}")
+            return cached_text
+
     try:
         from .http_client import get_http_client
         import re
@@ -84,7 +104,7 @@ async def fetch_direct_html(url: str, depth: int = 0, max_depth: int = 1) -> str
         res.raise_for_status()
         html = res.text
 
-        # --- 🔗 1-hop 重要お知らせ追跡（トップページ・一覧ページ限定、最大2件まで） ---
+        # --- 🔗 1-hop 重要お知らせ追跡（トップページ・一覧ページ限定、近傍マッチ対応、最大2件まで） ---
         subpage_texts = []
         parsed_base = urlparse(url)
         path_parts = [p for p in parsed_base.path.strip("/").split("/") if p]
@@ -96,13 +116,20 @@ async def fetch_direct_html(url: str, depth: int = 0, max_depth: int = 1) -> str
 
         if depth < max_depth and is_top_or_list_page:
             NOTICE_KEYWORDS = ["工事", "休業", "メンテナンス", "営業時間変更", "臨時休館", "休止", "中止", "閉鎖"]
-            raw_links = re.findall(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', html, re.IGNORECASE | re.DOTALL)
             seen_urls = {url}
             sub_links_to_fetch = []
 
-            for href, anchor_html in raw_links:
+            for match in re.finditer(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', html, re.IGNORECASE | re.DOTALL):
+                href = match.group(1)
+                anchor_html = match.group(2)
                 anchor_text = re.sub(r'<[^>]+>', '', anchor_html).strip()
-                if not any(kw in anchor_text or kw in href for kw in NOTICE_KEYWORDS):
+
+                # ① 近傍マッチ: <a>タグの前後±150文字のコンテキストを取得して判定
+                surround_start = max(0, match.start() - 150)
+                surround_end = min(len(html), match.end() + 150)
+                surround_text = re.sub(r'<[^>]+>', '', html[surround_start:surround_end])
+
+                if not any(kw in anchor_text or kw in href or kw in surround_text for kw in NOTICE_KEYWORDS):
                     continue
                 if href.startswith(("#", "mailto:", "tel:", "javascript:")):
                     continue
@@ -119,7 +146,10 @@ async def fetch_direct_html(url: str, depth: int = 0, max_depth: int = 1) -> str
                 seen_urls.add(abs_url)
                 sub_links_to_fetch.append(abs_url)
                 if len(sub_links_to_fetch) >= 2:
-                    break  # 1ターン最大2件まで
+                    break
+
+            # 件数上限を明確に適用（最大2件）
+            sub_links_to_fetch = sub_links_to_fetch[:2]
 
             for sub_url in sub_links_to_fetch:
                 logger.info(f"🔗 1-hop 重要お知らせ詳細ページを自動追跡します: {sub_url}")
@@ -144,6 +174,7 @@ async def fetch_direct_html(url: str, depth: int = 0, max_depth: int = 1) -> str
         if subpage_texts:
             clean_text += "\n\n" + "\n\n".join(subpage_texts)
 
+        _RECENT_FETCH_CACHE[url] = (time.time(), clean_text)
         return clean_text
     except Exception as e2:
         logger.error(f"直接HTTPスクレイピングも失敗 (URL: {url}): {e2}")

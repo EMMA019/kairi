@@ -269,6 +269,24 @@ def test_1hop_top_or_list_page_detection():
     assert is_top_or_list("https://www.princehotels.co.jp/shimoda/restaurant/menu/detail/12345.html") is False
 
 
+@pytest.mark.anyio
+async def test_jina_deduplication_cache():
+    """Jinaおよび直接フェッチにおける同一URL重複リクエストキャッシュ機構のテスト"""
+    from app.core.search.providers.jina import _RECENT_FETCH_CACHE, fetch_direct_html
+    import time
+
+    test_url = "https://example.com/test_dedup_cache"
+    _RECENT_FETCH_CACHE[test_url] = (time.time(), "CACHED_CONTENT_TEST")
+
+    # キャッシュヒットして実際に通信せず CACHED_CONTENT_TEST が返ること
+    result = await fetch_direct_html(test_url)
+    assert result == "CACHED_CONTENT_TEST"
+
+    # 後始末
+    _RECENT_FETCH_CACHE.pop(test_url, None)
+
+
+
 
 
 

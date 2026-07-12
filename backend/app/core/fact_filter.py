@@ -1,4 +1,5 @@
 import re
+from datetime import date, timedelta
 from typing import Optional
 from app.utils.logger import get_logger
 from app.core.source_evaluator import verify_entity_claim_attribution
@@ -448,25 +449,75 @@ def enforce_persona_fact_separation(persona_text: str, verified_facts: list[str]
 
 def verify_holiday_and_weekend_claims(text: str) -> str:
     """
-    祝日・連休関係の誤断定フィルター：
+    祝日・連休関係の誤断定フィルター（動的祝日判定版）：
+    jpholidayを使い、任意の日付に対して「〇連休の何日目か」を動的に正しく判定する。
     翌日（月曜）が祝日（海の日等）である場合の「日曜が3連休の最終日」といった誤認表現を補正する。
     """
     if not text or not isinstance(text, str):
         return text
 
-    replacements = [
-        (re.compile(r'(?:3|三)連休の最終日曜日', re.IGNORECASE), "3連休の中日（日曜日）"),
-        (re.compile(r'7月19日（?日）?は(?:海の日|海の日の)?(?:3|三)連休の最終日', re.IGNORECASE), "7月19日（日）は3連休の中日（翌20日が海の日祝日）"),
-    ]
-    for pat, rep in replacements:
-        text = pat.sub(rep, text)
+    try:
+        import jpholiday
+    except ImportError:
+        logger.warning("jpholidayが未インストールのため祝日連休チェックをスキップします")
+        return text
+
+    def _get_consecutive_holiday_position(d: date) -> tuple[int, int, str]:
+        """指定日が連休の何日目か（1-indexed）と連休全体の日数、祝日名を返す"""
+        # 連休の開始日を探す（前日も休みかどうか遡る）
+        start = d
+        while True:
+            prev = start - timedelta(days=1)
+            if prev.weekday() >= 5 or jpholiday.is_holiday(prev):  # 土日 or 祝日
+                start = prev
+            else:
+                break
+        # 連休の終了日を探す（翌日も休みかどうか進む）
+        end = d
+        while True:
+            nxt = end + timedelta(days=1)
+            if nxt.weekday() >= 5 or jpholiday.is_holiday(nxt):  # 土日 or 祝日
+                end = nxt
+            else:
+                break
+        total = (end - start).days + 1
+        position = (d - start).days + 1
+        holiday_name = jpholiday.is_holiday_name(d) or ""
+        return position, total, holiday_name
+
+    # 「〇月〇日が3連休の最終日」等の表現を検出
+    date_pattern = re.compile(r'(\d{1,2})月(\d{1,2})日.*?(?:3|三|4|四|5|五)連休の(最終日|最後の日)')
+    for m in date_pattern.finditer(text):
+        try:
+            month, day = int(m.group(1)), int(m.group(2))
+            from datetime import datetime
+            now = datetime.now()
+            target = date(now.year, month, day)
+            pos, total, hol_name = _get_consecutive_holiday_position(target)
+            if total >= 3 and pos < total:
+                # 最終日ではない → 補正
+                if pos == 1:
+                    pos_label = "初日"
+                else:
+                    pos_label = f"{pos}日目（中日）"
+                old_text = m.group(0)
+                new_text = re.sub(r'(?:最終日|最後の日)', pos_label, old_text)
+                text = text.replace(old_text, new_text)
+                logger.info(f"🗓️ 連休位置を動的補正しました: {old_text} → {new_text}")
+        except (ValueError, OverflowError):
+            pass
+
+    # 汎用パターン: 「3連休の最終日曜日」等
+    text = re.sub(r'(?:3|三)連休の最終日曜日', '3連休の中日（日曜日）', text)
+
     return text
 
 
 def strip_excuse_hallucinations(text: str) -> str:
     """
-    自己正当化・言い訳ハルシネーション除去フィルター：
-    「京都の祇園祭の日程を混同した」等の事実無根な弁明文章を除去・浄化する。
+    自己正当化・言い訳ハルシネーション除去フィルター（動詞ベース包括版）：
+    「〇〇と混同した」「〇〇と勘違いした」「〇〇の日程を取り違えた」等の
+    事実無根な弁明文章を動詞パターンで包括的に検知・除去する。
     """
     if not text or not isinstance(text, str):
         return text
@@ -474,8 +525,12 @@ def strip_excuse_hallucinations(text: str) -> str:
     lines = text.splitlines()
     cleaned = []
     excuse_patterns = [
-        re.compile(r'.*(?:祇園祭|別のイベント|別のお祭り|混同してしまったもので|日付を誤って適用).*', re.IGNORECASE),
-        re.compile(r'^[\s*#-]*誤りの原因について.*', re.IGNORECASE),
+        # 動詞ベース包括パターン（「〜と混同」「〜と勘違い」「〜を取り違え」等）
+        re.compile(r'.*(?:と混同(?:し(?:てしまい|まし)|した)|と勘違い(?:し(?:てしまい|まし)|した)|を取り違え(?:てしまい|まし|た)|を誤って適用|の日程と間違え).*', re.IGNORECASE),
+        # セクション見出しパターン（「誤りの原因について」等）
+        re.compile(r'^[\s*#-]*(?:誤りの原因|間違いの原因|混同の原因|誤認の理由)(?:について)?.*', re.IGNORECASE),
+        # 弁明構文パターン（「これは〇〇を〇〇したものです」）
+        re.compile(r'.*これは.*(?:混同|勘違い|取り違え|誤認).*(?:したもの|によるもの).*', re.IGNORECASE),
     ]
     for line in lines:
         stripped = line.strip()
@@ -498,8 +553,8 @@ def strip_out_of_period_event_mentions(text: str) -> str:
     lines = text.splitlines()
     cleaned = []
     out_of_period_patterns = [
-        re.compile(r'.*(?:あじさい祭|花火大会|祭り|催事|イベント).*(?:終了しており|終了済み|期間外|開催されてい(?:た|ました)|対象外|見られません).*', re.IGNORECASE),
-        re.compile(r'^[※*・\-\s]*注意点.*(?:終了|期間外).*', re.IGNORECASE),
+        re.compile(r'.*(?:あじさい祭|花火大会|祭り|催事|イベント|マラソン|フェス(?:ティバル)?|フリマ|フリーマーケット|コンサート|花見|紅葉|盆踊り|夏祭り|冬祭り|春祭り|秋祭り|クリスマスマーケット|カウントダウン|初詣|例大祭|縁日).*(?:終了しており|終了済み|期間外|開催されてい(?:た|ました)|対象外|見られません|間に合いません|過ぎて(?:おり|い)ます).*', re.IGNORECASE),
+        re.compile(r'^[※*・\-\s]*(?:注意点|⚠️).*(?:終了|期間外|対象外).*', re.IGNORECASE),
     ]
 
     for line in lines:

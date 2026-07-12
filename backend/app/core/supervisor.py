@@ -347,6 +347,11 @@ async def run_supervisor(
     messages = history_messages + [{"role": "user", "content": prompt}]
 
     final_system_prompt = SUPERVISOR_SYSTEM_PROMPT
+
+    # ユーザー居住地情報をsupervisorプロンプトに注入（検索クエリ生成時の起点最適化）
+    user_location = settings.get("user_location", "").strip()
+    if user_location:
+        final_system_prompt += f"\n\n【ユーザー居住地情報】\nユーザーの居住地は「{user_location}」です。旅行・お出かけ・乗り換え相談時には、このエリアをデフォルト出発地として検索クエリや移動手段の提案に活用してください。\n"
         
     if system_instruction:
         clean_sys_inst = re.sub(r'# 【出力フォーマット（厳守・列挙値は逸脱禁止）】.*', '', system_instruction, flags=re.DOTALL)

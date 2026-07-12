@@ -877,6 +877,11 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
         claim = match.group(0)
         if claim in src:
             return claim
+        num_match = re.search(r'\d+', claim)
+        if num_match:
+            mins = num_match.group(0)
+            if f"{mins}分" in src:
+                return claim
         logger.warning(f"[NumericalDefense] ソース未記載の所要時間を検知: {claim}")
         return "アクセス可能（※正確な所要時間は要確認）"
 
@@ -947,7 +952,10 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
     def _check_price(match):
         price_str = match.group(0)
         num_only = price_str.replace(",", "")
+        val_str = re.sub(r'[^0-9]', '', price_str)
         if price_str in src or num_only in src:
+            return price_str
+        if val_str and (f"{val_str}円" in src or f"{int(val_str):,}" in src or f"￥{val_str}" in src or f"¥{val_str}" in src or (len(val_str) >= 3 and val_str in src)):
             return price_str
         logger.warning(f"[NumericalDefense] ソース未記載の料金・金額を検知: {price_str}")
         return "（※正確な料金は公式サイト等で要確認）"

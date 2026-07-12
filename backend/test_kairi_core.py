@@ -203,10 +203,29 @@ def test_strip_unrequested_yahoo_finance():
 def test_strip_outdated_past_event_predictions():
     """時系列ハルシネーション防衛：過去イベントの進行形記述（冬季五輪に向けて等）が是正されることのテスト"""
     from app.core.fact_filter import strip_outdated_past_event_predictions
-
     raw_text = "ミラノ冬季五輪に向けて航空券の検索数が増加しています。"
     corrected = strip_outdated_past_event_predictions(raw_text)
     assert "冬季五輪に向けて" not in corrected
     assert "冬季五輪（2月開催済み）以降の動向として" in corrected
+
+
+def test_enforce_variable_numerical_claims_normalization():
+    """所要時間・料金情報の過剰置換防止（表記ゆれ許容）テスト"""
+    from app.core.fact_filter import enforce_variable_numerical_claims
+
+    source_text = "白浜中央海水浴場から徒歩1分、車で約13分。ランチ丼は大人 2,500円"
+
+    # 1. 所要時間の表記ゆれ（「車13分」「徒歩約1分」等）がソース内の分数と合致すれば保持されること
+    text1 = "ホテルから徒歩約1分、シュノーケリングスポットまで車13分です。"
+    filtered1 = enforce_variable_numerical_claims(text1, source_text)
+    assert "徒歩約1分" in filtered1
+    assert "車13分" in filtered1
+    assert "要確認" not in filtered1
+
+    # 2. 料金の表記ゆれ（「2500円」「2,500円」等）が合致すれば保持されること
+    text2 = "ランチ丼は2500円でお楽しみいただけます。"
+    filtered2 = enforce_variable_numerical_claims(text2, source_text)
+    assert "2500円" in filtered2
+
 
 

@@ -309,8 +309,13 @@ def check_market_status(dt: Optional[datetime.datetime] = None) -> dict:
             "disclaimer": "※ルールベース推定値です。確実な情報は公式サイトで確認してください。"
         }
     """
+    JST = datetime.timezone(datetime.timedelta(hours=9))
     if dt is None:
-        dt = datetime.datetime.now()
+        dt = datetime.datetime.now(JST)
+    elif dt.tzinfo is None:
+        dt = dt.replace(tzinfo=JST)
+    else:
+        dt = dt.astimezone(JST)
     
     date = dt.date()
     year = date.year
@@ -389,7 +394,7 @@ def check_market_status(dt: Optional[datetime.datetime] = None) -> dict:
                 jp_reason = "outside_trading_hours"
     
     return {
-        "datetime": dt.strftime("%Y-%m-%d %H:00 (JST)"),
+        "datetime": dt.strftime("%Y-%m-%d %H:%M (JST)"),
         "us_market": us_status,
         "us_reason": us_reason,
         "us_close_time": us_close,

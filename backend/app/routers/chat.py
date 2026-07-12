@@ -290,8 +290,8 @@ async def chat(request: ChatRequest):
             if not combined_texts or not any(len(t.strip()) > 50 for t in combined_texts):
                 logger.warning("初回検索が不十分または空のため、構造化クエリ (site:指定、英語キーワード追加等) に切り替えて自動再試行します。")
                 fallback_queries = []
-                from datetime import datetime
-                _current_date = datetime.now().strftime("%Y-%m-%d")
+                from datetime import datetime, timezone, timedelta
+                _current_date = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
                 for q in search_queries[:max_queries]:
                     # 質問がニュースや一般的なトピックの場合と、個別株の場合で構造化クエリをスマートに切り替え
                     if any(kw in user_input for kw in ["ニュース", "話題", "最新", "世界", "経済", "日本", "一般"]):

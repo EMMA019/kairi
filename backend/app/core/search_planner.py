@@ -29,6 +29,7 @@ PLANNER_SYSTEM_PROMPT = """あなたはユーザーの入力と文脈から、**
    - 例えば「半導体の暴落は懸念で済んだ？」なら、下落要因のクエリと **反発・回復トレンド（rebound / recovery / latest update）** のクエリをペアで生成する。
    - 例：「〇〇技術の欠点は？」なら、欠点（drawbacks / issues）と同時に **解決策・最新改善・メリット（solutions / latest improvements）** も合わせる。
    - 常に「そのテーマに関する主要な事象・問題・見解」を調べる第1クエリと、「その反対側面・最新フォローアップ・回復動向・別視点」を調べる第2クエリをバランスよくペア（配列最大2件）にして生成し、両面からのファクトを同時に収集できるようにしてください！
+6.5. **施設料金・営業時間・チケット価格の「公式サイト検索」ルール (🟡 P1)**: 観光地・水族館・施設等の「料金」「営業時間」「定休日」に関する質問時は、まっぷるやじゃらん等のまとめ記事で止まらず正確な最新料金（例：改定後料金）を確認できるように、必ず「施設名 料金 営業時間 公式」「施設名 入園料 2026 公式サイト」のような公式サイト・公式案内をヒットさせるキーワードを生成すること。
 7. **マルチトピック・人物のクエリ分割**: ユーザーの質問に複数の人物、異なる企業、異なるトピック（例: 「鈴木ザイオンと佐野海舟の最新情報」）が含まれている場合、必ず各トピックや人物ごとに独立した検索キーワードを作成し、`search_queries` 配列に複数出力してください。APIコスト削減のため**クエリ数は最大2個まで**に厳格制限してください。
 8. **一般的なトレンド・カルチャー・ライフスタイル検索のクエリ設計**: 「最近欧米のトレンドって何かある？」「最近の話題は？」等の一般的なトレンドを問われた際、経済・マクロ指標だけに偏らないよう、カルチャー、テクノロジー、ライフスタイル、旅行、社会動向など多様なトピックをカバーする英語クエリ（例: `["latest US Europe cultural lifestyle tech trends July 2026", "current consumer lifestyle trends US Europe 2026"]`）を作成してください。また、年始に書かれた過去の年間予測記事ばかりヒットしないよう、現在の日時を踏まえた時期キーワードや日付範囲（`after:YYYY-MM-DD`）を組み合わせて最新情報が取得できるようにしてください。
 
@@ -56,8 +57,9 @@ async def plan_search(user_input: str, history_messages: list[dict]) -> dict[str
     """
     recent_history = history_messages[-3:] if len(history_messages) >= 3 else history_messages
 
-    from datetime import datetime
-    current_date = datetime.now().strftime("%Y-%m-%d")
+    from datetime import datetime, timezone, timedelta
+    JST = timezone(timedelta(hours=9))
+    current_date = datetime.now(JST).strftime("%Y-%m-%d")
 
     context_text = f"【現在の日付: {current_date}】\n\n【直近の会話履歴】\n"
     if not recent_history:

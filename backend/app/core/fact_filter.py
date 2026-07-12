@@ -607,6 +607,14 @@ def sanitize_internal_tool_mentions(text: str) -> str:
     ]
     for pat, rep in replacements:
         text = pat.sub(rep, text)
+
+    # 内部指示用語がそのまま見出し・セクションヘッダーとして漏洩するのを除去
+    internal_heading_pattern = re.compile(
+        r'^[#\s📌🔍💡]*(?:ソフトな確認|ソフト確認|確認事項|ヒアリング項目|内部メモ|指示メモ)\s*$',
+        re.MULTILINE
+    )
+    text = internal_heading_pattern.sub('', text)
+
     return text
 
 

@@ -57,6 +57,7 @@ _DEFAULT_SETTINGS = {
     "planner_provider": "deepseek",
     "planner_model": "deepseek-v4-flash",
     "user_name": "ご主人様",
+    "user_location": "",
     "persona_style": "standard",
     "locale": "ja",
     "gemini_api_key": "",
@@ -165,6 +166,7 @@ class SettingsUpdate(BaseModel):
     executor_model: Optional[str] = None
     planner_provider: Optional[str] = None
     user_name: Optional[str] = None
+    user_location: Optional[str] = None
     persona_style: Optional[str] = None
     locale: Optional[str] = None
     gemini_api_key: Optional[str] = None

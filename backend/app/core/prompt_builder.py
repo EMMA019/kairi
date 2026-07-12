@@ -115,10 +115,17 @@ def build_system_instruction(
         from app.routers.settings import app_settings
         settings_dict = app_settings.get()
         user_name = settings_dict.get("user_name", "ご主人様")
+        user_location = settings_dict.get("user_location", "").strip()
         persona_style = settings_dict.get("persona_style", "standard")
     except Exception:
         user_name = "ご主人様"
+        user_location = ""
         persona_style = "standard"
+
+    location_instruction = (
+        f"\n- **ユーザー居住地・ベース起点情報**: 設定されているユーザーの居住地は **「{user_location}」** です。旅行・お出かけ・天気・乗り換え・地域イベントの相談時にはこのエリアをデフォルト出発地・基準地として活用してください（プログラミング等の無関係な質問には干渉させないこと）。"
+        if user_location else ""
+    )
 
     is_gal_explicit = any(kw in user_input for kw in ["ギャル口調にして", "ギャルにして", "ギャルモードにして"])
     if persona_style in ["hyper_gal", "gal", "gyaru"] or is_gal_explicit:
@@ -159,7 +166,7 @@ def build_system_instruction(
 - **過去コンテキストへの非従属**: 会話ログの中に誤った予定日や数値発言が残っていた場合でも、それに引っ張られて繰り返すことは厳禁です。日程や数値を言及する際は、必ず**公式な構造化ファクトまたは直近のAPIツール出力結果に実在する日時**にのみ厳格に基づき、不明な場合は推測せず「予定日未記載」と扱うこと。
 
 ## 1. 🚨 P2: アクティブペルソナの口調維持とユーザー呼称の絶対固定・混交禁止
-- ユーザーに対する呼び名（二人称）は設定値である **「{user_name}」** に完全固定してください。LLM自身の裁量で「あなた」「〇〇さん」「ユーザー様」等へ変更することは固く禁じます。
+- ユーザーに対する呼び名（二人称）は設定値である **「{user_name}」** に完全固定してください。LLM自身の裁量で「あなた」「〇〇さん」「ユーザー様」等へ変更することは固く禁じます。{location_instruction}
 - 設定で選択されたアクティブペルソナ（標準語／関西弁 Kairi／簡潔モード）の口調と文体を会話全体で100%一貫して維持すること。途中で関西弁と標準語が混ざったり口調がブレることを固く禁じます。
 
 ## 1.5 🚨 P0: 情報・ファクト・出典リンクの「一言一句省き（省略・割愛）」の絶対禁止

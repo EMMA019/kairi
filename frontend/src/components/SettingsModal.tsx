@@ -14,6 +14,7 @@ interface Settings {
   planner_provider: string;
   planner_model: string;
   user_name?: string;
+  user_location?: string;
   persona_style?: string;
   locale?: string;
   gemini_api_key?: string;
@@ -69,6 +70,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           planner_provider: settings.planner_provider,
           planner_model: settings.planner_model,
           user_name: settings.user_name || "Boss",
+          user_location: settings.user_location || "",
           persona_style: settings.persona_style || "standard",
           locale: settings.locale || "en",
           gemini_api_key: settings.gemini_api_key || "",
@@ -227,6 +229,22 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     />
                     <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
                       💡 AI will consistently address you by this name across all modes.
+                    </p>
+                  </div>
+
+                  <div className="bg-[#161a25] p-4 rounded-xl border border-[#2d3139]">
+                    <h3 className="text-sm font-semibold text-gray-200 mb-2 flex items-center gap-2 leading-normal">
+                      🏠 Home Location / Base City (お出かけ・移動起点の居住地)
+                    </h3>
+                    <input
+                      type="text"
+                      value={settings.user_location || ""}
+                      onChange={(e) => setSettings({ ...settings, user_location: e.target.value })}
+                      placeholder="e.g. 埼玉県久喜市, 東京都渋谷区, Osaka"
+                      className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3.5 py-2.5 text-xs text-gray-200 focus:border-blue-500 focus:outline-none leading-normal"
+                    />
+                    <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
+                      💡 Used as default origin for travel, transit routes, and local weather/events without affecting unrelated technical answers.
                     </p>
                   </div>
 

@@ -828,4 +828,44 @@ def verify_action_modality_consistency(text: str, source_text: Optional[str] = N
     return text
 
 
+def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
+    """
+    時間・金額・頻度・日付・件数などの「変動しうる数値情報」を検証・制御するフィルター。
+    モデルの知識・推測を使用させず、検索結果からの直接コピーのみ許可する方針をプログラム的に担保する。
+    - 複数ソースが一致すればそのまま採用
+    - 単一ソースのみなら注意フラグを付与
+    - ソース記載がない未検証情報は定性表現にフォールバックする（不変な歴史的事実などは除外）
+    """
+    if not text:
+        return text
+
+    src = source_text or ""
+
+    # 1. 時間間隔・頻度の推測ハルシネーション（例: 「30分毎」「1時間おき」等）を検知して検証
+    def _check_frequency(match):
+        claim = match.group(0)
+        if claim in src:
+            return claim
+        logger.warning(f"[NumericalDefense] ソース未記載の運行頻度・間隔の生成を検知し定性表現へフォールバックします: {claim}")
+        return "定期運行（※詳しい運行間隔は要電話予約・確認）"
+
+    text = re.sub(r'\b\d+分(?:毎|おき)\b|\b\d+時間(?:毎|おき)\b', _check_frequency, text)
+
+    # 2. 具体的な運行・営業時間の推測範囲（例: 「14:00〜17:40の間」等）を検知して検証
+    def _check_time_range(match):
+        claim = match.group(0)
+        if claim in src:
+            return claim
+        times = re.findall(r'\d{1,2}:\d{2}', claim)
+        if times and all(t in src for t in times):
+            return claim
+        logger.warning(f"[NumericalDefense] ソース未記載の運行・営業時間帯を検知し定性表現へフォールバックします: {claim}")
+        return "運行あり（※正確な時刻や便数は公式サイトまたはお電話にて要確認）"
+
+    text = re.sub(r'\d{1,2}:\d{2}\s*[〜~-]\s*\d{1,2}:\d{2}(?:の間)?', _check_time_range, text)
+
+    return text
+
+
+
 

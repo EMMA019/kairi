@@ -441,7 +441,49 @@ def enforce_persona_fact_separation(persona_text: str, verified_facts: list[str]
     validated_text = sanitize_internal_tool_mentions(validated_text)
     validated_text = clean_broken_markdown_tables(validated_text)
     validated_text = strip_out_of_period_event_mentions(validated_text)
+    validated_text = verify_holiday_and_weekend_claims(validated_text)
+    validated_text = strip_excuse_hallucinations(validated_text)
     return validated_text
+
+
+def verify_holiday_and_weekend_claims(text: str) -> str:
+    """
+    祝日・連休関係の誤断定フィルター：
+    翌日（月曜）が祝日（海の日等）である場合の「日曜が3連休の最終日」といった誤認表現を補正する。
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    replacements = [
+        (re.compile(r'(?:3|三)連休の最終日曜日', re.IGNORECASE), "3連休の中日（日曜日）"),
+        (re.compile(r'7月19日（?日）?は(?:海の日|海の日の)?(?:3|三)連休の最終日', re.IGNORECASE), "7月19日（日）は3連休の中日（翌20日が海の日祝日）"),
+    ]
+    for pat, rep in replacements:
+        text = pat.sub(rep, text)
+    return text
+
+
+def strip_excuse_hallucinations(text: str) -> str:
+    """
+    自己正当化・言い訳ハルシネーション除去フィルター：
+    「京都の祇園祭の日程を混同した」等の事実無根な弁明文章を除去・浄化する。
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    lines = text.splitlines()
+    cleaned = []
+    excuse_patterns = [
+        re.compile(r'.*(?:祇園祭|別のイベント|別のお祭り|混同してしまったもので|日付を誤って適用).*', re.IGNORECASE),
+        re.compile(r'^[\s*#-]*誤りの原因について.*', re.IGNORECASE),
+    ]
+    for line in lines:
+        stripped = line.strip()
+        if any(pat.match(stripped) for pat in excuse_patterns):
+            logger.info(f"🧹 言い訳ハルシネーション行を除去しました: {stripped}")
+            continue
+        cleaned.append(line)
+    return "\n".join(cleaned)
 
 
 def strip_out_of_period_event_mentions(text: str) -> str:

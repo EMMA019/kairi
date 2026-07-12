@@ -551,6 +551,8 @@ async def auto_execute_with_retry(
             sanitize_internal_tool_mentions,
             clean_broken_markdown_tables,
             strip_out_of_period_event_mentions,
+            verify_holiday_and_weekend_claims,
+            strip_excuse_hallucinations,
         )
         _, final_accumulated_response = check_currency_consistency(final_accumulated_response)
         _, final_accumulated_response = verify_numbers_exist_in_source(final_accumulated_response, str(search_results or ""))
@@ -563,6 +565,8 @@ async def auto_execute_with_retry(
         final_accumulated_response = sanitize_internal_tool_mentions(final_accumulated_response)
         final_accumulated_response = clean_broken_markdown_tables(final_accumulated_response)
         final_accumulated_response = strip_out_of_period_event_mentions(final_accumulated_response)
+        final_accumulated_response = verify_holiday_and_weekend_claims(final_accumulated_response)
+        final_accumulated_response = strip_excuse_hallucinations(final_accumulated_response)
     except Exception as e:
         logger.warning(f"Fact filter validation warning in auto_execution_loop: {e}")
 

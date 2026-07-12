@@ -39,7 +39,7 @@ export interface ViolationLog {
 }
 
 /** SSE イベントの型定義 */
-export type SSEEventType = "status" | "chunk" | "thinking" | "done" | "error" | "reasoning" | "sources";
+export type SSEEventType = "status" | "chunk" | "thinking" | "done" | "error" | "reasoning" | "sources" | "clear_buffer";
 
 export interface SSEEvent {
   type: SSEEventType;

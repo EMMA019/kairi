@@ -436,7 +436,54 @@ def enforce_persona_fact_separation(persona_text: str, verified_facts: list[str]
     validated_text = strip_unrequested_yahoo_finance(validated_text, user_input=user_input)
     validated_text = strip_outdated_past_event_predictions(validated_text)
     validated_text = verify_action_modality_consistency(validated_text, source_text=source_context)
+    validated_text = deduplicate_spot_listings(validated_text)
     return validated_text
+
+
+def deduplicate_spot_listings(text: str) -> str:
+    """
+    店舗・施設リスト表記ゆれ重複排除フィルター：
+    マークダウン表において「カフェレストラン PAPAS」と「パパス」のように
+    英語/カタカナ表記や通称違いで同一店舗が複数行に分かれて並んでいる場合、
+    重複行を自動検知して除外・名寄せする。
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    lines = text.splitlines()
+    result_lines = []
+    seen_norm_names = set()
+
+    def normalize_key(col_text: str) -> str:
+        s = col_text.strip().lower()
+        # カタカナ単語や記号を単語単位で除去
+        s = re.sub(r'(カフェレストラン|カフェ|レストラン|食堂|居酒屋|洋食|[\s・（）\(\)])', '', s)
+        return s
+
+    for line in lines:
+        stripped = line.strip()
+        # テーブルの行（ヘッダー行や区切り線を除く）
+        if stripped.startswith("|") and stripped.endswith("|") and "---" not in stripped:
+            cols = [c.strip() for c in stripped.split("|")[1:-1]]
+            if cols and not any(header in cols[0] for header in ["店舗名", "スポット", "名称", "名前", "店舗"]):
+                first_col = cols[0]
+                norm = normalize_key(first_col)
+                # PAPAS/パパス等の同義表記ペア判定
+                alias_keys = {norm}
+                if "papas" in norm or "パパス" in norm:
+                    alias_keys.update(["papas", "パパス"])
+                if "south" in norm or "サウス" in norm:
+                    alias_keys.update(["southcafe", "サウスカフェ"])
+
+                if any(ak in seen_norm_names for ak in alias_keys if len(ak) >= 2):
+                    logger.debug(f"重複店舗行を自動除外しました: {first_col}")
+                    continue
+                for ak in alias_keys:
+                    if len(ak) >= 2:
+                        seen_norm_names.add(ak)
+        result_lines.append(line)
+
+    return "\n".join(result_lines)
 
 
 

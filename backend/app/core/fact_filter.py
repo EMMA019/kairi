@@ -439,7 +439,32 @@ def enforce_persona_fact_separation(persona_text: str, verified_facts: list[str]
     validated_text = deduplicate_spot_listings(validated_text)
     validated_text = verify_exit_and_address_entanglement(validated_text)
     validated_text = sanitize_internal_tool_mentions(validated_text)
+    validated_text = clean_broken_markdown_tables(validated_text)
     return validated_text
+
+
+def clean_broken_markdown_tables(text: str) -> str:
+    """
+    未完成・破綻マークダウン表（|------|------|等）のクリーンアップフィルター：
+    テーブルの区切り線だけ出力されて直前に表ヘッダーがない孤立行や、
+    データ行が存在しない壊れた表罫線をクリーンアップする。
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    lines = text.splitlines()
+    cleaned = []
+    for line in lines:
+        stripped = line.strip()
+        if re.match(r'^\|[\s:-]+\|([\s:-]+\|)+$', stripped):
+            if cleaned and cleaned[-1].strip().startswith('|'):
+                cleaned.append(line)
+            else:
+                logger.warning(f"🚨 データのない孤立マークダウン表罫線を検知・除去しました: {stripped}")
+                continue
+        else:
+            cleaned.append(line)
+    return "\n".join(cleaned)
 
 
 def sanitize_internal_tool_mentions(text: str) -> str:

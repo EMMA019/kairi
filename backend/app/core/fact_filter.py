@@ -438,7 +438,27 @@ def enforce_persona_fact_separation(persona_text: str, verified_facts: list[str]
     validated_text = verify_action_modality_consistency(validated_text, source_text=source_context)
     validated_text = deduplicate_spot_listings(validated_text)
     validated_text = verify_exit_and_address_entanglement(validated_text)
+    validated_text = sanitize_internal_tool_mentions(validated_text)
     return validated_text
+
+
+def sanitize_internal_tool_mentions(text: str) -> str:
+    """
+    内部システムツール名漏洩（メタ発言）自動サニタイズフィルター：
+    「travel_routeツールを使って」「search_nearby_spotsを使って」等の
+    内部実装ツール名が含まれている場合、ユーザーにとって自然で人間らしい表現へ置き換える。
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    replacements = [
+        (re.compile(r'travel_routeツール(?:を使って|により|で)?', re.IGNORECASE), "ルート・乗り換え検索を使って"),
+        (re.compile(r'search_nearby_spotsツール(?:を使って|により|で)?', re.IGNORECASE), "周辺スポット検索を使って"),
+        (re.compile(r'(?:内部|システム)?ツール（?(?:travel_route|search_nearby_spots|search)）?(?:を使って|により|で)?', re.IGNORECASE), "最新の検索機能を使って"),
+    ]
+    for pat, rep in replacements:
+        text = pat.sub(rep, text)
+    return text
 
 
 def verify_exit_and_address_entanglement(text: str) -> str:

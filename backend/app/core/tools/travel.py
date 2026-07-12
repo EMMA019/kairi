@@ -40,34 +40,40 @@ def _geocode_place(place: str, token: str) -> tuple[float, float, str]:
 
 @tool_registry.register(
     name="travel_route",
-    description="出発地から目的地までの移動時間・距離・ルート（車/徒歩）を計算するツール",
+    description="出発地から目的地までの移動時間・距離・ルート目安（車・徒歩・自転車・電車バス等）を計算するツール。modeには 'driving'(車), 'walking'(徒歩), 'cycling'(自転車), 'transit'(電車・路線バス) が指定可能",
 )
 def travel_route(origin: str, destination: str, mode: str = "driving") -> str:
     """旅行ルート＆移動時間を計算"""
     token = os.environ.get("MAPBOX_API_KEY", "").strip()
+    # モードマッピング
+    mode_lower = str(mode).lower().strip()
+    if mode_lower in ("walking", "walk", "徒歩"):
+        api_mode = "walking"
+        icon = "🚶"
+        mode_label = "徒歩"
+    elif mode_lower in ("cycling", "bicycle", "自転車", "レンタサイクル"):
+        api_mode = "cycling"
+        icon = "🚲"
+        mode_label = "自転車"
+    elif mode_lower in ("transit", "train", "bus", "電車", "バス", "路線バス", "公共交通機関"):
+        api_mode = "driving"  # 基本道路ネットワーク距離を取得して公共交通目安時間を導出
+        icon = "🚌・🚃"
+        mode_label = "電車・路線バス（公共交通目安）"
+    else:
+        api_mode = "driving-traffic"
+        icon = "🚗"
+        mode_label = "車・タクシー"
+
     if not token:
         # トークン未設定時のモックタイムラインシミュレート
         return (
-            f"🚗 【旅行ルートシミュレート（Mapboxキー未登録・フォールバック）】\n"
+            f"{icon} 【移動ルート＆時間目安（フォールバック）】\n"
             f"- **出発地**: {origin}\n"
             f"- **目的地**: {destination}\n"
-            f"- **移動手段**: {mode} (車/レンタカー標準)\n"
-            f"- **目安所要時間**: 約 1時間 45分\n"
-            f"- **走行距離**: 約 88.5 km\n\n"
-            f"| 時刻 | 場所・アクション | 備考 |\n"
-            f"| :--- | :--- | :--- |\n"
-            f"| 09:00 | {origin} 出発 | 渋滞回避のため早め出発 |\n"
-            f"| 10:00 | 高速SA 休憩 | カフェタイム・トイレ休憩 |\n"
-            f"| 10:45 | {destination} 到着 | 駐車場チェック・観光スタート |\n\n"
-            f"※ 本物のルート計算をするには Render の環境変数に `MAPBOX_API_KEY` を入れてね！"
+            f"- **移動手段**: {mode_label}\n"
+            f"- **目安所要時間**: 約 15分〜30分\n"
+            f"※ 実際のリアルタイム道路/歩行距離計算は Render 上の `MAPBOX_API_KEY` を利用して行われます。"
         )
-
-    # モードマッピング
-    mapbox_mode = "driving-traffic" if mode in ("driving", "car", "車") else "walking"
-    if mapbox_mode == "driving-traffic":
-        api_mode = "driving-traffic"
-    else:
-        api_mode = "walking"
 
     try:
         orig_lng, orig_lat, orig_name = _geocode_place(origin, token)
@@ -87,30 +93,22 @@ def travel_route(origin: str, destination: str, mode: str = "driving") -> str:
             route = routes[0]
             distance_km = round(route.get("distance", 0) / 1000, 1)
             duration_min = round(route.get("duration", 0) / 60)
-            hours = duration_min // 60
-            mins = duration_min % 60
-            time_str = f"{hours}時間{mins}分" if hours > 0 else f"{mins}分"
 
-            # Mapbox Static Map サムネイルURLを自動生成 (ピンA=出発地, ピンB=目的地)
-            static_map_url = (
-                f"https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/"
-                f"pin-s-a+f43f5e({orig_lng},{orig_lat}),pin-s-b+3b82f6({dest_lng},{dest_lat})/"
-                f"auto/600x300@2x?padding=40&access_token={token}"
-            )
+            # 公共交通機関指定時は距離からの目安移動時間と徒歩との比較を算出
+            if mode_label.startswith("電車"):
+                transit_min = max(5, round(distance_km * 2.5) + 5)
+                time_str = f"約 {transit_min} 分（待ち時間除く目安） / 徒歩だと約 {round(distance_km * 12)} 分"
+            else:
+                hours = duration_min // 60
+                mins = duration_min % 60
+                time_str = f"{hours}時間{mins}分" if hours > 0 else f"{mins}分"
 
-            # しおりカード生成
             output = [
-                f"🚗 **【Mapbox 旅のしおり＆ルート計算結果】**",
-                f"![ルートマッププレビュー]({static_map_url})",
+                f"{icon} **【移動ルート＆時間目安 ({mode_label})】**",
                 f"- **出発地**: {orig_name}",
                 f"- **目的地**: {dest_name}",
-                f"- **移動手段**: {mode} (渋滞考慮)",
-                f"- **移動所要時間**: **{time_str}** ({distance_km} km)",
-                f"",
-                f"📋 **タイムスケジュール目安**",
-                f"| 経過時間 | アクション・ポイント | 距離目安 |",
-                f"| :--- | :--- | :--- |",
-                f"| スタート | {origin} 出発 | 0.0 km |",
+                f"- **移動手段**: {mode_label}",
+                f"- **移動所要時間**: **{time_str}** (距離目安: {distance_km} km)",
             ]
 
             # ステップから主要分岐をピックアップ

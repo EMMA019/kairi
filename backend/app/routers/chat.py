@@ -677,7 +677,14 @@ async def chat(request: ChatRequest):
 
 
 def _trim_history_content(content: str) -> str:
-    if not content or len(content) < 4000:
+    if not content:
+        return content
+
+    content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+    content = re.sub(r'(?m)^(?:まず、ユーザーの発言を分析します[^\n]*\n+|Output format:[^\n]*\n+|user_intent_analysis:[^\n]*\n+)+', '', content)
+    content = re.sub(r'【一般検索結果:.*?】\s*(?:\[brave\s*\[Tier.*?\]\].*?\n?)+', '', content, flags=re.DOTALL).strip()
+
+    if len(content) < 4000:
         return content
     
     def replace_code_block(match):

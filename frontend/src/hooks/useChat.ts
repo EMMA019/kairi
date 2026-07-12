@@ -55,6 +55,11 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
         }
         break;
 
+      case "clear_buffer":
+        setStreamingContent("");
+        streamingContentRef.current = "";
+        break;
+
       case "chunk":
         if (event.content) {
           setStreamingContent((prev) => {

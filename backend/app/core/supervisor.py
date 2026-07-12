@@ -251,6 +251,14 @@ def extract_json(text: str) -> dict[str, Any]:
     if not objs and reasoning:
         objs = find_json_objects(reasoning)
 
+    if not reasoning and objs:
+        idx = text_for_json.find('{')
+        if idx > 0:
+            prefix = text_for_json[:idx].strip()
+            prefix = re.sub(r'```(?:json)?$', '', prefix).strip()
+            if len(prefix) > 10:
+                reasoning = prefix
+
     data = None
     for obj_str in reversed(objs):
         try:

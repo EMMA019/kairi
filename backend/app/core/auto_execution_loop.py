@@ -571,8 +571,29 @@ async def auto_execute_with_retry(
         logger.warning(f"Fact filter validation warning in auto_execution_loop: {e}")
 
     tool_results_summary = "\n".join(tool_handler.tool_results) if tool_handler.tool_results else ""
+    if not final_accumulated_response.strip() and tool_results_summary:
+        logger.info("⚠️ ツール実行後に最終回答が未生成だったため、ツール結果をもとに集約回答を生成します")
+        try:
+            final_prompt_msg = "検索結果・ツール実行結果を踏まえて、ユーザーの質問に対する最終回答を自然な文章で作成してください。XMLタグや生ログ（【一般検索結果: ...】など）はそのまま出力せず、整理して回答してください。"
+            s_stream = run_executor(
+                user_input=final_prompt_msg,
+                instruction=instruction,
+                search_results=search_results or tool_results_summary,
+                memory_text=memory_text,
+                history_messages=exec_history,
+                mode=mode,
+                system_instruction=executor_sys_prompt + "\n\n【重要】XMLタグやツールタグは一切出力しないでください。結果を踏まえた最終的な回答のみを自然な対話で出力すること。",
+            )
+            final_accumulated_response = ""
+            async for chunk in s_stream:
+                final_accumulated_response += chunk
+                if yield_sse_func:
+                    yield_sse_func({"type": "chunk", "content": chunk})
+        except Exception as e:
+            logger.error(f"Final synthesis error: {e}")
+
     if not final_accumulated_response.strip():
-        logger.warning("⚠️ final_accumulated_response が空のため、ここまでの結果・履歴から最終回答を復帰します")
+        logger.warning("⚠️ final_accumulated_response が空のため、ここまでのアシスタント応答から最終回答を復帰します")
         last_assist = ""
         for msg in reversed(loop_history):
             if msg.get("role") == "assistant" and msg.get("content"):
@@ -580,12 +601,11 @@ async def auto_execute_with_retry(
                 if clean_content:
                     last_assist = clean_content
                     break
-        parts = []
-        if last_assist:
-            parts.append(last_assist)
-        if tool_results_summary:
-            parts.append(tool_results_summary)
-        final_accumulated_response = "\n\n".join(parts)
+        final_accumulated_response = last_assist
+
+    final_accumulated_response = re.sub(r'<think>.*?</think>', '', final_accumulated_response, flags=re.DOTALL)
+    final_accumulated_response = re.sub(r'(?m)^(?:まず、ユーザーの発言を分析します[^\n]*\n+|Output format:[^\n]*\n+|user_intent_analysis:[^\n]*\n+)+', '', final_accumulated_response)
+    final_accumulated_response = re.sub(r'【一般検索結果:.*?】\s*(?:\[brave\s*\[Tier.*?\]\].*?\n?)+', '', final_accumulated_response, flags=re.DOTALL)
 
     return final_accumulated_response.strip(), tool_results_summary, escalation_history
 

@@ -833,39 +833,151 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
     時間・金額・頻度・日付・件数などの「変動しうる数値情報」を検証・制御するフィルター。
     モデルの知識・推測を使用させず、検索結果からの直接コピーのみ許可する方針をプログラム的に担保する。
     - 複数ソースが一致すればそのまま採用
-    - 単一ソースのみなら注意フラグを付与
     - ソース記載がない未検証情報は定性表現にフォールバックする（不変な歴史的事実などは除外）
+
+    判定は完全一致および正規化形式。部分一致（"15"が共通してるからOK等）は行わない。
     """
     if not text:
         return text
 
     src = source_text or ""
 
-    # 1. 時間間隔・頻度の推測ハルシネーション（例: 「30分毎」「1時間おき」等）を検知して検証
+    # ====================================================================
+    # 1. 時間間隔・頻度（例: 「30分毎」「30分ごと」「30分に1本」「1時間おき」等）
+    # ====================================================================
     def _check_frequency(match):
         claim = match.group(0)
         if claim in src:
             return claim
-        logger.warning(f"[NumericalDefense] ソース未記載の運行頻度・間隔の生成を検知し定性表現へフォールバックします: {claim}")
-        return "定期運行（※詳しい運行間隔は要電話予約・確認）"
+        logger.warning(f"[NumericalDefense] ソース未記載の運行頻度・間隔の生成を検知: {claim}")
+        return "（※運行間隔の詳細は公式サイトまたはお電話にてご確認ください）"
 
-    text = re.sub(r'\b\d+分(?:毎|おき)\b|\b\d+時間(?:毎|おき)\b', _check_frequency, text)
+    text = re.sub(
+        r'\d+分(?:毎|ごと|おき|間隔|に1本)|\d+時間(?:毎|ごと|おき|間隔|に1本)',
+        _check_frequency,
+        text
+    )
 
-    # 2. 具体的な運行・営業時間の推測範囲（例: 「14:00〜17:40の間」等）を検知して検証
+    # ====================================================================
+    # 2. 便数・本数（例: 「1日4便」「4便運行」等）
+    # ====================================================================
+    def _check_transport_count(match):
+        claim = match.group(0)
+        if claim in src:
+            return claim
+        logger.warning(f"[NumericalDefense] ソース未記載の便数・本数を検知: {claim}")
+        return "運行あり（※詳しい便数は公式サイトまたはお電話にてご確認ください）"
+
+    text = re.sub(r'1日\d+(?:便|本|往復)', _check_transport_count, text)
+
+    # ====================================================================
+    # 3. 移動・アクセス所要時間（例: 「車約20分」「徒歩約10分」等）
+    # ====================================================================
+    def _check_travel_time(match):
+        claim = match.group(0)
+        if claim in src:
+            return claim
+        logger.warning(f"[NumericalDefense] ソース未記載の所要時間を検知: {claim}")
+        return "アクセス可能（※正確な所要時間は要確認）"
+
+    text = re.sub(
+        r'(?:車|徒歩|バス|電車|タクシー)(?:で)?(?:約)?\d+分',
+        _check_travel_time,
+        text
+    )
+
+    # ====================================================================
+    # 4. 時間帯レンジ（例: 「14:00〜17:40の間」「9時〜17時」等）
+    # ====================================================================
     def _check_time_range(match):
         claim = match.group(0)
         if claim in src:
             return claim
-        times = re.findall(r'\d{1,2}:\d{2}', claim)
+        # HH:MM または X時(Y分) を検証
+        times_hhmm = re.findall(r'\d{1,2}:\d{2}', claim)
+        times_jp = re.findall(r'\d{1,2}時(?:\d{1,2}分)?', claim)
+        times = times_hhmm + times_jp
         if times and all(t in src for t in times):
             return claim
-        logger.warning(f"[NumericalDefense] ソース未記載の運行・営業時間帯を検知し定性表現へフォールバックします: {claim}")
-        return "運行あり（※正確な時刻や便数は公式サイトまたはお電話にて要確認）"
+        logger.warning(f"[NumericalDefense] ソース未記載の時間帯レンジを検知: {claim}")
+        return "（※正確な時刻や営業時間は公式サイトまたはお電話にてご確認ください）"
 
-    text = re.sub(r'\d{1,2}:\d{2}\s*[〜~-]\s*\d{1,2}:\d{2}(?:の間)?', _check_time_range, text)
+    text = re.sub(
+        r'(?:\d{1,2}:\d{2}|\d{1,2}時(?:\d{1,2}分)?)\s*[〜~\-－]\s*(?:\d{1,2}:\d{2}|\d{1,2}時(?:\d{1,2}分)?)(?:の間)?',
+        _check_time_range,
+        text
+    )
+
+    # ====================================================================
+    # 5. 単独時刻の捏造検知（例: 「15:30発」「15時30分発」「15:30の」等）
+    # ====================================================================
+    _SERVICE_CONTEXT_KEYWORDS = [
+        "発", "着", "便", "本", "運行", "送迎", "シャトル", "バス", "出発",
+        "到着", "営業", "開館", "閉館", "開店", "閉店", "受付", "チェックイン",
+        "チェックアウト", "最終", "始発", "終電", "乗車",
+    ]
+
+    def _check_standalone_time(match):
+        claim_time = match.group(1)
+        full_match = match.group(0)
+
+        if claim_time in src:
+            return full_match
+
+        start = max(0, match.start() - 30)
+        end = min(len(text), match.end() + 30)
+        context_window = text[start:end]
+        is_service_context = any(kw in context_window for kw in _SERVICE_CONTEXT_KEYWORDS)
+
+        if not is_service_context:
+            return full_match
+
+        logger.warning(f"[NumericalDefense] ソース未記載の単独時刻を検知: {claim_time}")
+        return "（※正確な時刻は公式サイトまたはお電話にてご確認ください）"
+
+    text = re.sub(
+        r'(\d{1,2}:\d{2}|\d{1,2}時\d{1,2}分)\s*(?:発|着|便|頃|から|まで|～|〜|の)',
+        _check_standalone_time,
+        text
+    )
+
+    # ====================================================================
+    # 6. 料金・価格（例: 「2,500円」「1,500円」等）
+    # ====================================================================
+    def _check_price(match):
+        price_str = match.group(0)
+        num_only = price_str.replace(",", "")
+        if price_str in src or num_only in src:
+            return price_str
+        logger.warning(f"[NumericalDefense] ソース未記載の料金・金額を検知: {price_str}")
+        return "（※正確な料金は公式サイト等で要確認）"
+
+    text = re.sub(r'\d+(?:,\d+)*円', _check_price, text)
+
+    # ====================================================================
+    # 7. イベント・施設開始日程（例: 「7月15日から海開き」等）
+    # ====================================================================
+    def _check_date_claim(match):
+        date_str = match.group(1)
+        full_match = match.group(0)
+        if date_str in src or full_match in src:
+            return full_match
+
+        start = max(0, match.start() - 25)
+        end = min(len(text), match.end() + 25)
+        context_window = text[start:end]
+        event_kws = ["海開き", "開催", "オープン", "開始", "営業期間"]
+        if any(kw in context_window for kw in event_kws):
+            logger.warning(f"[NumericalDefense] ソース未記載のイベント開始日を検知: {date_str}")
+            return "夏季（※詳しい日程は公式サイトをご確認ください）から"
+        return full_match
+
+    text = re.sub(
+        r'(\d{1,2}月\d{1,2}日)\s*(?:から|より)',
+        _check_date_claim,
+        text
+    )
 
     return text
-
-
 
 

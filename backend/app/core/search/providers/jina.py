@@ -63,11 +63,12 @@ async def _can_fetch_robots(url: str, user_agent: str = "*") -> bool:
     return True
 
 
-async def fetch_direct_html(url: str) -> str:
-    """Jina失敗時の直接HTTP+HTMLテキストスクレイピングフォールバック (robots.txt厳守)"""
+async def fetch_direct_html(url: str, depth: int = 0, max_depth: int = 1) -> str:
+    """Jina失敗時の直接HTTP+HTMLテキストスクレイピングフォールバック (robots.txt厳守・重要お知らせ1階層追跡対応)"""
     try:
         from .http_client import get_http_client
         import re
+        from urllib.parse import urlparse, urljoin
         
         # --- 🛡️ robots.txt マナー遵守チェック ---
         if not await _can_fetch_robots(url):
@@ -83,6 +84,49 @@ async def fetch_direct_html(url: str) -> str:
         res.raise_for_status()
         html = res.text
 
+        # --- 🔗 1-hop 重要お知らせ追跡（トップページ・一覧ページ限定、最大2件まで） ---
+        subpage_texts = []
+        parsed_base = urlparse(url)
+        path_parts = [p for p in parsed_base.path.strip("/").split("/") if p]
+        is_top_or_list_page = (
+            len(path_parts) <= 1
+            or parsed_base.path in ["", "/", "/index.html", "/index.php"]
+            or any(kw in parsed_base.path.lower() for kw in ["news", "info", "notice", "topic", "list"])
+        )
+
+        if depth < max_depth and is_top_or_list_page:
+            NOTICE_KEYWORDS = ["工事", "休業", "メンテナンス", "営業時間変更", "臨時休館", "休止", "中止", "閉鎖"]
+            raw_links = re.findall(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', html, re.IGNORECASE | re.DOTALL)
+            seen_urls = {url}
+            sub_links_to_fetch = []
+
+            for href, anchor_html in raw_links:
+                anchor_text = re.sub(r'<[^>]+>', '', anchor_html).strip()
+                if not any(kw in anchor_text or kw in href for kw in NOTICE_KEYWORDS):
+                    continue
+                if href.startswith(("#", "mailto:", "tel:", "javascript:")):
+                    continue
+                if any(href.lower().endswith(ext) for ext in [".pdf", ".zip", ".jpg", ".jpeg", ".png", ".gif"]):
+                    continue
+
+                abs_url = urljoin(url, href)
+                parsed_sub = urlparse(abs_url)
+                if parsed_sub.netloc != parsed_base.netloc:
+                    continue
+                if abs_url in seen_urls:
+                    continue
+
+                seen_urls.add(abs_url)
+                sub_links_to_fetch.append(abs_url)
+                if len(sub_links_to_fetch) >= 2:
+                    break  # 1ターン最大2件まで
+
+            for sub_url in sub_links_to_fetch:
+                logger.info(f"🔗 1-hop 重要お知らせ詳細ページを自動追跡します: {sub_url}")
+                sub_text = await fetch_direct_html(sub_url, depth=depth + 1, max_depth=max_depth)
+                if sub_text and len(sub_text.strip()) > 50:
+                    subpage_texts.append(f"【お知らせ詳細ページ追跡本文: {sub_url}】\n{sub_text}")
+
         # <script>, <style> タグなどの非表示領域を削除
         html = re.sub(r'<script[\s\S]*?</script>', '', html, flags=re.IGNORECASE)
         html = re.sub(r'<style[\s\S]*?</style>', '', html, flags=re.IGNORECASE)
@@ -96,6 +140,10 @@ async def fetch_direct_html(url: str) -> str:
         full_text = "\n".join(lines)
         clean_text = _smart_academic_extract(full_text)
         logger.info(f"直接HTTPスクレイピング成功: {url} ({len(clean_text)}文字)")
+
+        if subpage_texts:
+            clean_text += "\n\n" + "\n\n".join(subpage_texts)
+
         return clean_text
     except Exception as e2:
         logger.error(f"直接HTTPスクレイピングも失敗 (URL: {url}): {e2}")

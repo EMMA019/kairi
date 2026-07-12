@@ -228,4 +228,47 @@ def test_enforce_variable_numerical_claims_normalization():
     assert "2500円" in filtered2
 
 
+def test_verify_maintenance_date_relevance():
+    """工事・休業期間の日付重複検証および誤警報補正テスト"""
+    from app.core.fact_filter import verify_maintenance_date_relevance
+
+    user_input = "下田プリンスホテル周辺のおすすめ教えて7/19-7/20家族3人で旅行行くんだよね"
+    source_text = "プール施設メンテナンス工事のお知らせ 工事期間：2026年7月13日（月）〜7月15日（水）"
+
+    # 1. 期間が重複していない場合、誤警報が正しい日付関係の説明へ補正されること
+    alarm_text = "2026年7月、ホテル公式サイトにてプール施設がメンテナンス工事中と告知されています。プールのご利用はできませんのでご注意ください。"
+    corrected = verify_maintenance_date_relevance(alarm_text, source_text=source_text, user_input=user_input)
+    assert "影響なくご利用いただける見込みです" in corrected
+    assert "7月13日〜7月15日" in corrected
+
+    # 2. 期間が重複している場合（例: 7/13〜7/14に旅行）、元の注意文が維持されること
+    overlapping_user_input = "7/13-7/14に旅行に行きます"
+    untouched = verify_maintenance_date_relevance(alarm_text, source_text=source_text, user_input=overlapping_user_input)
+    assert untouched == alarm_text
+
+
+def test_1hop_top_or_list_page_detection():
+    """1-hop追跡の対象（トップページ・一覧ページ判定）の検証テスト"""
+    from urllib.parse import urlparse
+
+    def is_top_or_list(url: str) -> bool:
+        parsed_base = urlparse(url)
+        path_parts = [p for p in parsed_base.path.strip("/").split("/") if p]
+        return (
+            len(path_parts) <= 1
+            or parsed_base.path in ["", "/", "/index.html", "/index.php"]
+            or any(kw in parsed_base.path.lower() for kw in ["news", "info", "notice", "topic", "list"])
+        )
+
+    # トップページや一覧ページは True になること
+    assert is_top_or_list("https://www.princehotels.co.jp/shimoda/") is True
+    assert is_top_or_list("https://www.princehotels.co.jp/shimoda/news/") is True
+    assert is_top_or_list("https://www.princehotels.co.jp/shimoda/informations/") is True
+
+    # 個別記事ページ・階層の深いページは False になること
+    assert is_top_or_list("https://www.princehotels.co.jp/shimoda/restaurant/menu/detail/12345.html") is False
+
+
+
+
 

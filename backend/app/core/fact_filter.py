@@ -442,6 +442,7 @@ def enforce_persona_fact_separation(persona_text: str, verified_facts: list[str]
     validated_text = sanitize_internal_tool_mentions(validated_text)
     validated_text = clean_broken_markdown_tables(validated_text)
     validated_text = strip_out_of_period_event_mentions(validated_text)
+    validated_text = verify_maintenance_date_relevance(validated_text, source_text=source_context, user_input=user_input)
     validated_text = verify_holiday_and_weekend_claims(validated_text)
     validated_text = strip_excuse_hallucinations(validated_text)
     return validated_text
@@ -565,6 +566,73 @@ def strip_out_of_period_event_mentions(text: str) -> str:
         cleaned.append(line)
 
     return "\n".join(cleaned)
+
+
+def verify_maintenance_date_relevance(
+    text: str,
+    source_text: Optional[str] = None,
+    user_input: Optional[str] = None
+) -> str:
+    """
+    工事・休業・メンテナンス期間の日付比較・旅行日程重複検証フィルター：
+    具体的な工事・休業期間（例: 7/13〜7/15）がユーザーの訪問・旅行日程（例: 7/19〜7/20）と
+    重複していない場合、「工事中で利用できない」という誤警報・誤断定を正確な日付関係表現へ補正する。
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    # 工事・メンテナンス・休業等の利用制限への言及がない場合はそのまま返す
+    if not any(kw in text for kw in ["工事", "メンテナンス", "休業", "利用できません", "ご利用できません", "利用不可"]):
+        return text
+
+    ctx_search = (source_text or "") + "\n" + text
+    date_range_pattern = re.compile(
+        r'(\d{1,2})\s*[月/]\s*(\d{1,2})\s*日?\s*(?:[\(（][月火水木金土日][\)）])?\s*[〜～~\-–—]\s*(?:(\d{1,2})\s*[月/]\s*)?(\d{1,2})\s*日?\s*(?:[\(（][月火水木金土日][\)）])?'
+    )
+
+    # 1. ユーザー旅行日程の抽出
+    trip_start, trip_end = None, None
+    if user_input:
+        trip_matches = date_range_pattern.findall(user_input)
+        if trip_matches:
+            m1, d1, m2, d2 = trip_matches[0]
+            trip_start = (int(m1), int(d1))
+            trip_end = (int(m2) if m2 else int(m1), int(d2))
+
+    if not trip_start:
+        return text
+
+    # 2. 工事・メンテナンス期間の抽出
+    m_matches = date_range_pattern.findall(ctx_search)
+    m_start, m_end = None, None
+    for m1, d1, m2, d2 in m_matches:
+        cand_start = (int(m1), int(d1))
+        cand_end = (int(m2) if m2 else int(m1), int(d2))
+        if cand_start == trip_start and cand_end == trip_end:
+            continue
+        m_start, m_end = cand_start, cand_end
+        break
+
+    if not m_start or not m_end:
+        return text
+
+    # 3. 日程の重複判定（m_end < trip_start または m_start > trip_end なら重複なし）
+    if m_end < trip_start or m_start > trip_end:
+        lines = text.splitlines()
+        cleaned = []
+        replaced = False
+        for line in lines:
+            if any(kw in line for kw in ["利用できません", "ご利用できません", "利用不可", "工事中"]) and any(kw in line for kw in ["プール", "工事", "メンテナンス", "休業"]):
+                logger.info(f"🔧 工事期間({m_start[0]}/{m_start[1]}-{m_end[0]}/{m_end[1]})と旅行日程({trip_start[0]}/{trip_start[1]}-{trip_end[0]}/{trip_end[1]})の非重複を確認したため誤断定を是正しました")
+                cleaned.append(
+                    f"※ホテル公式サイト等の通知によるとメンテナンス工事期間は「{m_start[0]}月{m_start[1]}日〜{m_end[0]}月{m_end[1]}日」となっており、ご滞在予定の日程（{trip_start[0]}月{trip_start[1]}日〜{trip_end[0]}月{trip_end[1]}日）には影響なくご利用いただける見込みです（念のため最新状況は施設へご確認ください）。"
+                )
+                replaced = True
+            else:
+                cleaned.append(line)
+        return "\n".join(cleaned)
+
+    return text
 
 
 def clean_broken_markdown_tables(text: str) -> str:

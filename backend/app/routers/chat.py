@@ -314,15 +314,43 @@ async def chat(request: ChatRequest):
             if search_sources:
                 promoted_texts = []
                 from app.core.search.router import fetch_url
-                for src in search_sources[:2]:  # 上位2件までディープフェッチ
+
+                # 重要お知らせ検出キーワード（工事・休業・メンテナンス等）
+                # 旅行日程に直接影響しうる施設側の通知を自動昇格で本文取得する
+                CRITICAL_NOTICE_KEYWORDS = [
+                    "工事", "メンテナンス", "休業", "臨時休館", "休止", "中止",
+                    "運休", "お知らせ", "注意", "変更", "改装", "閉鎖",
+                ]
+
+                # 通常昇格候補（上位2件）
+                normal_candidates = list(search_sources[:2])
+                promoted_urls = {s.get("url", "") for s in normal_candidates}
+
+                # 重要通知の追加昇格（3〜5件目をスキャン、最大1件追加）
+                for src in search_sources[2:5]:
+                    url = src.get("url", "")
+                    if url in promoted_urls:
+                        continue
+                    title = src.get("title", "")
+                    snippet = src.get("snippet", "")
+                    combined_check = f"{title} {snippet}"
+                    if any(kw in combined_check for kw in CRITICAL_NOTICE_KEYWORDS):
+                        logger.info(f"🔔 重要お知らせ検出による追加昇格: {url} (Title: {title})")
+                        normal_candidates.append(src)
+                        promoted_urls.add(url)
+                        break  # 追加は1件まで
+
+                for src in normal_candidates:
                     url = src.get("url", "")
                     title = src.get("title", "")
                     snippet = src.get("snippet", "")
-                    # 昇格条件: 学術論文・技術記事・数値確認・100字未満スニペット・ニュース等
+                    combined_check = f"{title} {snippet}"
+                    # 昇格条件: 学術論文・技術記事・数値確認・100字未満スニペット・ニュース・重要お知らせ等
                     is_academic_or_tech = any(dom in url.lower() for dom in ["pmc.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov", "arxiv.org", "ieee.org", "nature.com", "sciencedirect.com", "springer.com", "acm.org", "github.com"])
                     is_deep_query = any(kw in user_input for kw in ["論文", "成功率", "数値", "報告", "教え", "詳細", "攻撃", "防御", "パッチ", "スクレイピング", "記事", "読んで"])
-                    if len(snippet) < 200 or is_academic_or_tech or is_deep_query or any(kw in title for kw in ["今朝の", "5本", "Wrap", "Stories", "Digest", "まとめ", "ニュース"]):
-                        logger.info(f"自動スクレイピング昇格実行: {url} (Title: {title})")
+                    is_critical_notice = any(kw in combined_check for kw in CRITICAL_NOTICE_KEYWORDS)
+                    if len(snippet) < 200 or is_academic_or_tech or is_deep_query or is_critical_notice or any(kw in title for kw in ["今朝の", "5本", "Wrap", "Stories", "Digest", "まとめ", "ニュース"]):
+                        logger.info(f"自動スクレイピング昇格実行: {url} (Title: {title}){' [重要お知らせ]' if is_critical_notice else ''}")
                         yield _sse_event({"type": "status", "status": "scraping_promotion", "url": url})
                         try:
                             scraped_content = await fetch_url(url)

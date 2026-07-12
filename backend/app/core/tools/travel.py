@@ -292,8 +292,8 @@ def search_nearby_spots(
         if not spots:
             return f"「{target_label}」の周辺で「{query}」が見つかりませんでした。"
 
-        # 複数ピンマーカーを生成
-        pins = []
+        # 中心地点＋複数ピンマーカーを生成
+        pins = [f"pin-l-star+111827({lon},{lat})"]
         colors = ["f43f5e", "3b82f6", "10b981", "f59e0b"]
         rows = []
         for idx, sp in enumerate(spots[:4]):
@@ -304,22 +304,22 @@ def search_nearby_spots(
             pins.append(f"pin-s-{idx+1}+{color}({f_lon},{f_lat})")
             rows.append(f"| {idx+1} | **{name}** | {address} |")
 
-            pins_str = ",".join(pins)
-            static_map_url = (
-                f"https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/"
-                f"{pins_str}/auto/600x300@2x?padding=45&access_token={token}"
-            )
+        pins_str = ",".join(pins)
+        static_map_url = (
+            f"https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/"
+            f"{pins_str}/auto/600x300@2x?padding=60&access_token={token}"
+        )
 
-            lines = [
-                f"🌟 **【Kairi厳選コンシェルジュ: {target_label} の「{query}」】**",
-                f"![周辺スポットマップ]({static_map_url})",
-                f"",
-                f"📋 **おすすめスポット一覧**",
-                f"| No | スポット名 | 住所・詳細 |",
-                f"| :---: | :--- | :--- |",
-            ]
-            lines.extend(rows)
-            return "\n".join(lines)
+        lines = [
+            f"🌟 **【Kairi厳選コンシェルジュ: {target_label} の「{query}」】**",
+            f"![周辺スポットマップ]({static_map_url})",
+            f"",
+            f"📋 **おすすめスポット一覧**",
+            f"| No | スポット名 | 住所・詳細 |",
+            f"| :---: | :--- | :--- |",
+        ]
+        lines.extend(rows)
+        return "\n".join(lines)
 
     except Exception as e:
         logger.error(f"周辺スポット検索エラー: {e}")

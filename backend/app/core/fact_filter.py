@@ -437,7 +437,35 @@ def enforce_persona_fact_separation(persona_text: str, verified_facts: list[str]
     validated_text = strip_outdated_past_event_predictions(validated_text)
     validated_text = verify_action_modality_consistency(validated_text, source_text=source_context)
     validated_text = deduplicate_spot_listings(validated_text)
+    validated_text = verify_exit_and_address_entanglement(validated_text)
     return validated_text
+
+
+def verify_exit_and_address_entanglement(text: str) -> str:
+    """
+    駅出口・住所町名取り違え（混線）検知フィルター：
+    店舗紹介テキスト内で「〇〇東」という町名住所と「西口徒歩」が同一段落/店舗ブロック内で自己矛盾している場合や
+    明らかな住所紐付けミスを検知する。
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    blocks = re.split(r'(\r?\n\r?\n)', text)
+    result_blocks = []
+    for b in blocks:
+        contradictions = [
+            (re.compile(r'(?:久喜東|駅東側|東口).*?西口(?:から)?徒歩|西口(?:から)?徒歩.*?(?:久喜東|駅東側|東口)', re.DOTALL), "東口側の住所/エリアに対して西口徒歩と誤案内している可能性"),
+        ]
+        warned = False
+        for pat, desc in contradictions:
+            if pat.search(b) and "⚠️ **[住所・出口対応要確認]" not in b:
+                logger.warning(f"🚨 店舗住所と駅出口の混線矛盾を検知しました: {desc}")
+                result_blocks.append(f"⚠️ **[住所・出口対応要確認: {desc}]**\n" + b)
+                warned = True
+                break
+        if not warned:
+            result_blocks.append(b)
+    return "".join(result_blocks)
 
 
 def deduplicate_spot_listings(text: str) -> str:

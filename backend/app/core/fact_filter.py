@@ -908,8 +908,12 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
     """
     時間・金額・頻度・日付・件数などの「変動しうる数値情報」を検証・制御するフィルター。
     モデルの知識・推測を使用させず、検索結果からの直接コピーのみ許可する方針をプログラム的に担保する。
-    - 複数ソースが一致すればそのまま採用
-    - ソース記載がない未検証情報は定性表現にフォールバックする（不変な歴史的事実などは除外）
+
+    【重要な設計方針変更】
+    未検証の数値情報を検知した場合、以前はインラインで「※正確な〜」に置換していたが、
+    同一回答内で何度もインライン注記が挿入されると視認性が著しく低下するため、
+    未検証の数値はそのまま残しつつ検知カウントだけ記録し、回答末尾に一括で
+    免責注記を1つだけ付与する方式に変更した。
 
     判定は完全一致および正規化形式。部分一致（"15"が共通してるからOK等）は行わない。
     """
@@ -917,6 +921,7 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
         return text
 
     src = source_text or ""
+    unverified_categories: set[str] = set()
 
     # ====================================================================
     # 1. 時間間隔・頻度（例: 「30分毎」「30分ごと」「30分に1本」「1時間おき」等）
@@ -926,7 +931,8 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
         if claim in src:
             return claim
         logger.warning(f"[NumericalDefense] ソース未記載の運行頻度・間隔の生成を検知: {claim}")
-        return "（※運行間隔の詳細は公式サイトまたはお電話にてご確認ください）"
+        unverified_categories.add("運行間隔")
+        return claim  # そのまま残す
 
     text = re.sub(
         r'\d+分(?:毎|ごと|おき|間隔|に1本)|\d+時間(?:毎|ごと|おき|間隔|に1本)',
@@ -942,7 +948,8 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
         if claim in src:
             return claim
         logger.warning(f"[NumericalDefense] ソース未記載の便数・本数を検知: {claim}")
-        return "運行あり（※詳しい便数は公式サイトまたはお電話にてご確認ください）"
+        unverified_categories.add("便数")
+        return claim
 
     text = re.sub(r'1日\d+(?:便|本|往復)', _check_transport_count, text)
 
@@ -959,7 +966,8 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
             if f"{mins}分" in src:
                 return claim
         logger.warning(f"[NumericalDefense] ソース未記載の所要時間を検知: {claim}")
-        return "アクセス可能（※正確な所要時間は要確認）"
+        unverified_categories.add("所要時間")
+        return claim
 
     text = re.sub(
         r'(?:車|徒歩|バス|電車|タクシー)(?:で)?(?:約)?\d+分',
@@ -981,7 +989,8 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
         if times and all(t in src for t in times):
             return claim
         logger.warning(f"[NumericalDefense] ソース未記載の時間帯レンジを検知: {claim}")
-        return "（※正確な時刻や営業時間は公式サイトまたはお電話にてご確認ください）"
+        unverified_categories.add("営業時間")
+        return claim
 
     text = re.sub(
         r'(?:\d{1,2}:\d{2}|\d{1,2}時(?:\d{1,2}分)?)\s*[〜~\-－]\s*(?:\d{1,2}:\d{2}|\d{1,2}時(?:\d{1,2}分)?)(?:の間)?',
@@ -1014,7 +1023,8 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
             return full_match
 
         logger.warning(f"[NumericalDefense] ソース未記載の単独時刻を検知: {claim_time}")
-        return "（※正確な時刻は公式サイトまたはお電話にてご確認ください）"
+        unverified_categories.add("営業時間")
+        return full_match
 
     text = re.sub(
         r'(\d{1,2}:\d{2}|\d{1,2}時\d{1,2}分)\s*(?:発|着|便|頃|から|まで|～|〜|の)',
@@ -1034,7 +1044,8 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
         if val_str and (f"{val_str}円" in src or f"{int(val_str):,}" in src or f"￥{val_str}" in src or f"¥{val_str}" in src or (len(val_str) >= 3 and val_str in src)):
             return price_str
         logger.warning(f"[NumericalDefense] ソース未記載の料金・金額を検知: {price_str}")
-        return "（※正確な料金は公式サイト等で要確認）"
+        unverified_categories.add("料金")
+        return price_str
 
     text = re.sub(r'\d+(?:,\d+)*円', _check_price, text)
 
@@ -1053,7 +1064,7 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
         event_kws = ["海開き", "開催", "オープン", "開始", "営業期間"]
         if any(kw in context_window for kw in event_kws):
             logger.warning(f"[NumericalDefense] ソース未記載のイベント開始日を検知: {date_str}")
-            return "夏季（※詳しい日程は公式サイトをご確認ください）から"
+            unverified_categories.add("日程")
         return full_match
 
     text = re.sub(
@@ -1062,6 +1073,17 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
         text
     )
 
+    # ====================================================================
+    # 末尾一括注記: 未検証カテゴリが1つ以上ある場合のみ追加
+    # ====================================================================
+    if unverified_categories:
+        categories_str = "・".join(sorted(unverified_categories))
+        logger.info(f"[NumericalDefense] 未検証の数値情報カテゴリ: {categories_str} → 末尾一括注記を追加")
+        # すでに同様の免責注記が存在する場合は重複追加しない
+        if "※営業時間" not in text and "※正確な" not in text and "※最新の情報" not in text:
+            text = text.rstrip() + f"\n\n※{categories_str}等の情報は変動する場合があります。お出かけ前に公式サイトや店舗へ直接ご確認いただくことをおすすめします。"
+
     return text
+
 
 

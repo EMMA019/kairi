@@ -210,22 +210,30 @@ def test_strip_outdated_past_event_predictions():
 
 
 def test_enforce_variable_numerical_claims_normalization():
-    """所要時間・料金情報の過剰置換防止（表記ゆれ許容）テスト"""
+    """所要時間・料金情報の検証テスト（末尾一括注記方式）"""
     from app.core.fact_filter import enforce_variable_numerical_claims
 
     source_text = "白浜中央海水浴場から徒歩1分、車で約13分。ランチ丼は大人 2,500円"
 
-    # 1. 所要時間の表記ゆれ（「車13分」「徒歩約1分」等）がソース内の分数と合致すれば保持されること
+    # 1. ソースに存在する所要時間はそのまま保持され、インライン置換が起きないこと
     text1 = "ホテルから徒歩約1分、シュノーケリングスポットまで車13分です。"
     filtered1 = enforce_variable_numerical_claims(text1, source_text)
     assert "徒歩約1分" in filtered1
     assert "車13分" in filtered1
-    assert "要確認" not in filtered1
+    assert "（※" not in filtered1  # インライン注記が挿入されていないこと
 
-    # 2. 料金の表記ゆれ（「2500円」「2,500円」等）が合致すれば保持されること
+    # 2. ソースに存在する料金はそのまま保持されること
     text2 = "ランチ丼は2500円でお楽しみいただけます。"
     filtered2 = enforce_variable_numerical_claims(text2, source_text)
     assert "2500円" in filtered2
+
+    # 3. ソースにない営業時間が含まれている場合、インラインではなく末尾に一括注記が付くこと
+    text3 = "営業時間は10:00〜20:00です。バスは車30分です。"
+    filtered3 = enforce_variable_numerical_claims(text3, source_text)
+    assert "10:00〜20:00" in filtered3  # 元の数値はそのまま残る
+    assert "（※正確な時刻" not in filtered3  # インライン置換は起きない
+    assert "※" in filtered3  # 末尾に注記が付く
+    assert filtered3.count("※") == 1  # 注記は1つだけ
 
 
 def test_verify_maintenance_date_relevance():

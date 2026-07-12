@@ -228,8 +228,16 @@ async def auto_execute_with_retry(
         from pathlib import Path
         ws_dir = str(Path(__file__).parent.parent.parent / "workspace")
     
+    executed_tool_signatures = set()
+    
     while loop_count < max_tool_loops:
         loop_count += 1
+        
+        # モード別セーフティ・ループ上限：通常のチャット・お出かけ検索で無限ループを防ぐ
+        is_coding_task = any(tag in final_accumulated_response for tag in ["<file", "<replace", "<run_command"])
+        if mode not in ["coding", "task"] and loop_count > 3 and not is_coding_task:
+            logger.info(f"🛑 チャット・検索モードのツールループ上限(3回)に達したため完了します。")
+            break
         
         if yield_sse_func:
             yield_sse_func({"type": "status", "status": "responding"})
@@ -431,6 +439,15 @@ async def auto_execute_with_retry(
                             break
                 
                 if not has_error:
+                    tag_match = re.search(r'<(mcp_call|search|read_url)[^>]*>', stream_response)
+                    sig = tag_match.group(0) if tag_match else None
+                    if sig and sig in executed_tool_signatures:
+                        logger.warning(f"🛑 同一ツール呼び出しの重複検出により無限ループをシャットダウンします: {sig}")
+                        final_accumulated_response += stream_response + "\n\n" + "\n\n".join(tool_handler.tool_results)
+                        break
+                    if sig:
+                        executed_tool_signatures.add(sig)
+
                     loop_history.append({"role": "assistant", "content": stream_response})
                     tool_msg = "【システムからのツール実行結果】\n" + "\n\n".join(tool_handler.tool_results)
                     loop_history.append({"role": "user", "content": tool_msg})

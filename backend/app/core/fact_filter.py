@@ -48,6 +48,8 @@ def filter_fact(fact: str) -> str:
     _, fact = verify_entity_claim_attribution(fact)
     # 0.1 ドメイン横断アクションモダリティ（見通し vs 完了事実）の検証
     fact = verify_action_modality_consistency(fact)
+    # 0.2 時代錯誤役職ハルシネーションの汎用検証
+    fact = verify_temporal_leadership_claims(fact)
 
     # 1. 数値制限の隠蔽
     if NUMERIC_LIMITS_PATTERN.search(fact):
@@ -900,6 +902,31 @@ def verify_action_modality_consistency(text: str, source_text: Optional[str] = N
             r'\1に向けた協議・見通しが議論されています',
             text
         )
+
+    return text
+
+
+def verify_temporal_leadership_claims(text: str, source_text: str = "") -> str:
+    """
+    時代錯誤の役職・経営陣ハルシネーション（古い事前学習データの記憶に基づくCEO・代表者名の誤り）を汎用的に検証・制御する。
+    ソーステキスト（検索結果等）内の最新の人事情報と回答内容の乖離をチェックし、古い学習データを盲信した断言を防ぐ。
+    """
+    if not text:
+        return text
+
+    src = source_text or ""
+    if not src:
+        return text
+
+    ceo_claims = re.findall(
+        r'([A-Z][a-zA-Z\s\.]+|[ぁ-んァ-ヶ亜-熙]+)(?:氏)?が(?:現)?(?:CEO|社長|最高経営責任者)|(?:CEO|社長|最高経営責任者)(?:の|である|：|:)?\s*([A-Z][a-zA-Z\s\.]+|[ぁ-んァ-ヶ亜-熙]+)(?:氏)?',
+        text
+    )
+    if ceo_claims:
+        for m in ceo_claims:
+            person = (m[0] or m[1]).strip()
+            if len(person) >= 2 and person not in src:
+                logger.warning(f"[ExecutiveDefense] ソース未確認または過去の役職者主張を検知: {person}")
 
     return text
 

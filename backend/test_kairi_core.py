@@ -300,6 +300,32 @@ async def test_jina_deduplication_cache():
     _RECENT_FETCH_CACHE.pop(test_url, None)
 
 
+def test_analyst_mode_finance_tier3_filter():
+    """金融・市場分析クエリ時に Tier 3 (ブログ等) をハードフィルタリングするテスト"""
+    from app.core.source_evaluator import filter_untrusted_sources_for_finance
+
+    results = [
+        {"url": "https://www.nikkei.com/article/1", "title": "日経平均反落", "tier": 2, "is_spoofed": False},
+        {"url": "https://zorroh-blog.example.com/post", "title": "ZorroHが分析", "tier": 3, "is_spoofed": False},
+    ]
+
+    # 金融系クエリなら Tier 3 がハード除外されること
+    filtered = filter_untrusted_sources_for_finance(results, query_or_text="日経平均 終値 2026年7月13日")
+    assert len(filtered) == 1
+    assert filtered[0]["url"] == "https://www.nikkei.com/article/1"
+
+
+def test_financial_arithmetic_consistency_check():
+    """株価・指数の差額と変動幅の算術不整合検知テスト"""
+    from app.core.fact_filter import enforce_variable_numerical_claims
+
+    # 寄り68,410円と安値66,653円の価格帯が書かれているのに「一時2,500円超下落」と矛盾するテキスト
+    inconsistent_text = "日経平均の寄り付きは68,410円、午後の安値は66,653円となりましたが、一時2,500円超下落する場面もありました。"
+    result = enforce_variable_numerical_claims(inconsistent_text, "")
+    assert "※【数値整合性アラート】" in result
+    assert "乖離が生じています" in result
+
+
 
 
 

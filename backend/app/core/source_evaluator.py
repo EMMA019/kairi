@@ -160,6 +160,43 @@ def annotate_and_sort_search_results(results: List[Dict[str, Any]]) -> List[Dict
     return annotated
 
 
+def is_finance_context_query(query_or_text: str) -> bool:
+    """金融・市場・政治経済系の分析要請かどうかを判定する"""
+    if not query_or_text:
+        return False
+    kw_list = [
+        "株価", "日経平均", "TOPIX", "S&P", "NASDAQ", "ダウ", "原油", "WTI", "ブレント",
+        "為替", "ドル円", "金利", "利回り", "先物", "市場", "相場", "投資", "銘柄",
+        "セクター", "決算", "業績", "収益", "時価総額", "PER", "配当", "アナリスト",
+        "金融", "景気", "インフレ", "CPI", "PPI", "FOMC", "日銀",
+    ]
+    matches = sum(1 for kw in kw_list if kw in query_or_text)
+    return matches >= 1
+
+
+def filter_untrusted_sources_for_finance(results: List[Dict[str, Any]], query_or_text: str = "") -> List[Dict[str, Any]]:
+    """
+    金融・市場・経済分析コンテキストが検知された場合、
+    Tier 3 (個人ブログ・出所不明SEOサイト) や偽装ドメインをハードフィルタリングで除外する。
+    ただし Tier 1/2 が0件になってしまう場合は空リストにせず元のリストを返すセーフティ機能付き。
+    """
+    if not results:
+        return results
+
+    if not is_finance_context_query(query_or_text):
+        return results
+
+    filtered = [r for r in results if not r.get("is_spoofed", False) and r.get("tier", 3) in [1, 2]]
+    if not filtered:
+        logger.info("[SourceEvaluator] 金融コンテキストでTier 1/2ソースが見つからなかったため、全ソースを維持します")
+        return results
+
+    removed_count = len(results) - len(filtered)
+    if removed_count > 0:
+        logger.info(f"[SourceEvaluator] 金融・市場分析モード: Tier 3 (ブログ・SEO等) ソースを {removed_count} 件ハード除外しました")
+    return filtered
+
+
 def verify_entity_claim_attribution(text: str, known_entities: Optional[List[str]] = None) -> Tuple[bool, str]:
     """
     複数主体が混在するテキストにおける主語・述語の取り違え（Entity-Claim Attribution 違反）を検知・補正する。

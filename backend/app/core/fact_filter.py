@@ -1074,6 +1074,20 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
     )
 
     # ====================================================================
+    # 8. 統計・パーセンテージ（例: 「70%」「39.5%」「7割」等）
+    # ====================================================================
+    def _check_percentage_claim(match):
+        pct_str = match.group(0)
+        num_part = match.group(1)
+        if pct_str in src or num_part in src:
+            return pct_str
+        logger.warning(f"[NumericalDefense] ソース未記載のパーセンテージ・統計比率を検知: {pct_str}")
+        unverified_categories.add("統計比率")
+        return pct_str
+
+    text = re.sub(r'(\d+(?:\.\d+)?)(?:%|％|割)', _check_percentage_claim, text)
+
+    # ====================================================================
     # 末尾一括注記: 未検証カテゴリが1つ以上ある場合のみ追加
     # ただし金融・政治経済・ニュース分析系の回答には旅行向け免責注記を付けない
     # ====================================================================
@@ -1099,12 +1113,43 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
         is_finance_context = finance_score >= 3 and finance_score > travel_score
 
         if is_finance_context:
-            logger.info(f"[NumericalDefense] 金融・ニュース分析コンテキスト検出(finance={finance_score}, travel={travel_score}) → 旅行向け免責注記をスキップ")
+            logger.info(f"[NumericalDefense] 金融・ニュース分析コンテキスト検出(finance={finance_score}, travel={travel_score}) → アナリスト向けデータ注記判定")
+            if "統計比率" in unverified_categories and "※一部の比率" not in text:
+                text = text.rstrip() + "\n\n※一部の比率・市場指標はソース記事に明記されていない推計または周辺参考データを含む場合があります。正確な数値は公式開示データをご確認ください。"
         else:
             logger.info(f"[NumericalDefense] 未検証の数値情報カテゴリ: {categories_str} → 末尾一括注記を追加")
             # すでに同様の免責注記が存在する場合は重複追加しない
             if "※営業時間" not in text and "※正確な" not in text and "※最新の情報" not in text:
                 text = text.rstrip() + f"\n\n※{categories_str}等の情報は変動する場合があります。お出かけ前に公式サイトや店舗へ直接ご確認いただくことをおすすめします。"
+
+    return check_financial_arithmetic_consistency(text)
+
+
+def check_financial_arithmetic_consistency(text: str) -> str:
+    """
+    株価・指数に関する記述で、同一回答内における価格差と変動幅の算術的矛盾を検知・警告する。
+    例: 安値66,653円・寄り68,410円（差額1,757円）とあるのに「一時2,500円超下落」のように矛盾する数値が記載されている場合。
+    """
+    if not text:
+        return text
+
+    # 日経平均等の数値が複数あり、さらに「〇〇円（超）下落/安」などの変動幅があるかチェック
+    drop_match = re.search(r'一時([0-9,]+)円(?:超|余り)?(?:下落|安)', text)
+    if not drop_match:
+        return text
+
+    try:
+        drop_claimed = int(drop_match.group(1).replace(",", ""))
+        # 5万〜8万円帯の日経平均価格候補を取得
+        prices = [int(p.replace(",", "")) for p in re.findall(r'(6[0-9],[0-9]{3}|7[0-9],[0-9]{3}|5[0-9],[0-9]{3})円', text)]
+        if len(prices) >= 2:
+            max_diff = max(prices) - min(prices)
+            # 実際の価格レンジ差と主張された一時下落幅が500円以上の乖離を持つ場合にアラート
+            if drop_claimed > max_diff + 500 and "※【数値整合性アラート】" not in text:
+                logger.warning(f"[FinancialDefense] 算術不整合検知: 価格帯差額 {max_diff}円 vs 主張下落幅 {drop_claimed}円")
+                text = text.rstrip() + f"\n\n※【数値整合性アラート】文中で言及された価格帯の差額（約{max_diff:,}円）と、一時変動幅（{drop_claimed:,}円）の間に算術的な乖離が生じています。各時間帯の公式取引データをご確認ください。"
+    except Exception as e:
+        logger.debug(f"[FinancialDefense] 算術チェック時スキップ: {e}")
 
     return text
 

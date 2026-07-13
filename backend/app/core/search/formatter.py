@@ -34,6 +34,8 @@ def _filter_entity_noise(query: str, results: list[dict]) -> list[dict]:
     return filtered if filtered else results
 
 
+from app.core.source_evaluator import annotate_and_sort_search_results, filter_untrusted_sources_for_finance
+
 def format_results(results: list[dict], query: str = "") -> list[dict]:
     """プロバイダーに関わらず統一フォーマットに変換し、エンティティノイズ除去＆ソースTier評価を自動適用"""
     filtered_results = _filter_entity_noise(query, results)
@@ -47,6 +49,8 @@ def format_results(results: list[dict], query: str = "") -> list[dict]:
         })
     # ソース評価層によるTier分類 (.edu偽装検知、一次/二次/三次分類と並べ替え)
     annotated = annotate_and_sort_search_results(formatted)
+    # 金融・市場分析モード時の Tier 3 (ブログ等) ハードフィルタリング
+    annotated = filter_untrusted_sources_for_finance(annotated, query)
     return annotated
 
 

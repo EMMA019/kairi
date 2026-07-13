@@ -235,6 +235,12 @@ def test_enforce_variable_numerical_claims_normalization():
     assert "※" in filtered3  # 末尾に注記が付く
     assert filtered3.count("※") == 1  # 注記は1つだけ
 
+    # 4. 金融・市場分析コンテキストの回答には旅行向け免責注記が付かないこと
+    finance_text = "日経平均株価は一時700円超下落。WTI先物は74ドル台（前週末比+4%）。ホルムズ海峡再封鎖で原油価格が急騰し、市場はリスクオフの展開となっています。"
+    filtered4 = enforce_variable_numerical_claims(finance_text, "")
+    assert "お出かけ前" not in filtered4  # 旅行向け免責注記が付かないこと
+    assert "店舗へ直接" not in filtered4
+
 
 def test_verify_maintenance_date_relevance():
     """工事・休業期間の日付重複検証および誤警報補正テスト"""

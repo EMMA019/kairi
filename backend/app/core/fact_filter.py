@@ -1075,13 +1075,36 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
 
     # ====================================================================
     # 末尾一括注記: 未検証カテゴリが1つ以上ある場合のみ追加
+    # ただし金融・政治経済・ニュース分析系の回答には旅行向け免責注記を付けない
     # ====================================================================
     if unverified_categories:
         categories_str = "・".join(sorted(unverified_categories))
-        logger.info(f"[NumericalDefense] 未検証の数値情報カテゴリ: {categories_str} → 末尾一括注記を追加")
-        # すでに同様の免責注記が存在する場合は重複追加しない
-        if "※営業時間" not in text and "※正確な" not in text and "※最新の情報" not in text:
-            text = text.rstrip() + f"\n\n※{categories_str}等の情報は変動する場合があります。お出かけ前に公式サイトや店舗へ直接ご確認いただくことをおすすめします。"
+
+        # 回答コンテキストの判定: 金融・市場・政治経済系のキーワードが優勢かどうか
+        _FINANCE_NEWS_KEYWORDS = [
+            "株価", "日経平均", "TOPIX", "S&P", "NASDAQ", "ダウ", "原油", "WTI", "ブレント",
+            "為替", "ドル円", "金利", "利回り", "先物", "市場", "相場", "投資", "銘柄",
+            "封鎖", "空爆", "制裁", "停戦", "紛争", "危機", "地政学", "ホルムズ",
+            "GDP", "インフレ", "CPI", "FRB", "日銀", "金融政策", "利上げ", "利下げ",
+            "決算", "業績", "収益", "売上", "時価総額", "PER", "配当",
+        ]
+        _TRAVEL_SPOT_KEYWORDS = [
+            "ホテル", "旅館", "レストラン", "カフェ", "観光", "ビーチ", "水族館",
+            "温泉", "散策", "ランチ", "ディナー", "食べログ", "チェックイン",
+            "アクセス", "徒歩", "シャトルバス", "ロープウェイ", "お土産",
+            "ペリーロード", "プリンスホテル", "海水浴", "お出かけ",
+        ]
+        finance_score = sum(1 for kw in _FINANCE_NEWS_KEYWORDS if kw in text)
+        travel_score = sum(1 for kw in _TRAVEL_SPOT_KEYWORDS if kw in text)
+        is_finance_context = finance_score >= 3 and finance_score > travel_score
+
+        if is_finance_context:
+            logger.info(f"[NumericalDefense] 金融・ニュース分析コンテキスト検出(finance={finance_score}, travel={travel_score}) → 旅行向け免責注記をスキップ")
+        else:
+            logger.info(f"[NumericalDefense] 未検証の数値情報カテゴリ: {categories_str} → 末尾一括注記を追加")
+            # すでに同様の免責注記が存在する場合は重複追加しない
+            if "※営業時間" not in text and "※正確な" not in text and "※最新の情報" not in text:
+                text = text.rstrip() + f"\n\n※{categories_str}等の情報は変動する場合があります。お出かけ前に公式サイトや店舗へ直接ご確認いただくことをおすすめします。"
 
     return text
 

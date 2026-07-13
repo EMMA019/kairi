@@ -118,6 +118,8 @@ async def chat(request: ChatRequest):
             persona_style = settings_dict.get("persona_style", "standard")
             if persona_style in ["hyper_gal", "gal", "gyaru"]:
                 greeting_sys = """あなたは最強の平成ギャル相棒Kairiです。テンションMAXなギャル言葉・顔文字・絵文字を使って親密に挨拶を返してください。"""
+            elif persona_style in ["analyst", "financial_analyst"]:
+                greeting_sys = """あなたは冷静かつ客観的なデータストラテジスト／プロの市場アナリスト「Kairi」です。推測を排し、定量ファクトと論理に基づくプロフェッショナルな挨拶を返してください。"""
             elif persona_style == "kairi_kansai":
                 greeting_sys = """あなたは頼れる相棒Kairiです。親しみやすい関西弁で挨拶を返してください。"""
             else:
@@ -291,11 +293,14 @@ async def chat(request: ChatRequest):
                 logger.warning("初回検索が不十分または空のため、構造化クエリ (site:指定、英語キーワード追加等) に切り替えて自動再試行します。")
                 fallback_queries = []
                 from datetime import datetime, timezone, timedelta
-                _current_date = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
+                _recent_date = (datetime.now(timezone(timedelta(hours=9))) - timedelta(days=7)).strftime("%Y-%m-%d")
                 for q in search_queries[:max_queries]:
-                    # 質問がニュースや一般的なトピックの場合と、個別株の場合で構造化クエリをスマートに切り替え
-                    if any(kw in user_input for kw in ["ニュース", "話題", "最新", "世界", "経済", "日本", "一般"]):
-                        fallback_queries.append(f"{q} after:{_current_date}")
+                    # 質問がニュースや一般的なトピックの場合と、個別株・日本市場の場合で構造化クエリをスマートに切り替え
+                    if any(kw in user_input for kw in ["日本", "日経", "株", "東京", "円", "国内", "市場"]):
+                        fallback_queries.append(f"{q} 今日 終値 OR 最新市況 OR ニュース")
+                        fallback_queries.append(f"{q} 日経平均 東京株式市場")
+                    elif any(kw in user_input for kw in ["ニュース", "話題", "最新", "世界", "経済", "一般"]):
+                        fallback_queries.append(f"{q} after:{_recent_date}")
                         fallback_queries.append(f"{q} latest news July 2026")
                     else:
                         fallback_queries.append(f"{q} site:sec.gov OR site:finance.yahoo.com OR investor relations 2026")

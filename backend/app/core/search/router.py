@@ -58,10 +58,10 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
                 combined_results.extend(formatted)
 
     # 3. ニュースクエリ (オンデマンド1次情報取得)
-    # 日付フィルタを自動付与（現在日付から30日以内に制限）
-    from datetime import datetime as _dt
-    _today = _dt.now().strftime("%Y-%m-%d")
-    _date_filtered_query = f"{query} after:{_today}" if query else ""
+    # 日付フィルタを自動付与（当日の結果が除外されないよう7日前を起点とする）
+    from datetime import datetime as _dt, timedelta as _td
+    _start_date = (_dt.now() - _td(days=7)).strftime("%Y-%m-%d")
+    _date_filtered_query = f"{query} after:{_start_date}" if query and "after:" not in query else query
     if "news" in providers:
         from app.core.news.fetcher import fetch_primary_news
         from app.core.cache_manager import get_search_cache, set_search_cache
@@ -105,7 +105,7 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
 
     # 4. 一般クエリ (Brave Search / DuckDuckGo 無料フォールバック)
     if "brave" in providers or "duckduckgo" in providers or "free" in providers:
-        _search_query = _date_filtered_query if _date_filtered_query else query
+        _search_query = query
         cached = cache.get(_search_query, "general")
         if cached:
             combined_results.extend(cached)

@@ -260,6 +260,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           desc: "Polite, professional standard English for general & business tasks (Default)",
                         },
                         {
+                          id: "analyst",
+                          name: "📊 Financial Analyst Mode",
+                          desc: "Objective data strategist, quantitative grounding & structured market analysis",
+                        },
+                        {
                           id: "kairi_kansai",
                           name: "🐙 Casual Kairi",
                           desc: "Friendly, reliable engineering partner Kairi with casual tone",

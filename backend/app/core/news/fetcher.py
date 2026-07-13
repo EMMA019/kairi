@@ -89,16 +89,30 @@ async def fetch_primary_news(query: str = "") -> list[dict]:
     
     フロー:
     1. 主要RSSをその場で取得
-    2. キーワードがあればBraveで1次サイト限定検索
-    3. RSS結果が少なければBraveで一般ニュース検索して補完
+    2. 日本市場・国内株クエリ時は海外テック系RSSノイズを除外し、国内市況を検索
+    3. キーワードがあればBraveで補完検索
     4. 結果を結合して返す
     """
     results = await fetch_rss_on_demand()
     
-    # キーワードがあればBraveで補完検索（1次サイト限定）
+    is_jp_or_market = any(
+        kw in query
+        for kw in ["日本", "日経", "東京", "東証", "TOPIX", "株", "為替", "円", "国内", "市場"]
+    )
+    if is_jp_or_market:
+        # 日本市場や株価に関する質問の場合、無関係な海外テック系RSS（Hacker News等）を除外する
+        results = [
+            r for r in results
+            if r.get("source") not in ["Hacker News", "MIT Technology Review", "Ars Technica", "TechCrunch"]
+        ]
+
+    # キーワードがあればBraveで補完検索
     if query:
         from app.core.search import web_search
-        site_query = f"site:prnewswire.com OR site:businesswire.com OR site:apnews.com {query}"
+        if is_jp_or_market:
+            site_query = f"{query} 日経平均 OR 株価 OR 東京株式市場 OR 終値 OR ニュース"
+        else:
+            site_query = f"site:prnewswire.com OR site:businesswire.com OR site:apnews.com {query}"
         brave_text, brave_sources = await web_search(site_query, providers=["brave"])
         
         if brave_sources:
@@ -110,7 +124,7 @@ async def fetch_primary_news(query: str = "") -> list[dict]:
                         "title": src.get("title", ""),
                         "url": src.get("url", ""),
                         "published": "",
-                        "source": "PRIMARY (Brave)",
+                        "source": "PRIMARY (Brave JP)" if is_jp_or_market else "PRIMARY (Brave)",
                         "summary": src.get("snippet", ""),
                     })
     
@@ -119,8 +133,11 @@ async def fetch_primary_news(query: str = "") -> list[dict]:
         logger.info(f"⚠️ RSS取得が{len(results)}件と少ないため、Braveで補完検索を実行")
         try:
             from app.core.search import web_search
-            # 1次サイトに限定せず、幅広く最新ニュースを検索
-            fallback_query = query if query else "latest breaking news 2026"
+            fallback_query = (
+                f"{query} 日本市場 株価 市況 最新ニュース"
+                if is_jp_or_market
+                else (query if query else "latest breaking news 2026")
+            )
             brave_text, brave_sources = await web_search(fallback_query, providers=["brave"])
             
             if brave_sources:

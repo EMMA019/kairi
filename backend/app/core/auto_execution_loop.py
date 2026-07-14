@@ -230,6 +230,16 @@ async def auto_execute_with_retry(
     
     executed_tool_signatures = set()
     
+    boundary_instruction = (
+        "\n\n【構造的モダリティ分離（出力境界トークン）の厳守ルール】\n"
+        "思考ログ・内部分析・途中メモとユーザーへの最終出力本文がバッファ上で混在するのを完全に防ぐため、"
+        "ユーザーへの最終的な回答本文を開始する直前に必ず `<<<FINAL_ANSWER>>>` という区切りトークンを出力し、"
+        "その後にのみ最終回答テキストを出力してください。\n"
+        "※ツール呼び出し（<search>, <file> 等）のみを行うターンでは `<<<FINAL_ANSWER>>>` は不要です。"
+    )
+    if "<<<FINAL_ANSWER>>>" not in executor_sys_prompt:
+        executor_sys_prompt += boundary_instruction
+    
     while loop_count < max_tool_loops:
         loop_count += 1
         
@@ -557,6 +567,7 @@ async def auto_execute_with_retry(
             verify_chronological_rationalization,
             filter_unknown_entity_listings,
             sanitize_buffer_contamination,
+            strip_out_of_period_event_mentions,
         )
         _, final_accumulated_response = check_currency_consistency(final_accumulated_response)
         _, final_accumulated_response = verify_numbers_exist_in_source(final_accumulated_response, str(search_results or ""))
@@ -611,6 +622,11 @@ async def auto_execute_with_retry(
                     last_assist = clean_content
                     break
         final_accumulated_response = last_assist
+
+    # --- 物理分離構造パース: <<<FINAL_ANSWER>>> 以降を厳格抽出 ---
+    if "<<<FINAL_ANSWER>>>" in final_accumulated_response:
+        parts = final_accumulated_response.split("<<<FINAL_ANSWER>>>")
+        final_accumulated_response = parts[-1].strip()
 
     final_accumulated_response = re.sub(r'<think>.*?</think>', '', final_accumulated_response, flags=re.DOTALL)
     final_accumulated_response = re.sub(r'(?m)^(?:まず、ユーザーの発言を分析します[^\n]*\n+|Output format:[^\n]*\n+|user_intent_analysis:[^\n]*\n+)+', '', final_accumulated_response)

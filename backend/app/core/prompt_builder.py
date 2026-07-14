@@ -70,13 +70,114 @@ def load_knowledge_summary() -> str:
         return ""
 
 
+HIGH_CONFIDENCE_THRESHOLD = 0.75
+LOW_CONFIDENCE_THRESHOLD = 0.40
+
+
+def fuzzy_match_entities(user_input: str, last_assistant_entities: list[dict]) -> list[dict]:
+    """
+    ユーザーの入力と直前ターンの候補リストを比較し、各エンティティの一致度スコアを算出する。
+    """
+    if not user_input or not last_assistant_entities:
+        return []
+
+    matches = []
+    input_lower = user_input.lower()
+
+    # 位置指定キーワードの判定
+    pos_keywords = {
+        1: ["1番", "①", "1つ目", "一つ目", "最初の"],
+        2: ["2番", "②", "2つ目", "二つ目", "真ん中の", "次の"],
+        3: ["3番", "③", "3つ目", "三つ目", "最後の"],
+        4: ["4番", "④", "4つ目", "四つ目"],
+        5: ["5番", "⑤", "5つ目", "五つ目"],
+    }
+
+    scores = {}
+    for i, entity in enumerate(last_assistant_entities):
+        name = entity.get("name", "").strip()
+        if not name:
+            continue
+        name_lower = name.lower()
+        score = 0.0
+
+        # 1. 完全または強い部分一致
+        if len(name_lower) >= 2 and (name_lower in input_lower or input_lower in name_lower):
+            if len(name_lower) >= 4 or name_lower == input_lower:
+                score = max(score, 0.95)
+            else:
+                score = max(score, 0.85)
+
+        # 2. リスト番号指定による一致
+        pos = entity.get("list_position")
+        if pos and pos in pos_keywords:
+            if any(kw in user_input for kw in pos_keywords[pos]):
+                score = max(score, 0.92)
+
+        # 3. トークン・キーワード部分一致
+        parts = [p for p in re.split(r"[\s・/／\(\)（）の〜\-~&＆とや、,.]+", name) if len(p) >= 2]
+        if parts:
+            matched_parts = sum(1 for p in parts if p.lower() in input_lower)
+            if matched_parts > 0:
+                overlap_ratio = matched_parts / len(parts)
+                score = max(score, min(0.90, overlap_ratio * 0.88 + 0.15))
+
+        scores[i] = score
+
+    max_base_score = max(scores.values()) if scores else 0.0
+
+    # 4. どの名前・番号にもヒットしなかった場合で、代名詞や短いリアクション（そこ、それ、いいね等）のみの時
+    zero_anaphora_keywords = [
+        "いいね", "そこ", "それ", "あれ", "あそこ", "どれ", "どっち", "どちら", "もっと",
+        "特徴", "なんで", "どうして", "どこ", "おすすめ", "異端", "詳しく", "どう", "これ",
+        "お願い", "そうする", "それで", "それに", "うん", "はい", "なるほど"
+    ]
+    is_short_ellipsis = any(kw in user_input for kw in zero_anaphora_keywords) and len(user_input.strip()) <= 45
+    if max_base_score == 0.0 and is_short_ellipsis:
+        if len(last_assistant_entities) == 1:
+            scores[0] = 0.85
+        else:
+            for i in scores:
+                scores[i] = 0.50
+
+    for i, entity in enumerate(last_assistant_entities):
+        if i in scores and scores[i] > 0.0:
+            matches.append({"entity": entity, "score": scores[i]})
+
+    matches.sort(key=lambda x: x["score"], reverse=True)
+    return matches
+
+
+def resolve_zero_anaphora(user_input: str, last_assistant_entities: list[dict]) -> dict:
+    """
+    直前ターンの候補との一致度スコアに応じて、3段階＋1のモードに分岐させる。
+    - direct_answer: 高確信度で単一候補一致 → 即答モード
+    - soft_confirm_inline: 中確信度 → 回答内に「〇〇やんな/ですね」と主語を自然に織り込んで進める
+    - disambiguate: 複数候補が拮抗 → 聞き返しを許可
+    - no_anchor: 該当なし → 通常話題として処理
+    """
+    matches = fuzzy_match_entities(user_input, last_assistant_entities)
+
+    high_matches = [m for m in matches if m["score"] > HIGH_CONFIDENCE_THRESHOLD]
+    low_matches = [m for m in matches if LOW_CONFIDENCE_THRESHOLD < m["score"] <= HIGH_CONFIDENCE_THRESHOLD]
+    all_valid = [m for m in matches if m["score"] > LOW_CONFIDENCE_THRESHOLD]
+
+    if len(high_matches) == 1:
+        return {"mode": "direct_answer", "anchor": high_matches[0]["entity"], "score": high_matches[0]["score"]}
+    elif len(high_matches) > 1:
+        return {"mode": "disambiguate", "candidates": high_matches}
+    elif len(low_matches) == 1 and len(all_valid) == 1:
+        return {"mode": "soft_confirm_inline", "anchor": low_matches[0]["entity"], "score": low_matches[0]["score"]}
+    elif len(all_valid) > 1:
+        return {"mode": "disambiguate", "candidates": all_valid}
+    else:
+        return {"mode": "no_anchor"}
+
+
 def build_entity_registry_context(history_messages: list, current_input: str) -> str:
     """
-    全会話・複数ターン広域エンティティインデックスを構築・照合するとともに、
-    人間同様の主語省略（ゼロ照合／Zero-Anaphora）を自然に承継するアンカーを生成・注入する。
-    過去のやり取りから番号つきリストや箇条書きで列挙された選択肢・作品名・固有名詞を短期インデックス化し、
-    ユーザー入力が個別項目（曲名等）やリアクションのみで主語を省略した際、
-    問い返しや疑心暗鬼に陥らずに直前ターンの主語・候補を自然承継させる。
+    全会話・複数ターン広域エンティティインデックスを照合するとともに、
+    確信度段階分岐 (`resolve_zero_anaphora`) による最適な文脈承継アンカーを生成・注入する。
     """
     if not history_messages or not current_input or not isinstance(current_input, str):
         return ""
@@ -101,24 +202,51 @@ def build_entity_registry_context(history_messages: list, current_input: str) ->
             if any(part.lower() in current_input.lower() for part in parts) or (len(item) >= 4 and item.lower() in current_input.lower()):
                 matched_entries.append(f"- 過去の言及項目: 「{item}」" + (f" ({desc})" if desc else ""))
 
-    # 直前アシスタントのメッセージから直近の話題・候補を抽出してゼロ照合承継アンカーを構築
+    # 直前アシスタントのメッセージから直近の話題・候補を抽出してエンティティリストを作成
     last_assistant_content = ""
     for msg in reversed(history_messages):
         if msg.get("role") == "assistant" and msg.get("content"):
             last_assistant_content = msg.get("content", "")
             break
 
+    last_assistant_entities = []
+    if last_assistant_content:
+        for idx, match in enumerate(list_pattern.finditer(last_assistant_content)):
+            item = match.group(1).strip()
+            desc = (match.group(2) or "").strip()
+            if 2 <= len(item) <= 60 and item.lower() not in ["はい", "いいえ", "その他", "まとめ", "特徴", "理由"]:
+                last_assistant_entities.append({"name": item, "description": desc, "list_position": idx + 1})
+        # リスト形式でなくても過去数ターンの直近候補があればフォールバック追加
+        if not last_assistant_entities and candidate_map:
+            for idx, (item, desc) in enumerate(candidate_map[-3:]):
+                last_assistant_entities.append({"name": item, "description": desc, "list_position": idx + 1})
+
+    anaphora_result = resolve_zero_anaphora(current_input, last_assistant_entities)
     zero_anaphora_anchor = ""
-    if last_assistant_content and (len(current_input.strip()) <= 60 or matched_entries or any(kw in current_input for kw in ["いいね", "異端", "それ", "あれ", "もっと", "特徴", "なんで", "どうして", "どこ", "おすすめ"])):
-        # 直前の発言で提示された候補リストまたは主要キーワード
-        recent_candidates = [item for item, _ in candidate_map[-5:]] if candidate_map else []
-        anchor_target = matched_entries[0] if matched_entries else (f"直前ターンの提示アイテム/話題（{', '.join(recent_candidates[:3])} 等）" if recent_candidates else "直前ターンの主語・話題")
+
+    if anaphora_result["mode"] == "direct_answer":
+        target = anaphora_result["anchor"]["name"]
         zero_anaphora_anchor = (
-            f"\n\n【🗣️ Zero-Subject & Ellipsis Resolution Anchor (人間同様の主語省略・文脈承継アンカー)】\n"
-            f"ユーザー入力「{current_input}」は、人間同士の自然な対話と同様に主語や代名詞が省略されているか、あるいは直前ターンであなたが提示した候補（対象: {anchor_target}）への直接的なリアクション・承継です。\n"
-            f"⚠️ 【ゼロ照合・自然対話の絶対厳守ルール】:\n"
-            f"1. 深読み・疑心暗鬼・的外れな問い返しの厳格禁止: 「〇〇のことですか？それとも△△ですか？」とユーザーに問い返したり、「自分が過去に店名未確認で出した候補と勘違いされているのでは？」などと過剰に深読みして疑う野暮な確認は一切行わないこと。\n"
-            f"2. スマートな文脈承継: 直前ターンの文脈および該当アイテムを主語として即座に受け入れ、人間同様にスマートかつダイレクトに回答・解説を展開すること。"
+            f"\n\n【🗣️ Zero-Subject & Ellipsis Resolution Anchor (確信度: 高 / {anaphora_result['score']:.2f})】\n"
+            f"ユーザー入力「{current_input}」は、直前ターンの提示項目「{target}」への明確な言及またはゼロ照合・主語承継です。\n"
+            f"⚠️ 【即答モード厳守・深読み・疑心暗鬼・的外れな問い返しの厳格禁止】:\n"
+            f"1. 深読み・疑心暗鬼・的外れな問い返しの厳格禁止: 「〇〇のことですか？それとも勘違いですか？」等の過剰確認を一切行わないこと。\n"
+            f"2. スマートな文脈承継: 対象項目「{target}」を主語としてダイレクトかつスマートに回答を展開すること。"
+        )
+    elif anaphora_result["mode"] == "soft_confirm_inline":
+        target = anaphora_result["anchor"]["name"]
+        zero_anaphora_anchor = (
+            f"\n\n【🗣️ Zero-Subject & Ellipsis Resolution Anchor (確信度: 中 / {anaphora_result['score']:.2f})】\n"
+            f"ユーザー入力「{current_input}」は、直前ターンの提示項目「{target}」を指している可能性が高いです。\n"
+            f"⚠️ 【ソフトコンファーム（会話内織り込み）モード厳守・深読み・疑心暗鬼・的外れな問い返しの厳格禁止】:\n"
+            f"「〇〇のことでしょうか？」と質問・聞き返しで会話をストップさせることは禁止。「{target}ですね／あのお店は〜」のように、主語を回答本文内に自然に織り込んで解説を進めること。万が一違っていた場合でもユーザーが軽やかに訂正しやすいスムーズな対話を維持してください。"
+        )
+    elif anaphora_result["mode"] == "disambiguate":
+        cands = [c["entity"]["name"] for c in anaphora_result["candidates"][:3]]
+        zero_anaphora_anchor = (
+            f"\n\n【🗣️ Zero-Subject & Ellipsis Resolution Anchor (確信度: 拮抗・複数候補検出)】\n"
+            f"ユーザー入力「{current_input}」に対して、直前ターンの提示候補から複数の拮抗する項目（{', '.join(cands)} 等）が検出されました。\n"
+            f"⚠️ 【聞き返し（明確化）許可モード】複数の候補が混同・拮抗しているため、独断で1つに絞り込んで断定せず、「{cands[0]} と {cands[1]} のどちらについてでしょうか？／どれが気になりますか？」と簡潔かつ親切に聞き返して確認を行うことが許可・推奨されます。"
         )
 
     if matched_entries:

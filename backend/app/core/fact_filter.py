@@ -937,53 +937,76 @@ def verify_temporal_leadership_claims(text: str, source_text: str = "") -> str:
     return text
 
 
+CHRONOLOGICAL_HEDGE_PATTERNS = [
+    r"(?:(?:\d{4}年)?までとされていますが|在籍は[^。,\n]+までですが|脱退後も|退任後も|離脱後も|交代後も)[^。\n]*([^\n。]*(?:関わっ|参加|提供|収録|担当|共作|クレジット))",
+    r"(?:リリースは[^。,\n]+年ですが|作品は[^。,\n]+年のものですが)[^。\n]*([^\n。]*(?:在籍中|以前のメンバー|当時のボーカル|彼が))",
+]
+
+
 def verify_chronological_rationalization(text: str, source_text: str = "") -> str:
     """
     Type 3（時系列衝突の後付け合理化・縫い合わせ）を非破壊的に検証するガードレール。
-    「〜までとされていますが、〜関わっており」「脱退後も〜参加」「退任後も〜収録」のような
-    矛盾する年代や在籍期間を後付けストーリーで繋ごうとする接続表現が出現した場合、
-    それを単純に禁止・削除するのではなく、「要検索・再検証フラグ（ソース整合性チェック）」として動作させる。
-    ソーステキストにその関与・接続事実が明記されていない場合のみ警告ログおよび確認促進バッジを付与し、
-    実際のタイムラグやクレジット分離（本当に脱退後に関与したケース等）を誤って弾くフォールス・ポジティブを防ぐ。
+    単純に禁止・削除したり主語交代を断定するのではなく、代替仮説を列挙して要検索・再検証を促す。
     """
     if not text or not isinstance(text, str):
         return text
 
     src = source_text or ""
-
-    # 時系列縫い合わせ・後付け合理化の典型的接続パターン
-    rationalization_patterns = [
-        r"(?:(?:\d{4}年)?までとされていますが|在籍は[^。,\n]+までですが|脱退後も|退任後も|離脱後も|交代後も)[^。\n]*([^\n。]*(?:関わっ|参加|提供|収録|担当|共作|クレジット))",
-        r"(?:リリースは[^。,\n]+年ですが|作品は[^。,\n]+年のものですが)[^。\n]*([^\n。]*(?:在籍中|以前のメンバー|当時のボーカル|彼が))",
-    ]
-
     has_rationalization = False
-    for pat in rationalization_patterns:
+    for pat in CHRONOLOGICAL_HEDGE_PATTERNS:
         if re.search(pat, text):
             has_rationalization = True
             break
 
     if has_rationalization:
-        # ソース本文中に、脱退後の関与や共作・クレジット分離、ゲスト参加等の具体的な根拠キーワードが存在するか確認
         supportive_keywords = ["ゲスト", "脱退後", "退任後", "共作", "クレジット", "作詞", "作曲", "楽曲提供", "アーカイブ", "未発表", "在籍時"]
         is_supported_by_source = False
         if src:
             is_supported_by_source = any(kw in src for kw in supportive_keywords)
 
         if not is_supported_by_source:
-            logger.warning("[ChronologicalDefense] ソース裏付けのない時系列不一致・後付け縫い合わせ（合理化）表現を検知しました")
-            if "⚠️ **[時系列不一致・要確認]**" not in text and "⚠️ **[未確認]" not in text and "⚠️ [未確認]" not in text:
-                text = f"⚠️ **[時系列不一致・要確認: 制作・発表時期と人物在籍期間の整合性が未検証です]** {text}"
+            logger.warning("[ChronologicalDefense] ソース裏付けのない時系列不一致・後付け縫い合わせ（合理化）表現を検知しました → 代替仮説を列挙")
+            if "⚠️ **[時系列不一致・要確認]**" not in text and "制作(作曲/クレジット)時期と発表(録音/リリース)時期が異なる可能性" not in text:
+                hedge_note = (
+                    "\n\n💡 **【時系列整合性の要確認ポイント】**\n"
+                    "制作・発表時期と人物の在籍期間にタイムラグや矛盾が生じている可能性があります。断定する前に以下の代替仮説をご検討ください：\n"
+                    "- **仮説1**: 制作（作曲/作詞/クレジット等）時期と、実際の発表（録音/リリース/発信等）時期が異なる可能性\n"
+                    "- **仮説2**: 対象期間には後任者や別のメンバーが担当・収録していた可能性\n"
+                    "- **仮説3**: 前提となる年号や在籍期間そのものがソース記事上で異なっている可能性"
+                )
+                text = f"⚠️ **[時系列不一致・要確認: 制作・在籍時期の整合性が未検証です]** {text}" + hedge_note
 
     return text
+
+
+def sanitize_unverified_listings(items: list[dict]) -> list[dict]:
+    """
+    未確認店舗エンティティのリスト（構造化データ）を処理し、
+    完全削除ではなく属性情報のみの縮退表示候補へと変換する。
+    """
+    result = []
+    for item in items:
+        if item.get("name_verified", True) and not any(m in str(item.get("name", "")) for m in [
+            "未確認", "未詳", "不明", "非公開"
+        ]):
+            result.append(item)
+        else:
+            loc = item.get("location", "") or item.get("address", "") or "該当エリア"
+            desc = item.get("description", "") or item.get("feature", "") or "候補店舗"
+            result.append({
+                "name": None,
+                "display": f"{loc}にある{desc}（※店名は未確認です。後ほど詳細を検索して確定できます）",
+                "verified": False,
+            })
+    return result
 
 
 def filter_unknown_entity_listings(text: str) -> str:
     """
     「3. ペリーロードの老舗イタリアン（※具体的な店舗名は未確認）」等の
     具体的な店舗名や正式名称が確認できていない不完全なエンティティが
-    おすすめリストや箇条書き候補に混入した際、該当項目（行およびその従属詳細）を
-    回答から安全かつ非破壊的に除去するフィルター。
+    おすすめリストや箇条書き候補に混入した際、完全削除ではなく
+    「縮退表示（検証ステータス付き）」へと非破壊的に変換するフィルター。
     """
     if not text or not isinstance(text, str):
         return text
@@ -998,36 +1021,28 @@ def filter_unknown_entity_listings(text: str) -> str:
 
     lines = text.splitlines()
     cleaned_lines = []
-    skip_mode = False
-    list_header_pattern = re.compile(r'^\s*(?:[①②③④⑤⑥⑦⑧⑨⑩]|\d+[\.、\)]|[-・\*＋+])\s+')
+    list_header_pattern = re.compile(r'^(\s*(?:[①②③④⑤⑥⑦⑧⑨⑩]|\d+[\.、\)]|[-・\*＋+])\s*)(.*?)$')
 
-    for i, line in enumerate(lines):
-        is_list_header = bool(list_header_pattern.match(line))
-        if is_list_header:
-            if any(marker in line for marker in unconfirmed_markers):
-                logger.warning(f"[EntityListingDefense] 未確認店舗・名称未詳のリスト項目を除去しました: {line[:50]}")
-                skip_mode = True
+    for line in lines:
+        match = list_header_pattern.match(line)
+        if match:
+            prefix, content = match.group(1), match.group(2)
+            if any(marker in content for marker in unconfirmed_markers):
+                logger.warning(f"[EntityListingDefense] 未確認店舗・名称未詳のリスト項目を縮退表示にリライトしました: {line[:50]}")
+                clean_title = content
+                for marker in unconfirmed_markers:
+                    clean_title = re.sub(rf'[（\(]\s*※?\s*具体的な?{marker}\s*[）\)]', '', clean_title)
+                    clean_title = re.sub(rf'[（\(]\s*※?\s*{marker}\s*[）\)]', '', clean_title)
+                clean_title = clean_title.strip()
+                cleaned_lines.append(f"{prefix}【店名要確認】{clean_title}（※具体的な店名は未確認です。後ほど検索して確定できます）")
                 continue
-            else:
-                skip_mode = False
 
-        if skip_mode:
-            if is_list_header or line.strip().startswith("#"):
-                skip_mode = False
-            elif re.match(r'^\s*[-*+・]?\s*([^：:\n]{1,30})[：:]', line) or not line.strip() or line.startswith(" ") or line.startswith("\t"):
-                continue
-            else:
-                if i > 0 and not lines[i-1].strip() and not any(kw in line for kw in ["住所", "アクセス", "おすすめ", "電話", "営業", "定休", "予算", "特徴", "メニュー"]):
-                    skip_mode = False
-                else:
-                    continue
-
-        if not skip_mode:
-            cleaned_line = line
-            for marker in unconfirmed_markers:
-                cleaned_line = re.sub(rf'[（\(]\s*※?\s*具体的な?{marker}\s*[）\)]', '', cleaned_line)
-                cleaned_line = re.sub(rf'[（\(]\s*※?\s*{marker}\s*[）\)]', '', cleaned_line)
-            cleaned_lines.append(cleaned_line)
+        cleaned_line = line
+        for marker in unconfirmed_markers:
+            if marker in cleaned_line and not cleaned_line.strip().startswith("【店名要確認】"):
+                cleaned_line = re.sub(rf'[（\(]\s*※?\s*具体的な?{marker}\s*[）\)]', '（※店名要確認）', cleaned_line)
+                cleaned_line = re.sub(rf'[（\(]\s*※?\s*{marker}\s*[）\)]', '（※店名要確認）', cleaned_line)
+        cleaned_lines.append(cleaned_line)
 
     return "\n".join(cleaned_lines)
 

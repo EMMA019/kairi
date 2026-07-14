@@ -237,6 +237,17 @@ async def auto_execute_with_retry(
         "その後にのみ最終回答テキストを出力してください。\n"
         "※ツール呼び出し（<search>, <file> 等）のみを行うターンでは `<<<FINAL_ANSWER>>>` は不要です。"
     )
+    temporal_leadership_instruction = (
+        "\n\n【時系列・人事の最新ファクト絶対優先（パラメトリック記憶の盲信禁止）】\n"
+        "現在は2026年です。FRB議長（ウォーシュ議長）や各国首脳、企業CEOなどの役職や人事情報は、"
+        "事前学習データ（知識ベース）にある過去の情報（例：FRBパウエル議長等）を絶対にそのまま出力せず、"
+        "必ず直近の検索結果（ソーステキスト）に記載されている最新の人名を正確に拾って回答すること。\n"
+        "ソーステキストに人名の記載がなく役職名のみ記載されている場合は、勝手に過去の知識から個人名を補完・推測せず、"
+        "『FRB議長』『同社CEO』のように役職名のみで記述してください。"
+    )
+    if "パラメトリック記憶の盲信禁止" not in executor_sys_prompt:
+        executor_sys_prompt += temporal_leadership_instruction
+
     if "<<<FINAL_ANSWER>>>" not in executor_sys_prompt:
         executor_sys_prompt += boundary_instruction
     

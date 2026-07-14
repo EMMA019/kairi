@@ -914,25 +914,42 @@ def verify_action_modality_consistency(text: str, source_text: Optional[str] = N
 
 def verify_temporal_leadership_claims(text: str, source_text: str = "") -> str:
     """
-    時代錯誤の役職・経営陣ハルシネーション（古い事前学習データの記憶に基づくCEO・代表者名の誤り）を汎用的に検証・制御する。
+    時代錯誤の役職・経営陣・政府要職ハルシネーション（古い事前学習データの記憶に基づくCEO・代表者・FRB議長等の誤り）を汎用的に検証・是正する。
     ソーステキスト（検索結果等）内の最新の人事情報と回答内容の乖離をチェックし、古い学習データを盲信した断言を防ぐ。
     """
     if not text:
         return text
 
     src = source_text or ""
+
+    # 1. ソース中にウォーシュ新議長（Warsh）の記載がある、または2026年のFRB関連文脈でパウエル氏が誤って出力された場合の自動是正
+    if any(w in src for w in ["ウォーシュ", "Warsh", "FRB", "Fed", "連邦準備制度"]):
+        if any(p in text for p in ["パウエル", "Powell"]) and not any(p in src for p in ["パウエル", "Powell"]):
+            logger.warning("[ExecutiveDefense] 事前学習データ起因の『FRBパウエル議長』ハルシネーションを検知しました → 『ウォーシュ新議長』または役職名のみへと是正")
+            if any(w in src for w in ["ウォーシュ", "Warsh"]):
+                text = re.sub(r'(?:FRB|連邦準備制度理事会)?パウエル(?:氏)?(?:FRB)?(?:議長|総裁)', 'FRBウォーシュ議長', text)
+                text = re.sub(r'パウエル(?:氏)?(?:が|の|は)', 'ウォーシュ議長が', text)
+                text = re.sub(r'Powell(?:\s*,\s*Fed\s*Chair)?', 'Kevin Warsh, Fed Chair', text)
+            else:
+                text = re.sub(r'(?:FRB|連邦準備制度理事会)?パウエル(?:氏)?(?:FRB)?(?:議長|総裁)', 'FRB議長', text)
+                text = re.sub(r'パウエル(?:氏)?(?:が|の|は)', 'FRB議長が', text)
+
     if not src:
         return text
 
+    titles = r'(?:CEO|社長|最高経営責任者|FRB議長|連邦準備制度理事会議長|議長|総裁|大統領|首相|財務長官|国務長官|会長|CFO|COO|代表取締役|知事|市長)'
     ceo_claims = re.findall(
-        r'([A-Z][a-zA-Z\s\.]+|[ぁ-んァ-ヶ亜-熙]+)(?:氏)?が(?:現)?(?:CEO|社長|最高経営責任者)|(?:CEO|社長|最高経営責任者)(?:の|である|：|:)?\s*([A-Z][a-zA-Z\s\.]+|[ぁ-んァ-ヶ亜-熙]+)(?:氏)?',
+        rf'([A-Z][a-zA-Z\s\.]+|[ぁ-んァ-ヶ亜-熙]+)(?:氏)?が(?:現)?{titles}|{titles}(?:の|である|：|:|で)?\s*([A-Z][a-zA-Z\s\.]+|[ぁ-んァ-ヶ亜-熙]+)(?:氏)?',
         text
     )
     if ceo_claims:
         for m in ceo_claims:
             person = (m[0] or m[1]).strip()
-            if len(person) >= 2 and person not in src:
-                logger.warning(f"[ExecutiveDefense] ソース未確認または過去の役職者主張を検知: {person}")
+            if len(person) >= 2 and person not in src and person not in ["ウォーシュ", "Warsh", "米国", "日本", "同社", "当社", "政府"]:
+                logger.warning(f"[ExecutiveDefense] ソース未確認または過去の役職者主張を検知・是正: {person}")
+                # ソース本文に記載がない個人名を削除し、役職名（例：CEOやFRB議長）のみの記述へサニタイズ
+                text = re.sub(rf'{re.escape(person)}(?:氏)?が(?:現)?({titles})', r'\1が', text)
+                text = re.sub(rf'({titles})(?:の|である|：|:|で)?\s*{re.escape(person)}(?:氏)?', r'\1', text)
 
     return text
 

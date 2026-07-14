@@ -914,18 +914,21 @@ def verify_action_modality_consistency(text: str, source_text: Optional[str] = N
 
 def verify_temporal_leadership_claims(text: str, source_text: str = "") -> str:
     """
-    時代錯誤の役職・経営陣・政府要職ハルシネーション（古い事前学習データの記憶に基づくCEO・代表者・FRB議長等の誤り）を汎用的に検証・是正する。
-    ソーステキスト（検索結果等）内の最新の人事情報と回答内容の乖離をチェックし、古い学習データを盲信した断言を防ぐ。
+    全ドメイン対応・閉世界（Closed-World）グラウンディング検証エンジン。
+    特定の役職（CEOやFRB議長）や特定の個人名に依存する「ピンポイントのもぐらたたき」ではなく、
+    政治・経済・企業人事・スポーツ等あらゆるドメインにおいて、「役職/地位/肩書/所属と結びついた人名・固有名詞」が
+    ソーステキストに記載されているかを網羅的に検証し、未記載のパラメトリック記憶による固有名詞ハルシネーションを
+    非破壊的に役職名・一般名詞のみ（縮退表記）へとサニタイズ・是正する。
     """
     if not text:
         return text
 
     src = source_text or ""
 
-    # 1. ソース中にウォーシュ新議長（Warsh）の記載がある、または2026年のFRB関連文脈でパウエル氏が誤って出力された場合の自動是正
+    # 0. 高確信度ドメインにおける即時是正（FRB/連邦準備制度など、ソースに最新表記がある際パラメトリック慣習表現をクリーンに置換）
     if any(w in src for w in ["ウォーシュ", "Warsh", "FRB", "Fed", "連邦準備制度"]):
         if any(p in text for p in ["パウエル", "Powell"]) and not any(p in src for p in ["パウエル", "Powell"]):
-            logger.warning("[ExecutiveDefense] 事前学習データ起因の『FRBパウエル議長』ハルシネーションを検知しました → 『ウォーシュ新議長』または役職名のみへと是正")
+            logger.warning("[GroundednessDefense] 事前学習データ起因の『FRBパウエル議長』ハルシネーションを検知 → 『ウォーシュ新議長』または役職名のみへと是正")
             if any(w in src for w in ["ウォーシュ", "Warsh"]):
                 text = re.sub(r'(?:FRB|連邦準備制度理事会)?パウエル(?:氏)?(?:FRB)?(?:議長|総裁)', 'FRBウォーシュ議長', text)
                 text = re.sub(r'パウエル(?:氏)?(?:が|の|は)', 'ウォーシュ議長が', text)
@@ -937,19 +940,32 @@ def verify_temporal_leadership_claims(text: str, source_text: str = "") -> str:
     if not src:
         return text
 
-    titles = r'(?:CEO|社長|最高経営責任者|FRB議長|連邦準備制度理事会議長|議長|総裁|大統領|首相|財務長官|国務長官|会長|CFO|COO|代表取締役|知事|市長)'
-    ceo_claims = re.findall(
-        rf'([A-Z][a-zA-Z\s\.]+|[ぁ-んァ-ヶ亜-熙]+)(?:氏)?が(?:現)?{titles}|{titles}(?:の|である|：|:|で)?\s*([A-Z][a-zA-Z\s\.]+|[ぁ-んァ-ヶ亜-熙]+)(?:氏)?',
+    # 1. 汎用ドメイン対応・組織/地位/役職/所属ターゲット（ピンポイント限定ではなく、あらゆる要職・肩書を包括的にカバー）
+    universal_roles = (
+        r'(?:(?:[A-Za-z\s]{1,25}|[ぁ-んァ-ヶ亜-熙]{1,15})(?:の|である)?)?'
+        r'(?:CEO|CFO|COO|社長|最高経営責任者|議長|連邦準備制度理事会議長|総裁|大統領|首相|長官|大臣|知事|市長|頭取|'
+        r'監督|代表|会長|委員長|理事長|学長|所長|トップ|リーダー|オーナー|役員|責任者|プロデューサー|ディレクター|'
+        r'主将|キャプテン|コーチ|アナリスト|エコノミスト|スポークスマン|広報官|大使)'
+    )
+    
+    # 汎用除外ワード（国名・一般的な人称・組織代名詞は個人名ではないためスキップ）
+    generic_stopwords = {"米国", "日本", "英国", "中国", "同社", "当社", "政府", "市場", "公式", "会社", "組織", "協会", "連盟", "チーム"}
+
+    # 「[人名] が [汎用役職]」「[汎用役職] の [人名]」の両パターンを抽出
+    role_claims = re.findall(
+        rf'([A-Z][a-zA-Z\s\.]+|[ぁ-んァ-ヶ亜-熙]{{2,12}})(?:氏|さん|選手)?が(?:現)?({universal_roles})|({universal_roles})(?:の|である|：|:|で)?\s*([A-Z][a-zA-Z\s\.]+|[ぁ-んァ-ヶ亜-熙]{{2,12}})(?:氏|さん|選手)?',
         text
     )
-    if ceo_claims:
-        for m in ceo_claims:
-            person = (m[0] or m[1]).strip()
-            if len(person) >= 2 and person not in src and person not in ["ウォーシュ", "Warsh", "米国", "日本", "同社", "当社", "政府"]:
-                logger.warning(f"[ExecutiveDefense] ソース未確認または過去の役職者主張を検知・是正: {person}")
-                # ソース本文に記載がない個人名を削除し、役職名（例：CEOやFRB議長）のみの記述へサニタイズ
-                text = re.sub(rf'{re.escape(person)}(?:氏)?が(?:現)?({titles})', r'\1が', text)
-                text = re.sub(rf'({titles})(?:の|である|：|:|で)?\s*{re.escape(person)}(?:氏)?', r'\1', text)
+    if role_claims:
+        for m in role_claims:
+            person = (m[0] or m[3]).strip()
+            role = (m[1] or m[2]).strip()
+            if len(person) >= 2 and person not in generic_stopwords and not any(gw in person for gw in generic_stopwords):
+                # ソース本文にその人物名が存在しない場合、どのドメインであってもパラメトリックハルシネーションと見なし役職名のみへサニタイズ
+                if person not in src and not any(part in src for part in re.split(r'[\s\.]+', person) if len(part) >= 2):
+                    logger.warning(f"[GroundednessDefense] 全ドメイン閉世界原則：ソース未確認の役職/所属者名主張をサニタイズ ({person} -> {role})")
+                    text = re.sub(rf'{re.escape(person)}(?:氏|さん|選手)?が(?:現)?({re.escape(role)})', r'\1が', text)
+                    text = re.sub(rf'({re.escape(role)})(?:の|である|：|:|で)?\s*{re.escape(person)}(?:氏|さん|選手)?', r'\1', text)
 
     return text
 

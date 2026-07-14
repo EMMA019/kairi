@@ -237,16 +237,17 @@ async def auto_execute_with_retry(
         "その後にのみ最終回答テキストを出力してください。\n"
         "※ツール呼び出し（<search>, <file> 等）のみを行うターンでは `<<<FINAL_ANSWER>>>` は不要です。"
     )
-    temporal_leadership_instruction = (
-        "\n\n【時系列・人事の最新ファクト絶対優先（パラメトリック記憶の盲信禁止）】\n"
-        "現在は2026年です。FRB議長（ウォーシュ議長）や各国首脳、企業CEOなどの役職や人事情報は、"
-        "事前学習データ（知識ベース）にある過去の情報（例：FRBパウエル議長等）を絶対にそのまま出力せず、"
-        "必ず直近の検索結果（ソーステキスト）に記載されている最新の人名を正確に拾って回答すること。\n"
-        "ソーステキストに人名の記載がなく役職名のみ記載されている場合は、勝手に過去の知識から個人名を補完・推測せず、"
-        "『FRB議長』『同社CEO』のように役職名のみで記述してください。"
+    universal_closed_world_instruction = (
+        "\n\n【全ドメイン適用：動的・時系列クエリにおける完全閉世界（Closed-World）原則とパラメトリック記憶の遮断】\n"
+        "現在は2026年です。政治、経済・金融（FRB/中央銀行/指標等）、企業人事（CEO/役員等）、スポーツ（選手/所属/監督）、"
+        "エンタメ、テクノロジー等の時系列動向・最新ファクトに関する質問に対しては、事前学習データ（パラメトリック記憶）にある"
+        "過去の固有名詞や人名（例：FRBパウエル議長等）を絶対にそのまま出力せず、必ず直近の検索結果（ソーステキスト）に明示的に"
+        "記載されている最新の人名・固有エンティティのみを正確に拾って回答すること。\n"
+        "ソーステキストに個人名の記載がなく役職名・肩書のみ（『FRB議長』『同社CEO』『現職監督』等）記載されている場合は、"
+        "勝手に過去の記憶から個人名を推測・補完・上書きせず、ソース通りに『FRB議長』『同社CEO』のように役職名・一般名詞のみで記述してください。"
     )
-    if "パラメトリック記憶の盲信禁止" not in executor_sys_prompt:
-        executor_sys_prompt += temporal_leadership_instruction
+    if "完全閉世界（Closed-World）原則" not in executor_sys_prompt:
+        executor_sys_prompt += universal_closed_world_instruction
 
     if "<<<FINAL_ANSWER>>>" not in executor_sys_prompt:
         executor_sys_prompt += boundary_instruction

@@ -242,6 +242,7 @@ async def chat(request: ChatRequest):
             filtered_kv_text=filtered_kv_text,
             followup_cooldown=followup_cooldown,
             kv_summary=kv_summary,
+            history_messages=messages,
         )
         supervisor_sys_prompt = persona_inst + "\n\n" + static_sys
         supervisor_dynamic_sys = dynamic_sys
@@ -253,6 +254,7 @@ async def chat(request: ChatRequest):
             filtered_kv_text="",  # Executorにはここで渡さない (memory_to_injectで注入する)
             followup_cooldown=followup_cooldown,
             kv_summary="",  # Executorには全記憶を絶対に渡さない（トークン節約＆ハルシネーション防止）
+            history_messages=messages,
         )
         executor_sys_prompt = persona_inst + "\n\n" + executor_static
         executor_sys_prompt += "\n\n【ツール使用時の厳格なルール】\n<read_url>, <search>, <file>, <replace>, <run_command> 等のツールタグを出力した後は、**そのタグを出力した時点で即座にテキスト生成を停止し、システムからの実行結果の返却を待つこと。** 「実行中です」「スクレイピングしてくるわ」などの擬似的な演出テキストをタグの前後に追加することは絶対に禁止します。"

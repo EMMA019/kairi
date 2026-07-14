@@ -50,6 +50,8 @@ def filter_fact(fact: str) -> str:
     fact = verify_action_modality_consistency(fact)
     # 0.2 時代錯誤役職ハルシネーションの汎用検証
     fact = verify_temporal_leadership_claims(fact)
+    # 0.3 時系列不一致の後付け合理化・縫い合わせ検証
+    fact = verify_chronological_rationalization(fact)
 
     # 1. 数値制限の隠蔽
     if NUMERIC_LIMITS_PATTERN.search(fact):
@@ -927,6 +929,47 @@ def verify_temporal_leadership_claims(text: str, source_text: str = "") -> str:
             person = (m[0] or m[1]).strip()
             if len(person) >= 2 and person not in src:
                 logger.warning(f"[ExecutiveDefense] ソース未確認または過去の役職者主張を検知: {person}")
+
+    return text
+
+
+def verify_chronological_rationalization(text: str, source_text: str = "") -> str:
+    """
+    Type 3（時系列衝突の後付け合理化・縫い合わせ）を非破壊的に検証するガードレール。
+    「〜までとされていますが、〜関わっており」「脱退後も〜参加」「退任後も〜収録」のような
+    矛盾する年代や在籍期間を後付けストーリーで繋ごうとする接続表現が出現した場合、
+    それを単純に禁止・削除するのではなく、「要検索・再検証フラグ（ソース整合性チェック）」として動作させる。
+    ソーステキストにその関与・接続事実が明記されていない場合のみ警告ログおよび確認促進バッジを付与し、
+    実際のタイムラグやクレジット分離（本当に脱退後に関与したケース等）を誤って弾くフォールス・ポジティブを防ぐ。
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    src = source_text or ""
+
+    # 時系列縫い合わせ・後付け合理化の典型的接続パターン
+    rationalization_patterns = [
+        r"(?:(?:\d{4}年)?までとされていますが|在籍は[^。,\n]+までですが|脱退後も|退任後も|離脱後も|交代後も)[^。\n]*([^\n。]*(?:関わっ|参加|提供|収録|担当|共作|クレジット))",
+        r"(?:リリースは[^。,\n]+年ですが|作品は[^。,\n]+年のものですが)[^。\n]*([^\n。]*(?:在籍中|以前のメンバー|当時のボーカル|彼が))",
+    ]
+
+    has_rationalization = False
+    for pat in rationalization_patterns:
+        if re.search(pat, text):
+            has_rationalization = True
+            break
+
+    if has_rationalization:
+        # ソース本文中に、脱退後の関与や共作・クレジット分離、ゲスト参加等の具体的な根拠キーワードが存在するか確認
+        supportive_keywords = ["ゲスト", "脱退後", "退任後", "共作", "クレジット", "作詞", "作曲", "楽曲提供", "アーカイブ", "未発表", "在籍時"]
+        is_supported_by_source = False
+        if src:
+            is_supported_by_source = any(kw in src for kw in supportive_keywords)
+
+        if not is_supported_by_source:
+            logger.warning("[ChronologicalDefense] ソース裏付けのない時系列不一致・後付け縫い合わせ（合理化）表現を検知しました")
+            if "⚠️ **[時系列不一致・要確認]**" not in text and "⚠️ **[未確認]" not in text and "⚠️ [未確認]" not in text:
+                text = f"⚠️ **[時系列不一致・要確認: 制作・発表時期と人物在籍期間の整合性が未検証です]** {text}"
 
     return text
 

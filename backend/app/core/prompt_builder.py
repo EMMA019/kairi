@@ -3,6 +3,7 @@
 外部のMarkdownファイル（prompts/配下）からプロンプトの構成要素を動的に読み込む。
 """
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from app.utils.logger import get_logger
@@ -68,6 +69,55 @@ def load_knowledge_summary() -> str:
         logger.warning(f"Failed to load KI: {e}")
         return ""
 
+
+def build_entity_registry_context(history_messages: list, current_input: str) -> str:
+    """
+    全会話・複数ターン広域エンティティインデックスを構築・照合する。
+    過去のやり取りから番号つきリストや箇条書きで列挙された選択肢・作品名・固有名詞を短期インデックス化し、
+    ユーザー入力が個別項目（曲名等）を言及した際、直近主語への属性吸着を防ぐために親エンティティとの対照関係を自動注入する。
+    """
+    if not history_messages or not current_input or not isinstance(current_input, str):
+        return ""
+
+    candidate_map = []
+    list_pattern = re.compile(r"(?:[①②③④⑤⑥⑦⑧⑨⑩]|\d+[\.、\)]|[-・\*])\s*([^\n—–-]{2,60})(?:\s*[—–-]\s*([^\n]+))?")
+
+    for msg in history_messages[-10:]:
+        content = msg.get("content", "")
+        if not content or not isinstance(content, str):
+            continue
+        for match in list_pattern.finditer(content):
+            item = match.group(1).strip()
+            desc = (match.group(2) or "").strip()
+            if 2 <= len(item) <= 60 and item.lower() not in ["はい", "いいえ", "その他", "まとめ", "特徴", "理由"]:
+                candidate_map.append((item, desc))
+
+    if not candidate_map:
+        return ""
+
+    matched_entries = []
+    for item, desc in candidate_map:
+        parts = [p for p in re.split(r"[\s・/／]", item) if len(p) >= 3]
+        if any(part.lower() in current_input.lower() for part in parts) or (len(item) >= 4 and item.lower() in current_input.lower()):
+            matched_entries.append(f"- 過去の言及項目: 「{item}」" + (f" ({desc})" if desc else ""))
+
+    if matched_entries:
+        return (
+            "\n\n【🧠 Multi-turn Entity-Context Matcher (広域インデックス照合結果)】\n"
+            "ユーザーの言及キーワードに関連する過去の提示項目が全会話インデックスから検出されました：\n"
+            + "\n".join(matched_entries[:5])
+            + "\n⚠️ 直近の主語（別のトピックやアーティスト）に引っ張られず、上記項目および親エンティティの正確なファクトを検索確認の上で解説してください。"
+        )
+
+    # 照合ヒットがなくても、直近数ターンに選択肢リストが存在すれば広域インデックスとして提示
+    recent_items = [f"- {item}" + (f" ({desc[:30]})" if desc else "") for item, desc in candidate_map[-6:]]
+    return (
+        "\n\n【🧠 Multi-turn Entity-Context Registry (会話全体の提示項目インデックス)】\n"
+        "過去のやり取りで以下の選択肢・候補が列挙されています。個別タイトルへの言及時は、直近主語だけに吸着させず本インデックスを参照してください：\n"
+        + "\n".join(recent_items)
+    )
+
+
 def build_system_instruction(
     user_input: str,
     mode: str,
@@ -75,6 +125,7 @@ def build_system_instruction(
     filtered_kv_text: str,
     followup_cooldown: bool,
     kv_summary: str = "【KVメモリなし】",
+    history_messages: list = None,
 ) -> tuple[str, str, str]:
     """
     システムプロンプトの静的部分、動的部分、ペルソナ指示を分離して返す。
@@ -270,6 +321,10 @@ def build_system_instruction(
 ## 15. 🚨 P0: 【近接文脈バイアスの排除と会話内エンティティクロス照合の絶対義務】
 - **直近主語への属性吸着・誤帰属の厳格禁止**: 会話履歴内に複数の候補・選択肢（アーティスト、製品、作品、機能、銘柄等）やリストが提示された後、ユーザーが特定の曲名・作品名・機能名・小項目に言及した際、直前のやり取りで最も頻出または熱心に語られた主語（直近のエンティティ）の作品や属性であると勝手に思い込み・属性吸着させて解説することを厳格に禁止します。
 - **会話内クロスリファレンス照合の徹底**: 必ず直近のターンだけでなく、「過去のやり取りで自分が列挙・提示した選択肢リスト（①〜③等）や候補全体」とユーザーが言及した対象名（曲名や項目等）を突き合わせる照合ステップを思考内で挟み、実際の親エンティティ（正確なアーティスト・提供元等）を照合特定した上で回答すること。不正確・曖昧な場合は近接バイアスで推測補完せず、必ず検索ファクトを確認・反映すること。
+
+## 16. 🚨 P0: 【時系列衝突の後付け縫い合わせ合理化の禁止と第三仮説（役割分離・タイムラグ）検証】
+- **矛盾解消のための架空ストーリー即興捏造の厳格禁止**: 人物の在籍期間・任期・役職と作品やイベントの発表時点に時間的ズレや食い違い（例：「2010年退任のボーカル」と「2013年リリースのアルバム」等）を認知した際、その論理矛盾を解消するために「退任後も特別に関与した」「前倒しで録音されていた」等の未確認の例外・正当化ストーリーを自身の推測で即興捏造し縫い合わせて説明することを厳格に禁止します。
+- **時系列不一致時の『役割分離・タイムラグ仮説』検証原則**: 年代や任期の矛盾に直面した場合、安易な「主語交代（別人が担当した）」や「前提誤り」の二択だけに絞るのではなく、まず第一に **「作曲・制作クレジットと実際の録音・演奏者の役割分離（例：作曲は在籍中のメンバーだが、実際の歌唱・収録は後任）」や「制作と発表のタイムラグ、アーカイブ収録」等の第三の可能性（時間差・クレジット分離）** を有力仮説として検討してください。その上で、必ず検索によって「誰がどの役割を担ったのか」という一次ファクトを確認し、裏付けが存在しない言い訳や接続補完は一切出力しないこと。
 """
     dynamic_prompt = sentinel_guardrails + "\n\n" + dynamic_prompt
 
@@ -297,6 +352,9 @@ def build_system_instruction(
     # --- スキル動的ロード (Claude Code Style Skills) ---
     # ユーザー入力に関連するスキルファイルだけを動的ロードするため、無関係なスキルによる無駄なトークン消費もゼロ！
     dynamic_prompt += load_active_skills(user_input)
+
+    # --- 広域マルチターン Entity-Context Registry 注入 ---
+    dynamic_prompt += build_entity_registry_context(history_messages, user_input)
         
     return static_prompt, dynamic_prompt, persona_instruction
 

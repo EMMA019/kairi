@@ -554,11 +554,13 @@ async def auto_execute_with_retry(
             strip_excuse_hallucinations,
             enforce_variable_numerical_claims,
             verify_temporal_leadership_claims,
+            verify_chronological_rationalization,
         )
         _, final_accumulated_response = check_currency_consistency(final_accumulated_response)
         _, final_accumulated_response = verify_numbers_exist_in_source(final_accumulated_response, str(search_results or ""))
         final_accumulated_response = enforce_variable_numerical_claims(final_accumulated_response, str(search_results or ""))
         final_accumulated_response = verify_temporal_leadership_claims(final_accumulated_response, str(search_results or ""))
+        final_accumulated_response = verify_chronological_rationalization(final_accumulated_response, str(search_results or ""))
         final_accumulated_response = correct_common_typos(final_accumulated_response)
         final_accumulated_response = strip_unrequested_memory_mentions(final_accumulated_response, user_input=user_input)
         final_accumulated_response = strip_unrequested_yahoo_finance(final_accumulated_response, user_input=user_input)

@@ -283,6 +283,13 @@ def build_system_instruction(
     # --- 知識永続化 (Knowledge Items / KI) ---
     dynamic_prompt += load_knowledge_summary()
 
+    # --- 東証市場セッション機械判定コンテキスト (TSE Market Session & Holiday Routing) ---
+    try:
+        from app.core.market_session import get_tse_market_session_context
+        dynamic_prompt += get_tse_market_session_context(user_input)
+    except Exception as e:
+        logger.warning(f"Market session routing error: {e}")
+
     # --- スキル動的ロード (Claude Code Style Skills) ---
     # ユーザー入力に関連するスキルファイルだけを動的ロードするため、無関係なスキルによる無駄なトークン消費もゼロ！
     dynamic_prompt += load_active_skills(user_input)

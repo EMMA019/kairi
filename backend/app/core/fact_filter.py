@@ -52,6 +52,10 @@ def filter_fact(fact: str) -> str:
     fact = verify_temporal_leadership_claims(fact)
     # 0.3 時系列不一致の後付け合理化・縫い合わせ検証
     fact = verify_chronological_rationalization(fact)
+    # 0.4 未確認店舗・名称未詳エンティティのリスト混入排除
+    fact = filter_unknown_entity_listings(fact)
+    # 0.5 バッファ汚染・残骸テキストの除去
+    fact = sanitize_buffer_contamination(fact)
 
     # 1. 数値制限の隠蔽
     if NUMERIC_LIMITS_PATTERN.search(fact):
@@ -974,6 +978,78 @@ def verify_chronological_rationalization(text: str, source_text: str = "") -> st
     return text
 
 
+def filter_unknown_entity_listings(text: str) -> str:
+    """
+    「3. ペリーロードの老舗イタリアン（※具体的な店舗名は未確認）」等の
+    具体的な店舗名や正式名称が確認できていない不完全なエンティティが
+    おすすめリストや箇条書き候補に混入した際、該当項目（行およびその従属詳細）を
+    回答から安全かつ非破壊的に除去するフィルター。
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    unconfirmed_markers = [
+        "店舗名は未確認", "店名は未確認", "店名未詳", "具体的な店舗名は未確認",
+        "名称は未確認", "名称未詳", "名称不明", "店名不明", "店舗名非公開",
+        "具体的な名称は未確認", "名前は未確認", "店舗名未詳",
+    ]
+    if not any(marker in text for marker in unconfirmed_markers):
+        return text
+
+    lines = text.splitlines()
+    cleaned_lines = []
+    skip_mode = False
+    list_header_pattern = re.compile(r'^\s*(?:[①②③④⑤⑥⑦⑧⑨⑩]|\d+[\.、\)]|[-・\*＋+])\s+')
+
+    for i, line in enumerate(lines):
+        is_list_header = bool(list_header_pattern.match(line))
+        if is_list_header:
+            if any(marker in line for marker in unconfirmed_markers):
+                logger.warning(f"[EntityListingDefense] 未確認店舗・名称未詳のリスト項目を除去しました: {line[:50]}")
+                skip_mode = True
+                continue
+            else:
+                skip_mode = False
+
+        if skip_mode:
+            if is_list_header or line.strip().startswith("#"):
+                skip_mode = False
+            elif re.match(r'^\s*[-*+・]?\s*([^：:\n]{1,30})[：:]', line) or not line.strip() or line.startswith(" ") or line.startswith("\t"):
+                continue
+            else:
+                if i > 0 and not lines[i-1].strip() and not any(kw in line for kw in ["住所", "アクセス", "おすすめ", "電話", "営業", "定休", "予算", "特徴", "メニュー"]):
+                    skip_mode = False
+                else:
+                    continue
+
+        if not skip_mode:
+            cleaned_line = line
+            for marker in unconfirmed_markers:
+                cleaned_line = re.sub(rf'[（\(]\s*※?\s*具体的な?{marker}\s*[）\)]', '', cleaned_line)
+                cleaned_line = re.sub(rf'[（\(]\s*※?\s*{marker}\s*[）\)]', '', cleaned_line)
+            cleaned_lines.append(cleaned_line)
+
+    return "\n".join(cleaned_lines)
+
+
+def sanitize_buffer_contamination(text: str) -> str:
+    """
+    回答末尾や行中に混入した内部バッファの断片（思考ログ残骸、過去エラーログ、
+    「②あいまいな回答...」「①問題点...」等の分析テキスト漏洩）を除去するサニタイザー。
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    patterns = [
+        r'(?:\n|\s)*(?:①|②|③|④|⑤)\s*(?:あいまいな回答|問題点|対策|不確実性|思考ログ|ハルシネーション).*$',
+        r'(?:\n|\s)*【(?:内部ログ|思考分析|プロンプト残骸|システム通知)】.*$',
+    ]
+    for pat in patterns:
+        text = re.sub(pat, '', text, flags=re.DOTALL)
+
+    return text.strip()
+
+
 def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
     """
     時間・金額・頻度・日付・件数などの「変動しうる数値情報」を検証・制御するフィルター。
@@ -1186,11 +1262,16 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
             logger.info(f"[NumericalDefense] 金融・ニュース分析コンテキスト検出(finance={finance_score}, travel={travel_score}) → アナリスト向けデータ注記判定")
             if "統計比率" in unverified_categories and "※一部の比率" not in text:
                 text = text.rstrip() + "\n\n※一部の比率・市場指標はソース記事に明記されていない推計または周辺参考データを含む場合があります。正確な数値は公式開示データをご確認ください。"
-        else:
-            logger.info(f"[NumericalDefense] 未検証の数値情報カテゴリ: {categories_str} → 末尾一括注記を追加")
-            # すでに同様の免責注記が存在する場合は重複追加しない
-            if "※営業時間" not in text and "※正確な" not in text and "※最新の情報" not in text:
+        elif travel_score > 0 or any(cat in unverified_categories for cat in ["営業時間", "料金", "便数", "運行間隔", "日程"]):
+            logger.info(f"[NumericalDefense] 店舗・旅行・サービスお出かけコンテキスト検出(travel={travel_score}, categories={categories_str}) → 末尾一括注記を追加")
+            if "※営業時間" not in text and "※正確な" not in text and "※最新の情報" not in text and "※お出かけ前に" not in text:
                 text = text.rstrip() + f"\n\n※{categories_str}等の情報は変動する場合があります。お出かけ前に公式サイトや店舗へ直接ご確認いただくことをおすすめします。"
+        elif "統計比率" in unverified_categories and len(unverified_categories) == 1:
+            logger.info("[NumericalDefense] 一般・雑談文脈における統計比率のみの未検証検出 → 見当違いな店舗免責注記不要としてスキップ")
+        else:
+            logger.info(f"[NumericalDefense] 一般文脈における未検証数値カテゴリ({categories_str}) → 汎用免責注記")
+            if "※正確な" not in text and "※最新の情報" not in text and "※各種情報" not in text:
+                text = text.rstrip() + f"\n\n※{categories_str}等の情報は参考値または変動する場合があります。最新の情報は各公式サイト等をご確認ください。"
 
     return check_financial_arithmetic_consistency(text)
 

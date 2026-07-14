@@ -72,9 +72,11 @@ def load_knowledge_summary() -> str:
 
 def build_entity_registry_context(history_messages: list, current_input: str) -> str:
     """
-    全会話・複数ターン広域エンティティインデックスを構築・照合する。
+    全会話・複数ターン広域エンティティインデックスを構築・照合するとともに、
+    人間同様の主語省略（ゼロ照合／Zero-Anaphora）を自然に承継するアンカーを生成・注入する。
     過去のやり取りから番号つきリストや箇条書きで列挙された選択肢・作品名・固有名詞を短期インデックス化し、
-    ユーザー入力が個別項目（曲名等）を言及した際、直近主語への属性吸着を防ぐために親エンティティとの対照関係を自動注入する。
+    ユーザー入力が個別項目（曲名等）やリアクションのみで主語を省略した際、
+    問い返しや疑心暗鬼に陥らずに直前ターンの主語・候補を自然承継させる。
     """
     if not history_messages or not current_input or not isinstance(current_input, str):
         return ""
@@ -92,30 +94,54 @@ def build_entity_registry_context(history_messages: list, current_input: str) ->
             if 2 <= len(item) <= 60 and item.lower() not in ["はい", "いいえ", "その他", "まとめ", "特徴", "理由"]:
                 candidate_map.append((item, desc))
 
-    if not candidate_map:
-        return ""
-
     matched_entries = []
-    for item, desc in candidate_map:
-        parts = [p for p in re.split(r"[\s・/／]", item) if len(p) >= 3]
-        if any(part.lower() in current_input.lower() for part in parts) or (len(item) >= 4 and item.lower() in current_input.lower()):
-            matched_entries.append(f"- 過去の言及項目: 「{item}」" + (f" ({desc})" if desc else ""))
+    if candidate_map:
+        for item, desc in candidate_map:
+            parts = [p for p in re.split(r"[\s・/／]", item) if len(p) >= 3]
+            if any(part.lower() in current_input.lower() for part in parts) or (len(item) >= 4 and item.lower() in current_input.lower()):
+                matched_entries.append(f"- 過去の言及項目: 「{item}」" + (f" ({desc})" if desc else ""))
+
+    # 直前アシスタントのメッセージから直近の話題・候補を抽出してゼロ照合承継アンカーを構築
+    last_assistant_content = ""
+    for msg in reversed(history_messages):
+        if msg.get("role") == "assistant" and msg.get("content"):
+            last_assistant_content = msg.get("content", "")
+            break
+
+    zero_anaphora_anchor = ""
+    if last_assistant_content and (len(current_input.strip()) <= 60 or matched_entries or any(kw in current_input for kw in ["いいね", "異端", "それ", "あれ", "もっと", "特徴", "なんで", "どうして", "どこ", "おすすめ"])):
+        # 直前の発言で提示された候補リストまたは主要キーワード
+        recent_candidates = [item for item, _ in candidate_map[-5:]] if candidate_map else []
+        anchor_target = matched_entries[0] if matched_entries else (f"直前ターンの提示アイテム/話題（{', '.join(recent_candidates[:3])} 等）" if recent_candidates else "直前ターンの主語・話題")
+        zero_anaphora_anchor = (
+            f"\n\n【🗣️ Zero-Subject & Ellipsis Resolution Anchor (人間同様の主語省略・文脈承継アンカー)】\n"
+            f"ユーザー入力「{current_input}」は、人間同士の自然な対話と同様に主語や代名詞が省略されているか、あるいは直前ターンであなたが提示した候補（対象: {anchor_target}）への直接的なリアクション・承継です。\n"
+            f"⚠️ 【ゼロ照合・自然対話の絶対厳守ルール】:\n"
+            f"1. 深読み・疑心暗鬼・的外れな問い返しの厳格禁止: 「〇〇のことですか？それとも△△ですか？」とユーザーに問い返したり、「自分が過去に店名未確認で出した候補と勘違いされているのでは？」などと過剰に深読みして疑う野暮な確認は一切行わないこと。\n"
+            f"2. スマートな文脈承継: 直前ターンの文脈および該当アイテムを主語として即座に受け入れ、人間同様にスマートかつダイレクトに回答・解説を展開すること。"
+        )
 
     if matched_entries:
         return (
             "\n\n【🧠 Multi-turn Entity-Context Matcher (広域インデックス照合結果)】\n"
             "ユーザーの言及キーワードに関連する過去の提示項目が全会話インデックスから検出されました：\n"
             + "\n".join(matched_entries[:5])
+            + zero_anaphora_anchor
             + "\n⚠️ 直近の主語（別のトピックやアーティスト）に引っ張られず、上記項目および親エンティティの正確なファクトを検索確認の上で解説してください。"
         )
 
+    if zero_anaphora_anchor:
+        return zero_anaphora_anchor
+
     # 照合ヒットがなくても、直近数ターンに選択肢リストが存在すれば広域インデックスとして提示
-    recent_items = [f"- {item}" + (f" ({desc[:30]})" if desc else "") for item, desc in candidate_map[-6:]]
-    return (
-        "\n\n【🧠 Multi-turn Entity-Context Registry (会話全体の提示項目インデックス)】\n"
-        "過去のやり取りで以下の選択肢・候補が列挙されています。個別タイトルへの言及時は、直近主語だけに吸着させず本インデックスを参照してください：\n"
-        + "\n".join(recent_items)
-    )
+    recent_items = [f"- {item}" + (f" ({desc[:30]})" if desc else "") for item, desc in candidate_map[-6:]] if candidate_map else []
+    if recent_items:
+        return (
+            "\n\n【🧠 Multi-turn Entity-Context Registry (会話全体の提示項目インデックス)】\n"
+            "過去のやり取りで以下の選択肢・候補が列挙されています。個別タイトルへの言及時は、直近主語だけに吸着させず本インデックスを参照してください：\n"
+            + "\n".join(recent_items)
+        )
+    return ""
 
 
 def build_system_instruction(
@@ -325,6 +351,10 @@ def build_system_instruction(
 ## 16. 🚨 P0: 【時系列衝突の後付け縫い合わせ合理化の禁止と第三仮説（役割分離・タイムラグ）検証】
 - **矛盾解消のための架空ストーリー即興捏造の厳格禁止**: 人物の在籍期間・任期・役職と作品やイベントの発表時点に時間的ズレや食い違い（例：「2010年退任のボーカル」と「2013年リリースのアルバム」等）を認知した際、その論理矛盾を解消するために「退任後も特別に関与した」「前倒しで録音されていた」等の未確認の例外・正当化ストーリーを自身の推測で即興捏造し縫い合わせて説明することを厳格に禁止します。
 - **時系列不一致時の『役割分離・タイムラグ仮説』検証原則**: 年代や任期の矛盾に直面した場合、安易な「主語交代（別人が担当した）」や「前提誤り」の二択だけに絞るのではなく、まず第一に **「作曲・制作クレジットと実際の録音・演奏者の役割分離（例：作曲は在籍中のメンバーだが、実際の歌唱・収録は後任）」や「制作と発表のタイムラグ、アーカイブ収録」等の第三の可能性（時間差・クレジット分離）** を有力仮説として検討してください。その上で、必ず検索によって「誰がどの役割を担ったのか」という一次ファクトを確認し、裏付けが存在しない言い訳や接続補完は一切出力しないこと。
+
+## 17. 🚨 P0: 【人間同様の主語省略（ゼロ照合）の自然承継と未確認エンティティのリスト提示禁止】
+- **主語省略・選択肢リアクションへの深読み・問い返し厳格禁止**: ユーザーが直前ターンの提示候補（例：「サンマリノ」）や主語（例：「ナターシャーセブン」）に触れ、代名詞や主語を省略（ゼロ照合／Zero-Anaphora）して発言した際、過剰に深読みして「〇〇のことですか？」「私が過去に述べた〜を勘違いされていませんか？」と問い返すことを厳格に禁止します。人間同士の自然な対話と同様に、直前ターンの文脈と対象候補を主語として即座に受け入れ、スマートに即答・解説を展開すること。
+- **店舗名未確認・名称未詳エンティティのリスト混入厳格禁止**: 「3. ペリーロードの老舗イタリアン（※具体的な店舗名は未確認）」のように、正式名称や具体的な店舗名が分からない・特定できていない不完全な情報を番号つきリストやおすすめ候補（TOP3等）として提示することを厳格に禁止します。候補として提示するのは名称と実在が一次情報で確認できたスポットのみとし、不明なものはリストから除外して厳選提示すること。
 """
     dynamic_prompt = sentinel_guardrails + "\n\n" + dynamic_prompt
 

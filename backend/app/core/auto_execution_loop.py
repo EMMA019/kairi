@@ -555,12 +555,15 @@ async def auto_execute_with_retry(
             enforce_variable_numerical_claims,
             verify_temporal_leadership_claims,
             verify_chronological_rationalization,
+            filter_unknown_entity_listings,
+            sanitize_buffer_contamination,
         )
         _, final_accumulated_response = check_currency_consistency(final_accumulated_response)
         _, final_accumulated_response = verify_numbers_exist_in_source(final_accumulated_response, str(search_results or ""))
-        final_accumulated_response = enforce_variable_numerical_claims(final_accumulated_response, str(search_results or ""))
         final_accumulated_response = verify_temporal_leadership_claims(final_accumulated_response, str(search_results or ""))
         final_accumulated_response = verify_chronological_rationalization(final_accumulated_response, str(search_results or ""))
+        final_accumulated_response = filter_unknown_entity_listings(final_accumulated_response)
+        final_accumulated_response = enforce_variable_numerical_claims(final_accumulated_response, str(search_results or ""))
         final_accumulated_response = correct_common_typos(final_accumulated_response)
         final_accumulated_response = strip_unrequested_memory_mentions(final_accumulated_response, user_input=user_input)
         final_accumulated_response = strip_unrequested_yahoo_finance(final_accumulated_response, user_input=user_input)
@@ -572,6 +575,7 @@ async def auto_execute_with_retry(
         final_accumulated_response = strip_out_of_period_event_mentions(final_accumulated_response)
         final_accumulated_response = verify_holiday_and_weekend_claims(final_accumulated_response)
         final_accumulated_response = strip_excuse_hallucinations(final_accumulated_response)
+        final_accumulated_response = sanitize_buffer_contamination(final_accumulated_response)
     except Exception as e:
         logger.warning(f"Fact filter validation warning in auto_execution_loop: {e}")
 
@@ -611,6 +615,12 @@ async def auto_execute_with_retry(
     final_accumulated_response = re.sub(r'<think>.*?</think>', '', final_accumulated_response, flags=re.DOTALL)
     final_accumulated_response = re.sub(r'(?m)^(?:まず、ユーザーの発言を分析します[^\n]*\n+|Output format:[^\n]*\n+|user_intent_analysis:[^\n]*\n+)+', '', final_accumulated_response)
     final_accumulated_response = re.sub(r'【一般検索結果:.*?】\s*(?:\[brave\s*\[Tier.*?\]\].*?\n?)+', '', final_accumulated_response, flags=re.DOTALL)
+    try:
+        from app.core.fact_filter import filter_unknown_entity_listings, sanitize_buffer_contamination
+        final_accumulated_response = filter_unknown_entity_listings(final_accumulated_response)
+        final_accumulated_response = sanitize_buffer_contamination(final_accumulated_response)
+    except Exception as e:
+        logger.warning(f"Final cleanup warning: {e}")
 
     return final_accumulated_response.strip(), tool_results_summary, escalation_history
 

@@ -1288,13 +1288,15 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
     if unverified_categories:
         categories_str = "・".join(sorted(unverified_categories))
 
-        # 回答コンテキストの判定: 金融・市場・政治経済系のキーワードが優勢かどうか
+        # 回答コンテキストの判定: 金融・市場・政治経済・資産運用系のキーワードが優勢かどうか
         _FINANCE_NEWS_KEYWORDS = [
             "株価", "日経平均", "TOPIX", "S&P", "NASDAQ", "ダウ", "原油", "WTI", "ブレント",
             "為替", "ドル円", "金利", "利回り", "先物", "市場", "相場", "投資", "銘柄",
             "封鎖", "空爆", "制裁", "停戦", "紛争", "危機", "地政学", "ホルムズ",
             "GDP", "インフレ", "CPI", "FRB", "日銀", "金融政策", "利上げ", "利下げ",
-            "決算", "業績", "収益", "売上", "時価総額", "PER", "配当",
+            "決算", "業績", "収益", "売上", "時価総額", "PER", "配当", "半導体", "ETF",
+            "ポートフォリオ", "評価額", "評価損益", "時価", "単価", "買付", "NISA", "リバランス",
+            "SOXX", "SOX", "株式", "株", "資産", "ファンド", "組入", "構成", "分散",
         ]
         _TRAVEL_SPOT_KEYWORDS = [
             "ホテル", "旅館", "レストラン", "カフェ", "観光", "ビーチ", "水族館",
@@ -1304,21 +1306,21 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
         ]
         finance_score = sum(1 for kw in _FINANCE_NEWS_KEYWORDS if kw in text)
         travel_score = sum(1 for kw in _TRAVEL_SPOT_KEYWORDS if kw in text)
-        is_finance_context = finance_score >= 3 and finance_score > travel_score
+        is_finance_context = (finance_score >= 1 and travel_score == 0) or (finance_score >= 3 and finance_score > travel_score)
 
-        if is_finance_context:
-            logger.info(f"[NumericalDefense] 金融・ニュース分析コンテキスト検出(finance={finance_score}, travel={travel_score}) → アナリスト向けデータ注記判定")
-            if "統計比率" in unverified_categories and "※一部の比率" not in text:
-                text = text.rstrip() + "\n\n※一部の比率・市場指標はソース記事に明記されていない推計または周辺参考データを含む場合があります。正確な数値は公式開示データをご確認ください。"
-        elif travel_score > 0 or any(cat in unverified_categories for cat in ["営業時間", "料金", "便数", "運行間隔", "日程"]):
-            logger.info(f"[NumericalDefense] 店舗・旅行・サービスお出かけコンテキスト検出(travel={travel_score}, categories={categories_str}) → 末尾一括注記を追加")
+        if travel_score > 0:
+            logger.info(f"[NumericalDefense] 店舗・旅行・サービスお出かけコンテキスト検出(travel={travel_score}, finance={finance_score}) → 店舗・お出かけ注記を追加")
             if "※営業時間" not in text and "※正確な" not in text and "※最新の情報" not in text and "※お出かけ前に" not in text:
                 text = text.rstrip() + f"\n\n※{categories_str}等の情報は変動する場合があります。お出かけ前に公式サイトや店舗へ直接ご確認いただくことをおすすめします。"
+        elif is_finance_context:
+            logger.info(f"[NumericalDefense] 金融・ニュース分析・資産運用コンテキスト検出(finance={finance_score}, travel={travel_score}) → アナリスト向けデータ注記判定")
+            if any(c in unverified_categories for c in ["統計比率", "料金", "日程"]) and "※一部の比率" not in text and "※正確な" not in text:
+                text = text.rstrip() + "\n\n※一部の比率・市場指標や価格等はソース記事に明記されていない推計または周辺参考データを含む場合があります。正確な最新数値は公式開示データをご確認ください。"
         elif "統計比率" in unverified_categories and len(unverified_categories) == 1:
             logger.info("[NumericalDefense] 一般・雑談文脈における統計比率のみの未検証検出 → 見当違いな店舗免責注記不要としてスキップ")
         else:
             logger.info(f"[NumericalDefense] 一般文脈における未検証数値カテゴリ({categories_str}) → 汎用免責注記")
-            if "※正確な" not in text and "※最新の情報" not in text and "※各種情報" not in text:
+            if "※正確な" not in text and "※最新の情報" not in text and "※各種情報" not in text and "※お出かけ前に" not in text:
                 text = text.rstrip() + f"\n\n※{categories_str}等の情報は参考値または変動する場合があります。最新の情報は各公式サイト等をご確認ください。"
 
     return check_financial_arithmetic_consistency(text)

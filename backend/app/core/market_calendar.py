@@ -296,16 +296,17 @@ def get_jp_holidays(year: int) -> list[dict]:
 
 def check_market_status(dt: Optional[datetime.datetime] = None) -> dict:
     """
-    指定日時の市場ステータスを返す（取引時間の考慮あり）。
+    指定日時の市場ステータスを返す（取引時間および時差・開場前/引け後の考慮あり）。
     
     Returns:
         {
             "datetime": "YYYY-MM-DD HH:MM (JST)",
-            "us_market": "open" | "closed" | "early_close",
+            "et_datetime": "YYYY-MM-DD HH:MM (EDT/EST)",
+            "us_market": "open" | "pre_market" | "post_market" | "closed" | "early_close",
             "us_close_time": "16:00 ET" | "13:00 ET" | None,
             "jp_market": "open" | "closed",
             "jp_reason": "weekend" | "holiday_name" | "outside_trading_hours" | None,
-            "us_reason": "weekend" | "holiday_name" | "outside_trading_hours" | None,
+            "us_reason": "weekend" | "holiday_name" | "pre_market_before_open" | "post_market_closed_for_day" | None,
             "disclaimer": "※ルールベース推定値です。確実な情報は公式サイトで確認してください。"
         }
     """
@@ -320,25 +321,33 @@ def check_market_status(dt: Optional[datetime.datetime] = None) -> dict:
     date = dt.date()
     year = date.year
     
+    # 米国現地時間 (ET) の算出
+    et_dt = _jst_to_et(dt)
+    is_dst = _is_us_dst(dt)
+    et_tz_label = "EDT (夏時間)" if is_dst else "EST (冬時間)"
+    et_datetime_str = f"{et_dt.strftime('%Y-%m-%d %H:%M')} ({et_tz_label})"
+    
     us_holidays = get_us_holidays(year)
     us_early_closes = get_us_early_closes(year)
     jp_holidays = get_jp_holidays(year)
     
-    # 週末チェック
-    is_weekend = date.weekday() >= 5
+    # 週末チェック (米国は現地時間et_dtの日付で判定、日本はdtで判定)
+    et_date = et_dt.date()
+    is_us_weekend = et_date.weekday() >= 5
+    is_jp_weekend = date.weekday() >= 5
     
     # ========================================
     # 米国市場
     # ========================================
-    if is_weekend:
+    if is_us_weekend:
         us_status = "closed"
         us_reason = "weekend"
         us_close = None
     else:
-        # 祝日チェック（日付ベース）
+        # 祝日チェック（現地日付et_dateでチェック）
         us_holiday_name = None
         for h in us_holidays:
-            if h["date"] == date:
+            if h["date"] == et_date:
                 us_holiday_name = h["name"]
                 break
         
@@ -350,27 +359,32 @@ def check_market_status(dt: Optional[datetime.datetime] = None) -> dict:
             # 短縮取引日チェック（日付ベース）
             early_close_time = None
             for e in us_early_closes:
-                if e["date"] == date:
+                if e["date"] == et_date:
                     early_close_time = e["close_time"]
                     break
             
-            # 取引時間内チェック
+            # 取引時間内・開場前・引け後チェック
             if _is_us_trading_hours(dt):
                 us_status = "open"
                 us_reason = None
                 us_close = early_close_time or "16:00 ET"
-                # 短縮取引日の場合は early_close ステータスに
                 if early_close_time:
                     us_status = "early_close"
             else:
-                us_status = "closed"
-                us_reason = "outside_trading_hours"
-                us_close = None
+                et_time_min = et_dt.hour * 60 + et_dt.minute
+                if et_time_min < 9 * 60 + 30:
+                    us_status = "pre_market"
+                    us_reason = "pre_market_before_open"
+                    us_close = None
+                else:
+                    us_status = "post_market"
+                    us_reason = "post_market_closed_for_day"
+                    us_close = None
     
     # ========================================
     # 日本市場
     # ========================================
-    if is_weekend:
+    if is_jp_weekend:
         jp_status = "closed"
         jp_reason = "weekend"
     else:
@@ -395,6 +409,7 @@ def check_market_status(dt: Optional[datetime.datetime] = None) -> dict:
     
     return {
         "datetime": dt.strftime("%Y-%m-%d %H:%M (JST)"),
+        "et_datetime": et_datetime_str,
         "us_market": us_status,
         "us_reason": us_reason,
         "us_close_time": us_close,
@@ -405,20 +420,30 @@ def check_market_status(dt: Optional[datetime.datetime] = None) -> dict:
 
 
 def format_market_status(dt: Optional[datetime.datetime] = None) -> str:
-    """市場ステータスを人間が読める形式で返す（Supervisor/Executor用）"""
+    """市場ステータスと現地時間を人間が読める形式で返す（Supervisor/Executor用）"""
     status = check_market_status(dt)
     parts = []
-    parts.append(f"【現在の日時】\n{status['datetime']}")
+    parts.append(f"【現在の日時と時差状況】\n日本時間 (JST): {status['datetime']}\n現地ニューヨーク時間 (ET): {status.get('et_datetime', 'N/A')}")
     
     # 米国市場
-    us_icon = {"open": "🟢", "closed": "🔴", "early_close": "🟡"}
-    us_text = f"{us_icon.get(status['us_market'], '⚪')} 米国株式市場: "
-    if status["us_market"] == "open":
-        us_text += f"取引中 ({status['us_close_time']}まで)"
-    elif status["us_market"] == "early_close":
-        us_text += f"短縮取引中 ({status['us_close_time']}まで)"
+    us_status = status["us_market"]
+    if us_status == "open":
+        us_text = f"🟢 米国株式市場: レギュラーセッション取引中 ({status['us_close_time']}まで)"
+    elif us_status == "early_close":
+        us_text = f"🟡 米国株式市場: 短縮取引中 ({status['us_close_time']}まで)"
+    elif us_status == "pre_market":
+        us_text = (
+            f"🟡 米国株式市場: 本日レギュラーセッション開場前（プレマーケット／時間外時間帯）。\n"
+            f"   → 現地NYの早朝であり、今日の通常取引（09:30 ET / 日本時間夜）はまだ開場していません。\n"
+            f"   → 「今日の市場が終了・クローズした」と誤認せず、「今日の市場はまだ始まっていません（開場前）」と正確に認識し、前営業日の確定終値をベースに語ってください。"
+        )
+    elif us_status == "post_market":
+        us_text = (
+            f"🔴 米国株式市場: 本日のレギュラーセッション取引終了（引け後／時間外アフターマーケット）。\n"
+            f"   → 確定した本日の終値をベースに解説してください。"
+        )
     else:
-        us_text += f"休場 ({status['us_reason']})"
+        us_text = f"🔴 米国株式市場: 本日は終日休場 ({status['us_reason']}) です。前営業日の確定終値をベースに語ってください。"
     parts.append(us_text)
     
     # 日本市場

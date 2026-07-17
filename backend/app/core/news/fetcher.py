@@ -15,20 +15,29 @@ from app.core.search.router import fetch_url
 
 logger = get_logger(__name__)
 
-# 1次情報RSS（ペイウォールなし・全文取得可能）
+# 1次情報＆世界・国内株式市場速報RSS（ペイウォールなし・全文取得可能）
 ON_DEMAND_FEEDS = [
+    # --- 🇺🇸 米国金融・株式市場・配当増配コア速報 ---
+    {"name": "CNBC Market News", "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664"},
+    {"name": "CNBC Investing / Stocks", "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839069"},
+    {"name": "MarketWatch Top Stories", "url": "http://feeds.marketwatch.com/marketwatch/topstories/"},
+    {"name": "MarketWatch Market Pulse", "url": "http://feeds.marketwatch.com/marketwatch/marketpulse/"},
+    {"name": "Yahoo Finance Top News", "url": "https://finance.yahoo.com/news/rssindex"},
+    {"name": "Investing.com Stock Market News", "url": "https://www.investing.com/rss/news_25.rss"},
+    # --- 🇯🇵 日本株・国内市場速報 ---
+    {"name": "Yahoo Japan 経済・市況", "url": "https://news.yahoo.co.jp/rss/topics/business.xml"},
+    {"name": "Yahoo Japan IT/テック", "url": "https://news.yahoo.co.jp/rss/topics/it.xml"},
+    # --- 📡 1次情報プレスリリース＆グローバル通信社 ---
     {"name": "PR Newswire", "url": "https://www.prnewswire.com/rss/news-releases-list.rss"},
     {"name": "BusinessWire", "url": "https://feed.businesswire.com/rss/home/?rss=G1QFDERJXkJeEFdX"},
     {"name": "AP News", "url": "https://rsshub.app/apnews/topics/apf-topnews"},
     {"name": "Reuters", "url": "https://www.reutersagency.com/feed/"},
-    {"name": "MIT Technology Review", "url": "https://feeds.mit.edu/technologyreview"},
-    {"name": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index"},
     {"name": "TechCrunch", "url": "https://techcrunch.com/feed/"},
     {"name": "Hacker News", "url": "https://hnrss.org/frontpage"},
 ]
 
 # 新しいニュースを確保するための最小件数
-MIN_NEWS_COUNT = 8
+MIN_NEWS_COUNT = 15
 
 
 def normalize_entry(entry, source_name: str) -> Optional[dict]:

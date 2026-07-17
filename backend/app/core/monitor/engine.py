@@ -161,8 +161,17 @@ async def process_news_for_radar(
             surviving_alerts.append(scored_item)
             recent_alerts.insert(0, scored_item)
 
-    # 弾かれた記事を rejected_news_log へ保管
+    # 弾かれた記事を rejected_news_log へ保管＆スマホ確認用のサマリーログ出力
     await log_rejected_news(rejected_items)
+    if rejected_items:
+        sorted_rejected = sorted(rejected_items, key=lambda x: x.get("importance", 0), reverse=True)[:5]
+        summary_lines = [f"📉 [RadarEngine] 棄却ニュース TOP{len(sorted_rejected)}例 (スマホ確認用):"]
+        for idx, r_it in enumerate(sorted_rejected, 1):
+            r_title = (r_it.get("title") or "")[:50]
+            r_score = r_it.get("importance", 0)
+            r_reasons = ", ".join(r_it.get("score_reasons", [])) or "基本スコア(20pt)のみ・ターゲット一致なし"
+            summary_lines.append(f"  {idx}. [{r_score}pt] 「{r_title}」 (理由: {r_reasons})")
+        logger.info("\n".join(summary_lines))
     
     return surviving_alerts
 

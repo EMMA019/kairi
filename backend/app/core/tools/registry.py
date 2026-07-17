@@ -163,6 +163,44 @@ def _calc(expression: str) -> str:
         return f"[ERROR] 計算エラー: {e}"
 
 
+@tool_registry.register(name="check_radar_logs", description="市場監視レーダーの直近の棄却ニュース一覧またはアラート通知履歴をDBから確認する。ログタイプ('rejected' または 'alert')と取得件数を指定可能。")
+def _check_radar_logs(log_type: str = "rejected", limit: int = 10) -> str:
+    """監視レーダーのログ(棄却・通知)確認ツール"""
+    import sqlite3
+    from app.core.monitor.watchlist import DB_PATH
+    import os
+    if not os.path.exists(DB_PATH):
+        return "[INFO] 監視データベース (monitor.db) がまだ作成されていないか、データがありません。"
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        if log_type == "alert":
+            cursor.execute("SELECT title, importance, catalyst_type, notified_at FROM alert_history ORDER BY id DESC LIMIT ?", (limit,))
+            rows = cursor.fetchall()
+            if not rows:
+                return "【通知済みアラート履歴】: まだ通知されたニュースはありません。"
+            res = [f"🚨 【通知済み一覧 (直近{len(rows)}件)】"]
+            for r in rows:
+                res.append(f"- [{r[1]}pt] {r[0]} (カタリスト: {r[2]} / 時間: {r[3]})")
+            return "\n".join(res)
+        else:
+            cursor.execute("SELECT title, raw_score, reason, created_at FROM rejected_news_log ORDER BY id DESC LIMIT ?", (limit,))
+            rows = cursor.fetchall()
+            if not rows:
+                return "【棄却ニュース履歴】: まだカットされたニュースログはありません。"
+            res = [f"📉 【カット(棄却)されたニュース一覧 (直近{len(rows)}件)】"]
+            for r in rows:
+                res.append(f"- [{r[1]}pt] 「{r[0]}」 (理由: {r[2]} / 時間: {r[3]})")
+            return "\n".join(res)
+    except Exception as e:
+        return f"[ERROR] ログ取得エラー: {e}"
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
 # 専門ツールモジュールの自動ロード
 try:
     import app.core.tools.travel

@@ -469,6 +469,24 @@ CATALYST_KEYWORDS: Dict[str, Dict[str, Any]] = {
             r"関税", r"追加関税", r"貿易摩擦", r"報復関税",
             r"관세", r"추가 관세", r"무역전쟁", r"보복관세"
         ]
+    },
+    "RECORD_HIGH_MARKET_CAP": {
+        "weight": 35,
+        "label": "🚀 最高値/時価総額最高値更新・歴史的突破",
+        "patterns": [
+            r"all-time high", r"record high", r"ath", r"market cap record", r"historic high", r"surges to record",
+            r"時価総額最高", r"時価総額過去最高", r"最高値更新", r"上場来高値", r"過去最高値", r"歴史的高値",
+            r"사상 최고치", r"역대 최고치", r"시가총액 최고", r"최고가 경신"
+        ]
+    },
+    "GUIDANCE_RAISED_BEAT": {
+        "weight": 30,
+        "label": "📈 決算好感・上方修正・サプライズ",
+        "patterns": [
+            r"guidance raised", r"raise(d)? guidance", r"earnings beat", r"record profit", r"profit surge", r"strong guidance",
+            r"上方修正", r"最高益", r"業績予想引き上げ", r"決算好感", r"増益見通し", r"好決算", r"市場予想を上回る",
+            r"어닝 서프라이즈", r"가이던스 상향", r"최대 실적", r"전망치 상향"
+        ]
     }
 }
 
@@ -536,7 +554,7 @@ def systematic_screen_and_score(news_item: Dict[str, Any]) -> Dict[str, Any]:
     """
     LLM APIを一切使わず、日英韓3ヶ国語辞書と正規表現による加算式重要度スコアリングを行う。
     
-    加算式: 基本点(20) + ターゲット一致(+25) + 爆弾ワード(+30〜40) + 1次情報ソース(+15) + 初動価格反応(+10)
+    加算式: 基本点(20) + ターゲット一致(+30) + 爆弾ワード(+25〜40) + 1次情報ソース(+15) + 初動価格反応(+10)
     75点以上で Tier 3 (検証通過＆通知候補) となる。
     """
     title = (news_item.get("title") or "").strip()
@@ -555,9 +573,9 @@ def systematic_screen_and_score(news_item: Dict[str, Any]) -> Dict[str, Any]:
     score = base_score
     reasons = []
 
-    # 1. ターゲット＆エンティティ直接一致加点 (+25)
+    # 1. ターゲット＆エンティティ直接一致加点 (+30)
     if matched_targets or matched_entities:
-        score += 25
+        score += 30
         reasons.append(f"ターゲット一致: {', '.join(matched_targets + matched_entities)}")
 
     # 2. カタリスト爆弾ワード検出加点 (+25〜40)

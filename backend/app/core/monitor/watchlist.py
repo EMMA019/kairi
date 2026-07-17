@@ -74,6 +74,38 @@ TARGET_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             "韓国総合株価指数", "コスピ", "韓国株", "韓国市場",
             "코스피", "코스닥", "한국 증시", "코스피 지수", "국내증시"
         ]
+    },
+    "^SOXX": {
+        "name": "iShares Semiconductor ETF / SOXX",
+        "category": "SECTOR_CHIPS",
+        "synonyms": [
+            "soxx", "ishares semiconductor etf", "semiconductor etf", "米半導体etf", "soxx etf",
+            "아이셰어즈 반도체 etf"
+        ]
+    },
+    "^HDV": {
+        "name": "iShares Core High Dividend ETF / HDV",
+        "category": "US_DIVIDEND_ETF",
+        "synonyms": [
+            "hdv", "ishares core high dividend", "high dividend etf", "米国高配当株etf", "高配当etf",
+            "고배당 etf", "hdv etf"
+        ]
+    },
+    "^DGRO": {
+        "name": "iShares Core Dividend Growth ETF / DGRO",
+        "category": "US_DIVIDEND_ETF",
+        "synonyms": [
+            "dgro", "ishares core dividend growth", "dividend growth etf", "米国増配株etf", "増配株etf",
+            "배당성장 etf", "dgro etf"
+        ]
+    },
+    "^DIV_TOP_ETFS": {
+        "name": "TOPT / VYM / SPYD (トップ配当・高配当ETF群)",
+        "category": "US_DIVIDEND_ETF",
+        "synonyms": [
+            "topt", "vym", "spyd", "top dividend etf", "vanguard high dividend yield", "spdr portfolio s&p 500 high dividend",
+            "米国高配当etf", "トップ配当etf", "spyd etf", "vym etf"
+        ]
     }
 }
 
@@ -81,56 +113,120 @@ TARGET_DEFINITIONS: Dict[str, Dict[str, Any]] = {
 CORE_ENTITY_MAPPING: Dict[str, Dict[str, Any]] = {
     # --- 🌐 半導体・AI・メガテック・半導体製造装置 (US / TW / ASIA) ---
     "TSMC": {
-        "targets": ["^SOX", "^IXIC"],
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
         "synonyms": ["tsmc", "taiwan semiconductor", "tsm", "2330.tw", "台湾積体電路製造", "대만 반도체", "티에스엠씨"]
     },
     "NVDA": {
-        "targets": ["^SOX", "^IXIC", "^GSPC"],
+        "targets": ["^SOX", "^SOXX", "^IXIC", "^GSPC"],
         "synonyms": ["nvda", "nvidia", "エヌビディア", "엔비디아"]
     },
     "ASML": {
-        "targets": ["^SOX", "^IXIC"],
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
         "synonyms": ["asml", "asml holding", "エーエスエムエル", "아스믈"]
     },
     "SK_HYNIX": {
-        "targets": ["^KS11", "^SOX"],
+        "targets": ["^KS11", "^SOX", "^SOXX"],
         "synonyms": ["sk hynix", "hynix", "000660.ks", "sk Hynix", "skハイニックス", "ハイニックス", "sk하이닉스", "하이닉스"]
     },
     "SAMSUNG": {
-        "targets": ["^KS11", "^SOX"],
+        "targets": ["^KS11", "^SOX", "^SOXX"],
         "synonyms": ["samsung electronics", "samsung", "005930.ks", "サムスン電子", "サムスン", "삼성전자", "삼성"]
     },
     "KIOXIA": {
-        "targets": ["^N225", "^SOX"],
+        "targets": ["^N225", "^SOX", "^SOXX"],
         "synonyms": ["kioxia", "toholt", "キオクシア", "キオクシアホールディングス", "키옥시아"]
     },
     "AVGO": {
-        "targets": ["^SOX", "^IXIC", "^GSPC"],
+        "targets": ["^SOX", "^SOXX", "^IXIC", "^GSPC"],
         "synonyms": ["avgo", "broadcom", "ブロードコム", "브로드컴"]
     },
     "AMD": {
-        "targets": ["^SOX", "^IXIC"],
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
         "synonyms": ["amd", "advanced micro devices", "アドバンスト・マイクロ・デバイセズ", "에이엠디"]
     },
     "QCOM": {
-        "targets": ["^SOX", "^IXIC"],
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
         "synonyms": ["qcom", "qualcomm", "クアルコム", "퀄컴"]
     },
     "INTC": {
-        "targets": ["^SOX", "^IXIC", "^DJI"],
+        "targets": ["^SOX", "^SOXX", "^IXIC", "^DJI"],
         "synonyms": ["intc", "intel", "intel corp", "インテル", "인텔"]
     },
     "MU": {
-        "targets": ["^SOX", "^IXIC"],
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
         "synonyms": ["mu", "micron", "micron technology", "マイクロン", "マイクロン・テクノロジー", "마이크론"]
     },
     "ARM": {
-        "targets": ["^SOX", "^IXIC"],
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
         "synonyms": ["arm holdings", "arm ltd", "アーム", "アーム・ホールディングス", "암 홀딩스"]
     },
     "SMCI": {
-        "targets": ["^SOX", "^IXIC"],
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
         "synonyms": ["smci", "super micro computer", "supermicro", "スーパーマイクロ", "슈퍼마이크로"]
+    },
+    "TXN": {
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
+        "synonyms": ["txn", "texas instruments", "テキサス・インスツルメンツ", "テキサスインスツルメンツ", "텍사스 인스트루먼트"]
+    },
+    "AMAT": {
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
+        "synonyms": ["amat", "applied materials", "アプライド・マテリアルズ", "アプライドマテリアルズ", "어플라이드 머티어리얼즈"]
+    },
+    "LRCX": {
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
+        "synonyms": ["lrcx", "lam research", "ラムリサーチ", "램리서치"]
+    },
+    "KLAC": {
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
+        "synonyms": ["klac", "kla corp", "kla corporation", "kla corporation", "klaコーポレーション"]
+    },
+    "ADI": {
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
+        "synonyms": ["adi", "analog devices", "アナログ・デバイセズ", "アナログデバイセズ", "아날로그 디바이스"]
+    },
+    "MRVL": {
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
+        "synonyms": ["mrvl", "marvell", "marvell technology", "マーベル・テクノロジー", "マーベル", "마벨"]
+    },
+    "NXPI": {
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
+        "synonyms": ["nxpi", "nxp semiconductors", "nxp", "nxpセミコンダクターズ", "엔엑스피"]
+    },
+    "ON_SEMI": {
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
+        "synonyms": ["onsemi", "on semiconductor", "オンセミ", "オン・セミコンダクター", "온세미컨덕터"]
+    },
+    "MCHP": {
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
+        "synonyms": ["mchp", "microchip technology", "マイクロチップ・テクノロジー", "マイクロチップ", "마이크로칩"]
+    },
+    "MPWR": {
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
+        "synonyms": ["mpwr", "monolithic power systems", "モノリシック・パワー・システムズ"]
+    },
+    "ENTG": {
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
+        "synonyms": ["entg", "entegris", "インテグリス"]
+    },
+    "TER": {
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
+        "synonyms": ["teradyne", "ter", "テラダイン"]
+    },
+    "QRVO": {
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
+        "synonyms": ["qrvo", "qorvo", "コルボ"]
+    },
+    "SWKS": {
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
+        "synonyms": ["swks", "skyworks solutions", "skyworks", "スカイワークス"]
+    },
+    "WDC": {
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
+        "synonyms": ["wdc", "western digital", "ウェスタン・デジタル", "ウエスタン・デジタル", "웨스턴 디지털"]
+    },
+    "STX": {
+        "targets": ["^SOX", "^SOXX", "^IXIC"],
+        "synonyms": ["stx", "seagate", "seagate technology", "シーゲイト・テクノロジー", "シーゲイト", "씨게이트"]
     },
     "PLTR": {
         "targets": ["^IXIC", "^GSPC"],

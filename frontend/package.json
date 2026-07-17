@@ -27,6 +27,8 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.4.1",
+    "@emnapi/core": "^1.11.2",
+    "@emnapi/runtime": "^1.11.2",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",

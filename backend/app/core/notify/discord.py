@@ -92,8 +92,16 @@ async def send_discord_alert(
         "inline": False
     })
 
+    # タイトル自動和訳 (英語・韓国語等への対応)
+    from app.core.translate import translate_title_ja
+    translated_title = await translate_title_ja(title)
+    if translated_title and translated_title.strip() != title.strip():
+        display_title = f"{title}\n🇯🇵 **和訳: {translated_title.strip()}**"
+    else:
+        display_title = title
+
     embed = {
-        "title": f"{header_title}\n{title}",
+        "title": f"{header_title}\n{display_title}",
         "url": url if url else None,
         "color": color,
         "fields": fields,

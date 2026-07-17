@@ -74,3 +74,31 @@ async def _translate_with_llm(text: str, target_lang: str) -> str:
     except Exception as e:
         logger.error(f"LLM翻訳フォールバックエラー: {e}")
         return text
+
+async def translate_title_ja(title: str) -> str:
+    """英語・韓国語等の非日本語タイトルを検知し、無料公開Web翻訳API（0円/0トークン）で爆速和訳する"""
+    if not title or not title.strip():
+        return title
+        
+    # すでに日本語（ひらがな・カタカナ・漢字）が3文字以上含まれている場合は翻訳不要
+    jp_chars = sum(1 for c in title if (0x3040 <= ord(c) <= 0x309F) or (0x30A0 <= ord(c) <= 0x30FF) or (0x4E00 <= ord(c) <= 0x9FFF))
+    if jp_chars >= 3:
+        return title
+
+    # まずGoogleの公開無料Web翻訳APIで高速＆無料(APIキー不要・¥0)和訳
+    try:
+        url = "https://translate.googleapis.com/translate_a/single"
+        params = {"client": "gtx", "sl": "auto", "tl": "ja", "dt": "t", "q": title}
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            resp = await client.get(url, params=params)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data and isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
+                    translated = "".join(item[0] for item in data[0] if isinstance(item, list) and len(item) > 0 and item[0])
+                    if translated and translated.strip() and translated.strip() != title.strip():
+                        return translated.strip()
+    except Exception as e:
+        logger.warning(f"無料Web翻訳APIエラー: {e} — 標準フォールバックへ移行")
+
+    # 無料APIで失敗または空だった場合は既存の translate_text (Cloud / LLM) にフォールバック
+    return await translate_text(title, "JA")

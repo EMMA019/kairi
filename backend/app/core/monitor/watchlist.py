@@ -624,11 +624,12 @@ def systematic_screen_and_score(news_item: Dict[str, Any]) -> Dict[str, Any]:
 
 async def systematic_deduplicate(news_item: Dict[str, Any], recent_alerts: List[Dict[str, Any]]) -> Tuple[bool, str]:
     """
-    Entity-Slot (主語シンボル) 安全弁付きの文字列類似度名寄せ判定。
+    Entity-Slot (主語シンボル) 安全弁付きの文字列類似度名寄せ判定＆同一銘柄・同一カタリストの連発抑止。
     """
     title = (news_item.get("title") or "").strip()
     current_entities = set(news_item.get("matched_entities", []))
     current_targets = set(news_item.get("matched_targets", []))
+    current_catalysts = set(news_item.get("detected_catalysts", []))
 
     if not recent_alerts:
         return False, ""
@@ -639,7 +640,7 @@ async def systematic_deduplicate(news_item: Dict[str, Any], recent_alerts: List[
 
     current_tokens = tokenize(title)
 
-    for alert in recent_alerts:
+    for idx, alert in enumerate(recent_alerts[:25]):
         prev_title = alert.get("title", "").strip()
         prev_entities_data = alert.get("matched_entities") or alert.get("entities") or []
         try:
@@ -647,7 +648,20 @@ async def systematic_deduplicate(news_item: Dict[str, Any], recent_alerts: List[
         except Exception:
             prev_entities = set()
 
-        # Entity-Slot 安全弁チェック
+        prev_catalysts_data = alert.get("detected_catalysts") or alert.get("catalyst_type") or []
+        try:
+            prev_catalysts = set(json.loads(prev_catalysts_data)) if isinstance(prev_catalysts_data, str) else set([prev_catalysts_data] if isinstance(prev_catalysts_data, str) and prev_catalysts_data else prev_catalysts_data)
+        except Exception:
+            prev_catalysts = set()
+
+        # 🔴【連発抑止バリア】直近25件の中で同一銘柄(または中核エンティティ)かつ同一カタリストが既に通知されている場合は連発をストップ
+        if current_entities and prev_entities and current_entities.intersection(prev_entities):
+            if current_catalysts and prev_catalysts and current_catalysts.intersection(prev_catalysts):
+                reason = f"重複抑止: 直近アラート「{prev_title[:35]}...」と同一銘柄・同一カタリスト({', '.join(current_catalysts.intersection(prev_catalysts))})の連発抑止"
+                logger.info(f"🛑 [SystematicDeduplicate] {reason}")
+                return True, reason
+
+        # Entity-Slot 安全弁チェック (異なる主語銘柄のニュースはテキストが似ていてもカットしない)
         if current_entities and prev_entities:
             if not current_entities.intersection(prev_entities):
                 continue
@@ -660,8 +674,12 @@ async def systematic_deduplicate(news_item: Dict[str, Any], recent_alerts: List[
         else:
             jaccard_sim = 0.0
 
-        if seq_sim >= 0.65 or jaccard_sim >= 0.60:
-            reason = f"重複抑止: 直近アラート「{prev_title}」(SeqSim={seq_sim:.2f}, Jaccard={jaccard_sim:.2f}) と同一話題"
+        # 同じ銘柄・ターゲットが共通している場合は類似度閾値を 0.50 に引き下げて似た報道をブロック
+        seq_threshold = 0.50 if (current_entities and prev_entities and current_entities.intersection(prev_entities)) else 0.65
+        jac_threshold = 0.45 if (current_entities and prev_entities and current_entities.intersection(prev_entities)) else 0.60
+
+        if seq_sim >= seq_threshold or jaccard_sim >= jac_threshold:
+            reason = f"重複抑止: 直近アラート「{prev_title[:35]}...」(SeqSim={seq_sim:.2f}, Jaccard={jaccard_sim:.2f}) と同一話題"
             logger.info(f"🛑 [SystematicDeduplicate] {reason}")
             return True, reason
 

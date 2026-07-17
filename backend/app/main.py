@@ -14,6 +14,7 @@ from app.core.database import init_db
 from app.core.news.database import init_db as init_news_db
 from app.core.news.scheduler import setup_scheduler, shutdown_scheduler
 from app.core.cache_manager import init_cache_db
+from app.core.monitor.scheduler import start_radar_scheduler, stop_radar_scheduler
 from app.routers import chat, history, memory, logs, mood, upload, settings, workspace, project, tools
 
 
@@ -25,8 +26,10 @@ async def lifespan(app: FastAPI):
     await init_news_db()
     await init_cache_db()
     setup_scheduler()  # スタブ（定期RSSは廃止）
+    start_radar_scheduler()  # 24時間無人市場監視レーダー自動巡回開始
     yield
     # 終了時: クリーンアップ
+    stop_radar_scheduler()
     shutdown_scheduler()
     from app.core.search.providers.http_client import close_http_client
     await close_http_client()

@@ -15,6 +15,64 @@ def _smart_academic_extract(text: str, max_chars: int = 25000) -> str:
     head = text[:8000]
     tail = text[-17000:]
     return head + "\n\n[...論文中間部（一部数式等）省略...]\n\n" + tail
+from urllib.parse import quote_plus
+
+
+async def search_jina(query: str, max_results: int = 10) -> list[dict]:
+    """
+    Jina AI Search公式API (`s.jina.ai`)。
+    BraveとDuckDuckGoの間で機能する無料検索APIとして高精度なタイトル・スニペット・URLをJSON形式で返却する。
+    """
+    JINA_API_KEY = os.environ.get("JINA_API_KEY")
+    encoded_query = quote_plus(query)
+    url = f"https://s.jina.ai/{encoded_query}"
+    
+    headers = {
+        "Accept": "application/json",
+        "X-Retain-Images": "none",
+    }
+    if JINA_API_KEY:
+        headers["Authorization"] = f"Bearer {JINA_API_KEY}"
+        
+    try:
+        from .http_client import get_http_client
+        client = get_http_client()
+        res = await client.get(url, headers=headers, timeout=12)
+        if res.status_code != 200:
+            logger.warning(f"Jina Search API レスポンス異常: {res.status_code} - {res.text[:200]}")
+            return []
+            
+        data_json = res.json()
+        results = []
+        
+        # Jina Search のレスポンスは data["data"] に配列で入る（あるいはリスト直の場合もある）
+        items = data_json.get("data", []) if isinstance(data_json, dict) else (data_json if isinstance(data_json, list) else [])
+        
+        for item in items[:max_results]:
+            title = item.get("title", "")
+            item_url = item.get("url", "")
+            description = item.get("description", "")
+            content = item.get("content", "")
+            
+            # スニペット作成（descriptionを優先しつつ、contentがあれば補強）
+            snippet = description
+            if content:
+                content_preview = content[:600].replace("\n", " ").strip()
+                snippet = f"{description}\n\n{content_preview}" if description else content_preview
+                
+            if item_url and item_url.startswith("http"):
+                results.append({
+                    "title": title or item_url,
+                    "snippet": snippet.strip() or title,
+                    "url": item_url,
+                    "source": "jina (s.jina.ai)",
+                })
+                
+        logger.info(f"🔍 Jina Search無料API成功 ('{query}'): {len(results)}件取得")
+        return results
+    except Exception as e:
+        logger.warning(f"Jina Searchエラー ('{query}'): {e}")
+        return []
 
 
 async def fetch_with_jina(url: str) -> str:

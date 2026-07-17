@@ -25,7 +25,7 @@ export function ModeBadge({ mode, status, onToggle }: ModeBadgeProps) {
       return { className: "task", label: "Workspace", emoji: "🔵" };
     }
     if (mode === "char") {
-      return { className: "char", label: "Char (なりきり)", emoji: "🎭" };
+      return { className: "char", label: "Char", emoji: "🎭" };
     }
     return { className: "chat", label: "Chat", emoji: "🟢" };
   };

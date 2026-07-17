@@ -252,7 +252,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                   <div className="bg-[#161a25] p-4 rounded-xl border border-[#2d3139]">
                     <h3 className="text-sm font-semibold text-gray-200 mb-2 flex items-center gap-2 leading-normal">
-                      🎭 Char Profile (なりきりキャラクターカスタム設定)
+                      🎭 Char Profile (キャラクターカスタム設定)
                     </h3>
                     <textarea
                       value={settings.char_profile || ""}

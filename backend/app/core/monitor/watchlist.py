@@ -137,7 +137,7 @@ CORE_ENTITY_MAPPING: Dict[str, Dict[str, Any]] = {
         "synonyms": ["kioxia", "toholt", "キオクシア", "キオクシアホールディングス", "키옥시아"]
     },
     "AVGO": {
-        "targets": ["^SOX", "^SOXX", "^IXIC", "^GSPC"],
+        "targets": ["^SOX", "^SOXX", "^IXIC", "^GSPC", "^DGRO", "^DIV_TOP_ETFS"],
         "synonyms": ["avgo", "broadcom", "ブロードコム", "브로드컴"]
     },
     "AMD": {
@@ -239,11 +239,11 @@ CORE_ENTITY_MAPPING: Dict[str, Dict[str, Any]] = {
 
     # --- 🇺🇸 米国 MAG7・ビッグテック中核 (ダウ・S&P500・ナスダック全体牽引) ---
     "APPLE": {
-        "targets": ["^IXIC", "^DJI", "^GSPC"],
+        "targets": ["^IXIC", "^DJI", "^GSPC", "^DGRO"],
         "synonyms": ["aapl", "apple inc", "apple", "アップル", "애플"]
     },
     "MICROSOFT": {
-        "targets": ["^IXIC", "^DJI", "^GSPC"],
+        "targets": ["^IXIC", "^DJI", "^GSPC", "^DGRO"],
         "synonyms": ["msft", "microsoft", "マイクロソフト", "마이크로소프트"]
     },
     "AMZN": {
@@ -265,7 +265,7 @@ CORE_ENTITY_MAPPING: Dict[str, Dict[str, Any]] = {
 
     # --- 🇺🇸 米国 金融・銀行ショック震源 (システムリスク・信用不安) ---
     "JPM": {
-        "targets": ["^DJI", "^GSPC"],
+        "targets": ["^DJI", "^GSPC", "^HDV", "^DGRO", "^DIV_TOP_ETFS"],
         "synonyms": ["jpm", "jpmorgan", "jpmorgan chase", "jpモルガン", "jpモルガン・チェース", "jp모건"]
     },
     "GS": {
@@ -277,22 +277,62 @@ CORE_ENTITY_MAPPING: Dict[str, Dict[str, Any]] = {
         "synonyms": ["morgan stanley", "モルガン・スタンレー", "모건스탠리"]
     },
     "BAC": {
-        "targets": ["^GSPC"],
+        "targets": ["^GSPC", "^HDV", "^DIV_TOP_ETFS"],
         "synonyms": ["bac", "bank of america", "bofa", "バンク・オブ・アメリカ", "뱅크오브아메리카"]
     },
     "BLK": {
-        "targets": ["^GSPC"],
+        "targets": ["^GSPC", "^DGRO"],
         "synonyms": ["blk", "blackrock", "ブラックロック", "블랙록"]
     },
 
-    # --- 🛢️ エネルギー・原油・貴金属 (マクロ相場全体のトリガー) ---
+    # --- 🛢️ エネルギー・原油・貴金属 ＆ 🇺🇸 高配当・増配ETF中核構成銘柄 (HDV / DGRO / VYM / SPYD) ---
     "XOM": {
-        "targets": ["^DJI", "^GSPC"],
+        "targets": ["^DJI", "^GSPC", "^HDV", "^DGRO", "^DIV_TOP_ETFS"],
         "synonyms": ["xom", "exxon mobil", "exxonmobil", "エクソンモービル", "엑슨모빌"]
     },
     "CVX": {
-        "targets": ["^DJI", "^GSPC"],
+        "targets": ["^DJI", "^GSPC", "^HDV", "^DGRO", "^DIV_TOP_ETFS"],
         "synonyms": ["cvx", "chevron", "シェブロン", "쉐브론"]
+    },
+    "ABBV": {
+        "targets": ["^GSPC", "^HDV", "^DGRO", "^DIV_TOP_ETFS"],
+        "synonyms": ["abbv", "abbvie", "アッヴィ", "애브비"]
+    },
+    "VZ": {
+        "targets": ["^DJI", "^GSPC", "^HDV", "^DIV_TOP_ETFS"],
+        "synonyms": ["vz", "verizon", "verizon communications", "ベライゾン", "ベライゾン・コミュニケーションズ", "버라이즌"]
+    },
+    "PG": {
+        "targets": ["^DJI", "^GSPC", "^HDV", "^DGRO", "^DIV_TOP_ETFS"],
+        "synonyms": ["pg", "procter & gamble", "procter and gamble", "p&g", "プロクター・アンド・ギャンブル", "プロクター＆ギャンブル", "프록터 앤 갬블"]
+    },
+    "JNJ": {
+        "targets": ["^DJI", "^GSPC", "^HDV", "^DGRO", "^DIV_TOP_ETFS"],
+        "synonyms": ["jnj", "johnson & johnson", "johnson and johnson", "ジョンソン・エンド・ジョンソン", "ジョンソン＆ジョンソン", "존슨앤드존슨"]
+    },
+    "CAT": {
+        "targets": ["^DJI", "^GSPC", "^HDV", "^DGRO", "^DIV_TOP_ETFS"],
+        "synonyms": ["cat", "caterpillar", "caterpillar inc", "キャタピラー", "캐터필러"]
+    },
+    "PEP": {
+        "targets": ["^GSPC", "^HDV", "^DGRO", "^DIV_TOP_ETFS"],
+        "synonyms": ["pep", "pepsico", "ペプシコ", "펩시코"]
+    },
+    "KO": {
+        "targets": ["^DJI", "^GSPC", "^HDV", "^DGRO", "^DIV_TOP_ETFS"],
+        "synonyms": ["ko", "coca-cola", "coca cola", "コカ・コーラ", "コカコーラ", "코카콜라"]
+    },
+    "MRK": {
+        "targets": ["^DJI", "^GSPC", "^HDV", "^DGRO", "^DIV_TOP_ETFS"],
+        "synonyms": ["mrk", "merck", "merck & co", "メルク", "머크"]
+    },
+    "PFE": {
+        "targets": ["^GSPC", "^HDV", "^DIV_TOP_ETFS"],
+        "synonyms": ["pfe", "pfizer", "ファイザー", "화이자"]
+    },
+    "HD": {
+        "targets": ["^DJI", "^GSPC", "^HDV", "^DGRO", "^DIV_TOP_ETFS"],
+        "synonyms": ["hd", "home depot", "the home depot", "ホーム・デポ", "ホームデポ", "홈디포"]
     },
     "COMMODITY_OIL_GOLD": {
         "targets": ["^DJI", "^GSPC", "^N225"],

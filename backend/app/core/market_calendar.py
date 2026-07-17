@@ -455,6 +455,40 @@ def format_market_status(dt: Optional[datetime.datetime] = None) -> str:
         jp_text += f"休場 ({status['jp_reason']})"
     parts.append(jp_text)
     
+    # 向こう7日間のスケジュールカレンダーを作成・追加（祝日見落とし・休日営業誤認の完全防止）
+    JST = datetime.timezone(datetime.timedelta(hours=9))
+    base_dt = dt if dt is not None else datetime.datetime.now(JST)
+    if base_dt.tzinfo is None:
+        base_dt = base_dt.replace(tzinfo=JST)
+    
+    schedule_lines = ["【📅 向こう7日間の市場開閉＆祝日スケジュール表（予定の言及時は必ず参照・祝日無視の厳格禁止）】"]
+    weekdays_ja = ["月", "火", "水", "木", "金", "土", "日"]
+    for i in range(1, 8):
+        target_dt = base_dt + datetime.timedelta(days=i)
+        target_date = target_dt.date()
+        wd_str = weekdays_ja[target_date.weekday()]
+        
+        # 日中12:00 JST時点のステータス判定でその日の休場/祝日/営業をチェック
+        check_dt = datetime.datetime(target_date.year, target_date.month, target_date.day, 12, 0, tzinfo=JST)
+        st = check_market_status(check_dt)
+        
+        if st["jp_reason"] and st["jp_reason"] not in ["weekend", "outside_trading_hours"]:
+            jp_st = f"🔴 休場 (祝日: {st['jp_reason']})"
+        elif target_date.weekday() in [5, 6]:
+            jp_st = "🔴 休場 (週末)"
+        else:
+            jp_st = "🟢 通常営業日"
+            
+        if st["us_reason"] and st["us_reason"] not in ["pre_market_before_open", "post_market_closed_for_day", "weekend"]:
+            us_st = f"🔴 休場 (祝日: {st['us_reason']})"
+        elif target_date.weekday() in [5, 6]:
+            us_st = "🔴 休場 (週末)"
+        else:
+            us_st = "🟢 通常営業日"
+            
+        schedule_lines.append(f"・{target_date.strftime('%Y/%m/%d')} ({wd_str}): 🇯🇵 東証: {jp_st} | 🇺🇸 米国: {us_st}")
+        
+    parts.append("\n".join(schedule_lines))
     parts.append(f"⚠️ {status['disclaimer']}")
     
     return "\n".join(parts)

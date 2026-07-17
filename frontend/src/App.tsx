@@ -67,7 +67,7 @@ function getOrCreateSessionId(): string {
 
 function App() {
   const [sessionId, setSessionId] = useState(getOrCreateSessionId);
-  const [mode, setMode] = useState<"chat" | "task">("chat");
+  const [mode, setMode] = useState<"chat" | "task" | "char">("chat");
   const [isKVPanelOpen, setIsKVPanelOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -146,8 +146,10 @@ function App() {
 
   const handleToggleMode = useCallback(() => {
     setMode(prev => {
-      let nextMode: "chat" | "task" = "chat";
+      let nextMode: "chat" | "task" | "char" = "task";
       if (prev === "chat") nextMode = "task";
+      else if (prev === "task") nextMode = "char";
+      else nextMode = "chat";
       
       if (nextMode === "task") {
         setIsSidebarOpen(false);
@@ -391,6 +393,15 @@ function App() {
             >
               <span className="text-base">💻</span>
               <span className="text-[10px] tracking-tight">Workspace</span>
+            </button>
+            <button
+              onClick={() => setMode("char")}
+              className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all ${
+                mode === "char" ? "text-pink-400 bg-pink-500/15 scale-105 font-bold" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <span className="text-base">🎭</span>
+              <span className="text-[10px] tracking-tight">Char</span>
             </button>
             <button
               onClick={() => setIsKVPanelOpen(true)}

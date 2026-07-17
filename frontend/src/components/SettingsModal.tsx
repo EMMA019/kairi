@@ -16,6 +16,7 @@ interface Settings {
   user_name?: string;
   user_location?: string;
   persona_style?: string;
+  char_profile?: string;
   locale?: string;
   gemini_api_key?: string;
   anthropic_api_key?: string;
@@ -72,6 +73,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           user_name: settings.user_name || "Boss",
           user_location: settings.user_location || "",
           persona_style: settings.persona_style || "standard",
+          char_profile: settings.char_profile || "",
           locale: settings.locale || "en",
           gemini_api_key: settings.gemini_api_key || "",
           anthropic_api_key: settings.anthropic_api_key || "",
@@ -245,6 +247,22 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     />
                     <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
                       💡 Used as default origin for travel, transit routes, and local weather/events without affecting unrelated technical answers.
+                    </p>
+                  </div>
+
+                  <div className="bg-[#161a25] p-4 rounded-xl border border-[#2d3139]">
+                    <h3 className="text-sm font-semibold text-gray-200 mb-2 flex items-center gap-2 leading-normal">
+                      🎭 Char Profile (なりきりキャラクターカスタム設定)
+                    </h3>
+                    <textarea
+                      value={settings.char_profile || ""}
+                      onChange={(e) => setSettings({ ...settings, char_profile: e.target.value })}
+                      placeholder="例: あなたはツンデレな幼馴染の女の子「Kairi」です。普段は冷たい態度だけど二人きりだと優しくなります。敬語は禁止です。"
+                      rows={3}
+                      className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3.5 py-2.5 text-xs text-gray-200 focus:border-blue-500 focus:outline-none leading-normal resize-y"
+                    />
+                    <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
+                      💡 「🎭 Charモード」を選択中やチャットで `/char` を使った際、この設定になりきって検索なしで爆速即答します！
                     </p>
                   </div>
 

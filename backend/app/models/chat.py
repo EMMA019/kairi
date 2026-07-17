@@ -7,7 +7,7 @@ from datetime import datetime
 class ChatRequest(BaseModel):
     message: str
     session_id: str
-    mode: Literal["chat", "task", "stocks"] = "chat"
+    mode: Literal["chat", "task", "stocks", "char"] = "chat"
     force_search: bool = False  # UIの🔍ボタン用
 
 
@@ -30,4 +30,4 @@ class SessionInfo(BaseModel):
 
 
 class ModeRequest(BaseModel):
-    mode: Literal["chat", "task", "stocks"]
+    mode: Literal["chat", "task", "stocks", "char"]

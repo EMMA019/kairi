@@ -59,6 +59,7 @@ _DEFAULT_SETTINGS = {
     "user_name": "ご主人様",
     "user_location": "",
     "persona_style": "standard",
+    "char_profile": "あなたはフレンドリーで親密なキャラクター相棒「Kairi」です。敬語や堅い業務説明は避け、自然で感情豊かな会話をテンポよく楽しんでください。",
     "locale": "ja",
     "gemini_api_key": "",
     "anthropic_api_key": "",
@@ -168,6 +169,7 @@ class SettingsUpdate(BaseModel):
     user_name: Optional[str] = None
     user_location: Optional[str] = None
     persona_style: Optional[str] = None
+    char_profile: Optional[str] = None
     locale: Optional[str] = None
     gemini_api_key: Optional[str] = None
     anthropic_api_key: Optional[str] = None

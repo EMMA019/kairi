@@ -4,7 +4,7 @@
  */
 
 interface ModeBadgeProps {
-  mode: "chat" | "task" | "stocks";
+  mode: "chat" | "task" | "stocks" | "char";
   status: "idle" | "thinking" | "searching" | "responding" | "planning_search";
   onToggle: () => void;
 }
@@ -23,6 +23,9 @@ export function ModeBadge({ mode, status, onToggle }: ModeBadgeProps) {
     }
     if (mode === "task") {
       return { className: "task", label: "Workspace", emoji: "🔵" };
+    }
+    if (mode === "char") {
+      return { className: "char", label: "Char (なりきり)", emoji: "🎭" };
     }
     return { className: "chat", label: "Chat", emoji: "🟢" };
   };

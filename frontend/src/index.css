@@ -193,6 +193,15 @@ html {
   animation: pulse-dot 1.4s ease-in-out infinite;
 }
 .mode-badge.stocks .dot { background: #34d399; }
+.mode-badge.char {
+  background: rgba(236, 72, 153, 0.15);
+  color: #f472b6;
+  border-color: rgba(236, 72, 153, 0.3);
+}
+.mode-badge.char .dot {
+  background: #ec4899;
+  box-shadow: 0 0 8px rgba(236, 72, 153, 0.6);
+}
 
 /* ============================================
    Chat Area

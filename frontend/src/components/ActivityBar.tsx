@@ -4,7 +4,7 @@ interface ActivityBarProps {
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   onNewSession: () => void;
-  mode: "chat" | "task";
+  mode: "chat" | "task" | "char";
   onToggleMode: () => void;
   onOpenKVMemory: () => void;
   onOpenSettings: () => void;
@@ -76,15 +76,17 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           </svg>
         </button>
 
-        {/* チャット / タスク IDE モードトグル */}
+        {/* チャット / タスク IDE / キャラ雑談 モードトグル */}
         <button
           onClick={onToggleMode}
           className={`flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-200 ${
             mode === "task"
               ? "bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm"
+              : mode === "char"
+              ? "bg-pink-500/20 text-pink-300 border border-pink-500/40 shadow-sm"
               : "text-gray-400 hover:text-white hover:bg-white/10"
           }`}
-          title={mode === "task" ? "Back to chat" : "Switch to Workspace mode"}
+          title={mode === "task" ? "Workspace mode (Click for Char mode)" : mode === "char" ? "Char mode (Click for Chat mode)" : "Chat mode (Click for Workspace mode)"}
           aria-label="Switch mode"
         >
           {mode === "task" ? (
@@ -92,6 +94,8 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
               <polyline points="16 18 22 12 16 6"></polyline>
               <polyline points="8 6 2 12 8 18"></polyline>
             </svg>
+          ) : mode === "char" ? (
+            <span className="text-base leading-none">🎭</span>
           ) : (
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>

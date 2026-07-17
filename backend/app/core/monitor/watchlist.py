@@ -263,42 +263,16 @@ CORE_ENTITY_MAPPING: Dict[str, Dict[str, Any]] = {
         "synonyms": ["fast retailing", "uniqlo", "9983.t", "ファーストリテイリング", "ユニクロ", "패스트리테일링", "유니클로"]
     },
 
-    # --- 🇰🇷 韓国 KOSPI/KOSDAQ コア財閥・半導体・バッテリー・バイオ ---
-    "LG_ENERGY": {
-        "targets": ["^KS11"],
-        "synonyms": ["lg energy solution", "373220.ks", "lgエナジー솔루션", "lg에너지솔루션", "lges"]
-    },
-    "HYUNDAI_MOTOR": {
-        "targets": ["^KS11"],
-        "synonyms": ["hyundai motor", "hyundai", "005380.ks", "現代自動車", "ヒョンデ", "현대차", "현대자동차"]
-    },
-    "SAMSUNG_SDI": {
-        "targets": ["^KS11"],
-        "synonyms": ["samsung sdi", "006400.ks", "サムスンsdi", "삼성sdi"]
-    },
-    "CELLTRION": {
-        "targets": ["^KS11"],
-        "synonyms": ["celltrion", "068270.ks", "セルトリオン", "셀트리온"]
-    },
-    "POSCO": {
-        "targets": ["^KS11"],
-        "synonyms": ["posco", "posco holdings", "005490.ks", "ポスコ", "포스코", "포스코홀딩스"]
-    },
-    "NAVER_KAKAO": {
-        "targets": ["^KS11"],
-        "synonyms": ["naver", "kakao", "035420.ks", "035720.ks", "ネイバー", "カ카오", "네이버", "카카오"]
-    },
-
     # --- 🇨🇳 アジア全体牽引 (中国・香港テック震源) ---
     "CHINA_TECH_CORE": {
         "targets": ["^N225", "^KS11", "^GSPC"],
         "synonyms": ["tencent", "alibaba", "baba", "byd", "テンセント", "アリババ", "比亜迪", "텐센트", "알리바바", "비야디"]
     },
 
-    # --- 🏦 世界の中央銀行＆超マクロ機関 ---
+    # --- 🏦 世界の中央銀行＆超マクロ機関 (2026年最新対応: ケビン・ウォーシュ米FRB議長) ---
     "MACRO_CENTRAL_BANKS": {
         "targets": ["^DJI", "^GSPC", "^IXIC", "^SOX", "^N225", "^KS11"],
-        "synonyms": ["fomc", "federal reserve", "powell", "boj", "bank of japan", "bank of korea", "ecb", "frb", "日銀", "日本銀行", "植田総裁", "パウエル議長", "米連邦準備理事会", "韓銀", "한국은행", "이창용"]
+        "synonyms": ["fomc", "federal reserve", "kevin warsh", "warsh", "boj", "bank of japan", "bank of korea", "ecb", "frb", "日銀", "日本銀行", "植田総裁", "ウォーシュ議長", "ケビン・ウォーシュ", "ウォーシュ", "米連邦準備理事会", "韓銀", "한국은행", "이창용", "케빈 워시", "워시 의장"]
     }
 }
 

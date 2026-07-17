@@ -15,21 +15,27 @@ from app.core.search.router import fetch_url
 
 logger = get_logger(__name__)
 
-# 1次情報＆世界・国内株式市場速報RSS（ペイウォールなし・全文取得可能）
+# 1次情報＆世界・国内株式市場最速速報RSS（ペイウォールなし・全文取得可能）
 ON_DEMAND_FEEDS = [
-    # --- 🇺🇸 米国金融・株式市場・配当増配コア速報 ---
+    # --- 🏢 【最速0秒・真の1次情報】企業公式開示・グローバル3大プレスリリース網羅 ---
+    {"name": "SEC EDGAR 8-K (米国証券取引委員会 公式適時開示)", "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&count=40&output=atom"},
+    {"name": "PR Newswire (公式発表)", "url": "https://www.prnewswire.com/rss/news-releases-list.rss"},
+    {"name": "BusinessWire (公式発表)", "url": "https://feed.businesswire.com/rss/home/?rss=G1QFDERJXkJeEFdX"},
+    {"name": "GlobeNewswire (公式発表)", "url": "https://www.globenewswire.com/NewsRoom/Rss"},
+    # --- 🇺🇸 米国ウォール街速報・プロ投資家向け最速ヘッドライン ---
+    {"name": "Seeking Alpha Market Currents (米株最速速報)", "url": "https://seekingalpha.com/market_currents.xml"},
+    {"name": "WSJ Markets (ウォール・ストリート・ジャーナル)", "url": "https://feeds.a.dj.com/rss/RSSMarketsMain.xml"},
     {"name": "CNBC Market News", "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664"},
     {"name": "CNBC Investing / Stocks", "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839069"},
     {"name": "MarketWatch Top Stories", "url": "http://feeds.marketwatch.com/marketwatch/topstories/"},
     {"name": "MarketWatch Market Pulse", "url": "http://feeds.marketwatch.com/marketwatch/marketpulse/"},
     {"name": "Yahoo Finance Top News", "url": "https://finance.yahoo.com/news/rssindex"},
     {"name": "Investing.com Stock Market News", "url": "https://www.investing.com/rss/news_25.rss"},
-    # --- 🇯🇵 日本株・国内市場速報 ---
+    # --- 🇯🇵＆🇰🇷 アジア株コア速報 (東京・韓国半導体震源) ---
     {"name": "Yahoo Japan 経済・市況", "url": "https://news.yahoo.co.jp/rss/topics/business.xml"},
     {"name": "Yahoo Japan IT/テック", "url": "https://news.yahoo.co.jp/rss/topics/it.xml"},
-    # --- 📡 1次情報プレスリリース＆グローバル通信社 ---
-    {"name": "PR Newswire", "url": "https://www.prnewswire.com/rss/news-releases-list.rss"},
-    {"name": "BusinessWire", "url": "https://feed.businesswire.com/rss/home/?rss=G1QFDERJXkJeEFdX"},
+    {"name": "Yonhap News Economy (韓国聯合ニュース 経済速報)", "url": "https://www.yna.co.kr/rss/economy.xml"},
+    # --- 📡 グローバル通信社＆主要テックメディア ---
     {"name": "AP News", "url": "https://rsshub.app/apnews/topics/apf-topnews"},
     {"name": "Reuters", "url": "https://www.reutersagency.com/feed/"},
     {"name": "TechCrunch", "url": "https://techcrunch.com/feed/"},

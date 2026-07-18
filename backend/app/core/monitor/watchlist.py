@@ -624,9 +624,10 @@ def systematic_screen_and_score(news_item: Dict[str, Any]) -> Dict[str, Any]:
 
 async def systematic_deduplicate(news_item: Dict[str, Any], recent_alerts: List[Dict[str, Any]]) -> Tuple[bool, str]:
     """
-    Entity-Slot (主語シンボル) 安全弁付きの文字列類似度名寄せ判定＆同一銘柄・同一カタリストの連発抑止。
+    Entity-Slot (主語シンボル) 安全弁付きの文字列類似度名寄せ判定＆同一銘柄・同一ターゲット・同一カタリストの連発抑止。
     """
     title = (news_item.get("title") or "").strip()
+    current_url = (news_item.get("url") or news_item.get("guid") or "").strip()
     current_entities = set(news_item.get("matched_entities", []))
     current_targets = set(news_item.get("matched_targets", []))
     current_catalysts = set(news_item.get("detected_catalysts", []))
@@ -634,13 +635,26 @@ async def systematic_deduplicate(news_item: Dict[str, Any], recent_alerts: List[
     if not recent_alerts:
         return False, ""
 
+    # 1. まず URL および タイトルの「完全一致」を直近150件全件に対して高速チェック
+    for alert in recent_alerts[:150]:
+        prev_url = (alert.get("url") or alert.get("news_guid") or "").strip()
+        prev_title = (alert.get("title") or "").strip()
+        if current_url and prev_url and current_url == prev_url:
+            reason = f"完全一致抑止: 同一URL既読 ({current_url[:40]}...)"
+            logger.info(f"🛑 [SystematicDeduplicate] {reason}")
+            return True, reason
+        if title and prev_title and title.lower() == prev_title.lower():
+            reason = f"完全一致抑止: 同一タイトル既読「{prev_title[:35]}...」"
+            logger.info(f"🛑 [SystematicDeduplicate] {reason}")
+            return True, reason
+
     def tokenize(text: str) -> Set[str]:
         words = re.findall(r'[a-z0-9]+|[^\x00-\x7F]+', text.lower())
         return set(w for w in words if len(w) >= 2)
 
     current_tokens = tokenize(title)
 
-    for idx, alert in enumerate(recent_alerts[:25]):
+    for idx, alert in enumerate(recent_alerts[:150]):
         prev_title = alert.get("title", "").strip()
         prev_entities_data = alert.get("matched_entities") or alert.get("entities") or []
         try:
@@ -648,18 +662,29 @@ async def systematic_deduplicate(news_item: Dict[str, Any], recent_alerts: List[
         except Exception:
             prev_entities = set()
 
+        prev_targets_data = alert.get("matched_targets") or alert.get("targets") or []
+        try:
+            prev_targets = set(json.loads(prev_targets_data)) if isinstance(prev_targets_data, str) else set(prev_targets_data)
+        except Exception:
+            prev_targets = set()
+
         prev_catalysts_data = alert.get("detected_catalysts") or alert.get("catalyst_type") or []
         try:
             prev_catalysts = set(json.loads(prev_catalysts_data)) if isinstance(prev_catalysts_data, str) else set([prev_catalysts_data] if isinstance(prev_catalysts_data, str) and prev_catalysts_data else prev_catalysts_data)
         except Exception:
             prev_catalysts = set()
 
-        # 🔴【連発抑止バリア】直近25件の中で同一銘柄(または中核エンティティ)かつ同一カタリストが既に通知されている場合は連発をストップ
-        if current_entities and prev_entities and current_entities.intersection(prev_entities):
-            if current_catalysts and prev_catalysts and current_catalysts.intersection(prev_catalysts):
-                reason = f"重複抑止: 直近アラート「{prev_title[:35]}...」と同一銘柄・同一カタリスト({', '.join(current_catalysts.intersection(prev_catalysts))})の連発抑止"
-                logger.info(f"🛑 [SystematicDeduplicate] {reason}")
-                return True, reason
+        # 🔴【連発・クールダウン抑止バリア】
+        # 同一エンティティ(銘柄) または 同一ターゲット(指数・マクロ中銀等) かつ 同一カタリストのニュースが既に通知されている場合、連発(速報・一問一答等)を強力に抑止
+        has_common_entity_or_target = bool(
+            (current_entities and prev_entities and current_entities.intersection(prev_entities)) or
+            (current_targets and prev_targets and current_targets.intersection(prev_targets))
+        )
+        if has_common_entity_or_target and current_catalysts and prev_catalysts and current_catalysts.intersection(prev_catalysts):
+            common_tgt = current_entities.intersection(prev_entities) or current_targets.intersection(prev_targets)
+            reason = f"クールダウン抑止: 直近アラート「{prev_title[:35]}...」と同一ターゲット({', '.join(common_tgt)})・同一カタリスト({', '.join(current_catalysts.intersection(prev_catalysts))})の連発抑止"
+            logger.info(f"🛑 [SystematicDeduplicate] {reason}")
+            return True, reason
 
         # Entity-Slot 安全弁チェック (異なる主語銘柄のニュースはテキストが似ていてもカットしない)
         if current_entities and prev_entities:
@@ -674,9 +699,9 @@ async def systematic_deduplicate(news_item: Dict[str, Any], recent_alerts: List[
         else:
             jaccard_sim = 0.0
 
-        # 同じ銘柄・ターゲットが共通している場合は類似度閾値を 0.50 に引き下げて似た報道をブロック
-        seq_threshold = 0.50 if (current_entities and prev_entities and current_entities.intersection(prev_entities)) else 0.65
-        jac_threshold = 0.45 if (current_entities and prev_entities and current_entities.intersection(prev_entities)) else 0.60
+        # 同じ銘柄・ターゲット・トピックが共通している場合は類似度閾値を大きく引き下げてシリーズ報道(改題・速報・続報)をブロック
+        seq_threshold = 0.42 if has_common_entity_or_target else 0.65
+        jac_threshold = 0.35 if has_common_entity_or_target else 0.60
 
         if seq_sim >= seq_threshold or jaccard_sim >= jac_threshold:
             reason = f"重複抑止: 直近アラート「{prev_title[:35]}...」(SeqSim={seq_sim:.2f}, Jaccard={jaccard_sim:.2f}) と同一話題"
@@ -728,11 +753,11 @@ async def save_alert_history(alert_item: Dict[str, Any]):
         ))
         await db.commit()
 
-async def get_recent_alerts(hours: int = 24) -> List[Dict[str, Any]]:
-    """直近指定時間以内のアラート履歴を取得"""
+async def get_recent_alerts(hours: int = 48) -> List[Dict[str, Any]]:
+    """直近指定時間以内のアラート履歴を取得（重複・連投防止のため最大150件取得）"""
     time_limit = (datetime.now() - timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        cursor = await db.execute("SELECT * FROM alert_history WHERE notified_at >= ? ORDER BY notified_at DESC", (time_limit,))
+        cursor = await db.execute("SELECT * FROM alert_history WHERE notified_at >= ? ORDER BY notified_at DESC LIMIT 150", (time_limit,))
         rows = await cursor.fetchall()
         return [dict(r) for r in rows]

@@ -35,9 +35,16 @@ async def generate_image(
     cf_account_id = settings.get("cf_account_id") or os.environ.get("CF_ACCOUNT_ID") or "8b2e7549807032bdd0e92885d6349fa9"
     cf_api_token = settings.get("cf_api_token") or os.environ.get("CF_API_TOKEN") or ""
 
+    # プロンプトのクオリティ強化とネガティブプロンプト
+    enhanced_prompt = prompt
+    if "masterpiece" not in enhanced_prompt.lower() and "best quality" not in enhanced_prompt.lower():
+        enhanced_prompt += ", masterpiece, best quality, ultra-detailed, cinematic lighting, sharp focus"
+
+    negative_prompt = "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, mutation, deformed, ugly, extra limbs"
+
     # Pollinations.ai のURL生成（フォールバック時にも使用）
-    encoded_prompt = urllib.parse.quote_plus(prompt)
-    pollinations_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&nologo=true"
+    encoded_prompt = urllib.parse.quote_plus(enhanced_prompt)
+    pollinations_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&nologo=true&enhance=true"
 
     # Cloudflare Workers AI が選択されており、APIトークンが存在する場合
     if engine in CF_MODELS and cf_api_token and cf_account_id:
@@ -47,7 +54,22 @@ async def generate_image(
             "Authorization": f"Bearer {cf_api_token}",
             "Content-Type": "application/json",
         }
-        payload = {"prompt": prompt}
+        
+        # モデル種別に応じた最適なパラメータを付与
+        if engine == "cf-sdxl":
+            payload = {
+                "prompt": enhanced_prompt,
+                "negative_prompt": negative_prompt,
+                "num_steps": 8,
+                "width": width,
+                "height": height
+            }
+        else:
+            # cf-flux (FLUX.1-schnell)
+            payload = {
+                "prompt": enhanced_prompt,
+                "num_steps": 8
+            }
 
         try:
             logger.info(f"[ImageGen] Cloudflare Workers AI ({engine}: {model_id}) で画像を生成中... prompt='{prompt[:50]}...'")

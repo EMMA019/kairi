@@ -114,7 +114,7 @@ async def process_news_for_radar(
         検証を通過し Discord へ通知（またはログ記録）されたアラートのリスト
     """
     await init_monitor_db()
-    recent_alerts = await get_recent_alerts(hours=24)
+    recent_alerts = await get_recent_alerts(hours=48)
     surviving_alerts = []
     rejected_items = []
 

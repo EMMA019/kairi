@@ -294,11 +294,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <h3 className="text-sm font-semibold text-gray-200 mb-3 flex items-center gap-2 leading-normal">
                       🎨 Image Generation Engine (自撮り画像生成AIモデル)
                     </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
                       {[
-                        { id: "pollinations", name: "🌟 Pollinations.ai", desc: "無料・APIキー不要の標準画像生成エンジン" },
-                        { id: "cf-sdxl", name: "⚡ Cloudflare SDXL", desc: "SDXL Lightning による高品質＆高速生成" },
+                        { id: "gallery", name: "📸 LoRA Curated Gallery", desc: "事前作成LoRAストックから0.01秒表示・顔ブレ0%" },
+                        { id: "gallery-hybrid", name: "✨ Hybrid (LoRA+AI)", desc: "8割ストック表示 ＋ 2割リアルタイムAI生成の二刀流" },
                         { id: "cf-flux", name: "🔥 Cloudflare FLUX.1", desc: "オープンソース最高峰 FLUX.1 による圧倒的高画質" },
+                        { id: "cf-sdxl", name: "⚡ Cloudflare SDXL", desc: "SDXL Lightning による高品質＆高速生成" },
+                        { id: "pollinations", name: "🌟 Pollinations.ai", desc: "無料・APIキー不要の標準画像生成エンジン" },
                       ].map((item) => {
                         const isSelected = (settings.image_engine || "pollinations") === item.id;
                         return (
@@ -308,7 +310,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             onClick={() => setSettings({ ...settings, image_engine: item.id })}
                             className={`p-3 rounded-lg border text-left transition-all ${
                               isSelected
-                                ? "bg-blue-600/15 border-blue-500 text-white"
+                                ? "bg-blue-600/15 border-blue-500 text-white shadow-lg shadow-blue-500/10"
                                 : "bg-[#0b0e14] border-[#2d3139] text-gray-400 hover:border-gray-500 hover:text-gray-200"
                             }`}
                           >

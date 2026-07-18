@@ -46,7 +46,34 @@ async def generate_image(
     encoded_prompt = urllib.parse.quote_plus(enhanced_prompt)
     pollinations_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&nologo=true&enhance=true"
 
-    # Cloudflare Workers AI が選択されており、APIトークンが存在する場合
+    # 事前作成ストック（LoRAギャラリー）またはハイブリッドモードの場合の処理
+    import random
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    gallery_dirs = [
+        repo_root / "img",
+        repo_root / "frontend" / "public" / "gallery",
+        repo_root / "backend" / "static" / "gallery"
+    ]
+    available_images = []
+    for g_dir in gallery_dirs:
+        if g_dir.exists():
+            available_images.extend(list(g_dir.glob("*.png")) + list(g_dir.glob("*.jpg")))
+
+    # 「📸 Curated Gallery」または「✨ Hybridモード（80%の確率でストック、20%でクラウド）」
+    if (engine == "gallery" or (engine == "gallery-hybrid" and random.random() < 0.80)) and available_images:
+        selected_img = random.choice(available_images)
+        try:
+            with open(selected_img, "rb") as f:
+                img_bytes = f.read()
+            media_type = "image/png" if selected_img.suffix.lower() == ".png" else "image/jpeg"
+            logger.info(f"[ImageGen] 📸 事前作成LoRAストック画像を表示: {selected_img.name}")
+            return Response(content=img_bytes, media_type=media_type)
+        except Exception as e:
+            logger.warning(f"[ImageGen] ストック画像の読み込み失敗: {e}")
+
+    # Cloudflare Workers AI が選択されており、APIトークンが存在する場合（または hybridモードでリアルタイム生成のターン）
     if engine in CF_MODELS and cf_api_token and cf_account_id:
         model_id = CF_MODELS[engine]
         url = f"https://api.cloudflare.com/client/v4/accounts/{cf_account_id}/ai/run/{model_id}"

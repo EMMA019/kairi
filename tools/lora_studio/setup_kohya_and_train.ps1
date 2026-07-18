@@ -33,6 +33,7 @@ if (-not (Test-Path $SdScriptsDir)) {
 
 Write-Host "`n[3/5] Creating optimized dataset_config.toml for RTX 2060..." -ForegroundColor Yellow
 $ConfigFile = Join-Path $ScriptDir "dataset_config.toml"
+$DatasetDirClean = $DatasetDir.Replace('\', '/')
 $ConfigContent = @"
 [general]
 enable_bucket = true
@@ -42,11 +43,11 @@ resolution = 512
 batch_size = 1
 
   [[datasets.subsets]]
-  image_dir = "$DatasetDir"
+  image_dir = "$DatasetDirClean"
   class_tokens = "kairi 1girl"
   num_repeats = 15
 "@
-Set-Content -Path $ConfigFile -Value $ConfigContent -Encoding UTF8
+[System.IO.File]::WriteAllText($ConfigFile, $ConfigContent, (New-Object System.Text.UTF8Encoding($false)))
 
 Write-Host "`n[4/5] Checking Python Virtual Environment & PyTorch CUDA setup..." -ForegroundColor Yellow
 $VenvDir = Join-Path $SdScriptsDir "venv"

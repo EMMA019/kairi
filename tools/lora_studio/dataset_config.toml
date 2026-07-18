@@ -1,4 +1,4 @@
-﻿[general]
+[general]
 enable_bucket = true
 
 [[datasets]]
@@ -6,6 +6,6 @@ resolution = 512
 batch_size = 1
 
   [[datasets.subsets]]
-  image_dir = "D:\program\chat\tools\lora_studio\dataset\25_kairi"
+  image_dir = "D:/program/chat/tools/lora_studio/dataset/25_kairi"
   class_tokens = "kairi 1girl"
   num_repeats = 15

@@ -15,8 +15,8 @@ def test_visual_anchor_default():
 def test_char_system_prompt_generation():
     prompt = get_char_system_prompt("Nao", "", "hyper_gal")
     assert "平成ギャル相棒「Kairi」です" in prompt
-    assert "LINE/メッセージアプリ感覚のショートテンポ (1〜3文)" in prompt
-    assert "アクション・表情描写 (`* *` や `（ ）`) とセリフの融合" in prompt
+    assert "メッセージアプリのチャット返信（セリフのみ）" in prompt
+    assert "地の文（状況説明・描写テキスト）を絶対に書かないでください。" in prompt
     assert "AIアシスタントとしての自覚」の完全破棄" in prompt
     assert "https://image.pollinations.ai/prompt/" in prompt
     assert "visual_anchor" not in prompt  # visual_anchorは展開済みであること
@@ -26,7 +26,7 @@ def test_char_system_prompt_custom_profile():
     custom = "あなたは魔法使いの弟子です。"
     prompt = get_char_system_prompt("Nao", custom, "standard")
     assert "あなたは魔法使いの弟子です。" in prompt
-    assert "LINE/メッセージアプリ感覚のショートテンポ (1〜3文)" in prompt
+    assert "メッセージアプリのチャット返信（セリフのみ）" in prompt
 
 def test_custom_visual_anchor():
     custom_anchor = "1girl, silver hair, red eyes, vampire princess, high quality"

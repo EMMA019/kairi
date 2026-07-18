@@ -75,6 +75,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           user_location: settings.user_location || "",
           persona_style: settings.persona_style || "standard",
           char_profile: settings.char_profile || "",
+          visual_anchor: settings.visual_anchor || "",
           locale: settings.locale || "en",
           gemini_api_key: settings.gemini_api_key || "",
           anthropic_api_key: settings.anthropic_api_key || "",
@@ -259,8 +260,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       value={settings.char_profile || ""}
                       onChange={(e) => setSettings({ ...settings, char_profile: e.target.value })}
                       placeholder="例: あなたはツンデレな幼馴染の女の子「Kairi」です。普段は冷たい態度だけど二人きりだと優しくなります。敬語は禁止です。"
-                      rows={3}
-                      className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3.5 py-2.5 text-xs text-gray-200 focus:border-blue-500 focus:outline-none leading-normal resize-y"
+                      rows={5}
+                      className="w-full min-h-[100px] bg-[#0b0e14] border border-[#2d3139] rounded-lg p-3 text-xs text-gray-200 focus:border-blue-500 focus:outline-none leading-relaxed resize-y overflow-y-auto"
                     />
                     <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
                       💡 「🎭 Charモード」を選択中やチャットで `/char` を使った際、この設定になりきって検索なしで爆速即答します！
@@ -275,8 +276,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       value={settings.visual_anchor || ""}
                       onChange={(e) => setSettings({ ...settings, visual_anchor: e.target.value })}
                       placeholder="例: 1girl, anime style, kairi, 19yo japanese cute girl, long caramel brown twintails, amber eyes, high quality, masterpiece"
-                      rows={2}
-                      className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3.5 py-2.5 text-xs text-gray-200 focus:border-blue-500 focus:outline-none leading-normal resize-y"
+                      rows={3}
+                      className="w-full min-h-[76px] bg-[#0b0e14] border border-[#2d3139] rounded-lg p-3 text-xs text-gray-200 focus:border-blue-500 focus:outline-none leading-relaxed resize-y overflow-y-auto"
                     />
                     <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
                       💡 自撮りやイラストを無料生成 (`Pollinations.ai`) する際、毎回ブレずに同じキャラクターの外見（髪色・瞳・服装等）をキープするための英語プロンプトです。

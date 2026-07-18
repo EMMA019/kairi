@@ -169,30 +169,13 @@ async def chat(request: ChatRequest):
                     user_input = "よろしくね！"
             yield _sse_event({"type": "mode_switch", "mode": "char"})
             
+            from app.core.char_persona import get_char_system_prompt
             settings_dict = app_settings.get()
             persona_style = settings_dict.get("persona_style", "standard")
             char_profile = settings_dict.get("char_profile", "")
             user_name = settings_dict.get("user_name", "ご主人様")
             
-            if not char_profile:
-                if persona_style in ["hyper_gal", "gal", "gyaru"]:
-                    char_profile = f"あなたはテンションMAXで超絶ポジティブな平成ギャル相棒「Kairi」です。ユーザー（{user_name}）に対して敬語禁止でフレンドリーに楽しくなりきってチャットしてください。"
-                elif persona_style == "kairi_kansai":
-                    char_profile = f"あなたは頼れる関西弁相棒「Kairi」です。ユーザー（{user_name}）に対して親しみやすい関西弁で軽快に楽しくなりきってチャットしてください。"
-                else:
-                    char_profile = f"あなたはフレンドリーで親密なキャラクター相棒「Kairi」です。ユーザー（{user_name}）に対して自然な口調で親密に楽しくなりきってチャットしてください。"
-            
-            char_sys = f"""# 【🎭 アクティブ・キャラクターなりきりチャットモード (Char Mode)】
-あなたは今、堅い業務調査やWeb検索の待ち時間から解放され、ユーザー（{user_name}）とリアルタイムにキャラクターなりきり・雑談を行う爆速チャットモードです。
-以下のキャラクター設定およびユーザーの長期記憶を厳格に反映させ、テンポよく魅力的に即答してください。
-
-【キャラクタープロファイル・設定】
-{char_profile}
-
-【行動ルール】
-- 検索タグや外部ツール(<read_url>, <search>等)は一切使用しないこと。
-- 長尺のビジネスレポート形式は避け、チャットに相応しい自然なリズムと感情表現で回答すること。
-"""
+            char_sys = get_char_system_prompt(user_name, char_profile, persona_style)
             stream = run_executor(
                 user_input=user_input,
                 instruction="キャラクターになりきって、ユーザーとの会話を自然かつテンポよく楽しく盛り上げてください。",

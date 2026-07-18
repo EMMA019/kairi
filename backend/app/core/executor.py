@@ -70,9 +70,12 @@ async def run_executor(
     """
     実行モデル (LLM) を呼び出し、回答をストリーミング生成する。
     """
-    system_prompt = EXECUTOR_SYSTEM_PROMPT
-    if system_instruction:
-        system_prompt += "\n\n【共通システム指示】\n" + system_instruction
+    if mode == "char" and system_instruction:
+        system_prompt = system_instruction
+    else:
+        system_prompt = EXECUTOR_SYSTEM_PROMPT
+        if system_instruction:
+            system_prompt += "\n\n【共通システム指示】\n" + system_instruction
 
     if mode in ["task", "research", "coding"]:
         system_prompt += """

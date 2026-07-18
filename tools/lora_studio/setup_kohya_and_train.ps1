@@ -56,12 +56,13 @@ $PythonExe = Join-Path $VenvDir "Scripts\python.exe"
 if (-not (Test-Path $VenvDir)) {
     Write-Host "  -> Creating Python virtual environment inside sd-scripts..." -ForegroundColor Green
     python -m venv $VenvDir
-    Write-Host "  -> Upgrading pip and installing PyTorch (CUDA 12.1)... (This may take a few minutes)" -ForegroundColor Green
+    Write-Host "  -> Upgrading pip and installing PyTorch 2.4.0 (CUDA 12.1 golden set)..." -ForegroundColor Green
     & $PipExe install --upgrade pip
-    & $PipExe install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-    Write-Host "  -> Installing sd-scripts requirements..." -ForegroundColor Green
-    & $PipExe install -r (Join-Path $SdScriptsDir "requirements.txt")
-    & $PipExe install xformers --index-url https://download.pytorch.org/whl/cu121
+    & $PipExe install torch==2.4.0+cu121 torchvision==0.19.0+cu121 xformers==0.0.27.post2 --index-url https://download.pytorch.org/whl/cu121
+    Write-Host "  -> Installing sd-scripts requirements and compatible OpenCV/NumPy..." -ForegroundColor Green
+    Push-Location $SdScriptsDir
+    & $PipExe install -r requirements.txt diffusers transformers accelerate tqdm toml albumentations tensorboard safetensors huggingface_hub scipy bitsandbytes "numpy<2" "opencv-python-headless<5" "opencv-python<5"
+    Pop-Location
     & $PipExe install lion-pytorch prodigyopt
 } else {
     Write-Host "  -> Virtual environment already installed and ready at: $VenvDir" -ForegroundColor Green

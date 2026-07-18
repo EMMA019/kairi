@@ -17,6 +17,7 @@ interface Settings {
   user_location?: string;
   persona_style?: string;
   char_profile?: string;
+  visual_anchor?: string;
   locale?: string;
   gemini_api_key?: string;
   anthropic_api_key?: string;
@@ -263,6 +264,22 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     />
                     <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
                       💡 「🎭 Charモード」を選択中やチャットで `/char` を使った際、この設定になりきって検索なしで爆速即答します！
+                    </p>
+                  </div>
+
+                  <div className="bg-[#161a25] p-4 rounded-xl border border-[#2d3139]">
+                    <h3 className="text-sm font-semibold text-gray-200 mb-2 flex items-center gap-2 leading-normal">
+                      📸 Visual Anchor (見た目・自撮り外見呪文)
+                    </h3>
+                    <textarea
+                      value={settings.visual_anchor || ""}
+                      onChange={(e) => setSettings({ ...settings, visual_anchor: e.target.value })}
+                      placeholder="例: 1girl, anime style, kairi, 19yo japanese cute girl, long caramel brown twintails, amber eyes, high quality, masterpiece"
+                      rows={2}
+                      className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3.5 py-2.5 text-xs text-gray-200 focus:border-blue-500 focus:outline-none leading-normal resize-y"
+                    />
+                    <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
+                      💡 自撮りやイラストを無料生成 (`Pollinations.ai`) する際、毎回ブレずに同じキャラクターの外見（髪色・瞳・服装等）をキープするための英語プロンプトです。
                     </p>
                   </div>
 

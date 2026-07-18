@@ -27,3 +27,9 @@ def test_char_system_prompt_custom_profile():
     prompt = get_char_system_prompt("Nao", custom, "standard")
     assert "あなたは魔法使いの弟子です。" in prompt
     assert "LINE/メッセージアプリ感覚のショートテンポ (1〜3文)" in prompt
+
+def test_custom_visual_anchor():
+    custom_anchor = "1girl, silver hair, red eyes, vampire princess, high quality"
+    prompt = get_char_system_prompt("Nao", "", "standard", custom_visual_anchor=custom_anchor)
+    assert "silver hair" in prompt
+    assert "vampire princess" in prompt

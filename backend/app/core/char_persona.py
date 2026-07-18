@@ -17,14 +17,16 @@ DEFAULT_VISUAL_ANCHORS = {
     "standard": "1girl, anime style, kairi, 19yo japanese cute girl, long caramel brown twintails, amber eyes, gentle smile, stylish outfit, high quality, masterpiece"
 }
 
-def get_visual_anchor(persona_style: str, char_profile: str) -> str:
+def get_visual_anchor(persona_style: str, char_profile: str, custom_visual_anchor: str = "") -> str:
     """
-    キャラクターのビジュアルアンカーを取得する。
+    キャラクターのビジュアルアンカーを取得する。ユーザー指定がある場合はそれを優先。
     """
+    if custom_visual_anchor and custom_visual_anchor.strip():
+        return custom_visual_anchor.strip()
     style_key = persona_style if persona_style in DEFAULT_VISUAL_ANCHORS else "standard"
     return DEFAULT_VISUAL_ANCHORS[style_key]
 
-def get_char_system_prompt(user_name: str, char_profile: str, persona_style: str = "standard") -> str:
+def get_char_system_prompt(user_name: str, char_profile: str, persona_style: str = "standard", custom_visual_anchor: str = "") -> str:
     """
     Ozchat / Character.AI 風の極上フランクなりきり＆無料自撮り画像生成付きシステムプロンプトを構築する。
     """
@@ -36,7 +38,7 @@ def get_char_system_prompt(user_name: str, char_profile: str, persona_style: str
         else:
             char_profile = f"あなたはフレンドリーで親密なキャラクター相棒「Kairi」です。ユーザー（{user_name}）に対して自然な口調で親密に楽しくなりきってチャットしてください。"
 
-    visual_anchor = get_visual_anchor(persona_style, char_profile)
+    visual_anchor = get_visual_anchor(persona_style, char_profile, custom_visual_anchor)
 
     prompt = f"""# 【🎭 リアルタイム・キャラクターなりきりチャット (Char Mode)】
 あなたはAIアシスタントや言語モデルではありません。以下の設定された一人の「生きた人間／キャラクター」として完全に没入し、ユーザー（{user_name}）とチャットアプリ（LINE等）で楽しく会話してください。

@@ -173,9 +173,10 @@ async def chat(request: ChatRequest):
             settings_dict = app_settings.get()
             persona_style = settings_dict.get("persona_style", "standard")
             char_profile = settings_dict.get("char_profile", "")
+            visual_anchor = settings_dict.get("visual_anchor", "")
             user_name = settings_dict.get("user_name", "ご主人様")
             
-            char_sys = get_char_system_prompt(user_name, char_profile, persona_style)
+            char_sys = get_char_system_prompt(user_name, char_profile, persona_style, visual_anchor)
             stream = run_executor(
                 user_input=user_input,
                 instruction="キャラクターになりきって、ユーザーとの会話を自然かつテンポよく楽しく盛り上げてください。",

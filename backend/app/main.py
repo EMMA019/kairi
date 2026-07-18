@@ -15,7 +15,7 @@ from app.core.news.database import init_db as init_news_db
 from app.core.news.scheduler import setup_scheduler, shutdown_scheduler
 from app.core.cache_manager import init_cache_db
 from app.core.monitor.scheduler import start_radar_scheduler, stop_radar_scheduler
-from app.routers import chat, history, memory, logs, mood, upload, settings, workspace, project, tools
+from app.routers import chat, history, memory, logs, mood, upload, settings, workspace, project, tools, image
 
 
 @asynccontextmanager
@@ -71,6 +71,7 @@ app.include_router(settings.router, prefix="/api", tags=["settings"])
 app.include_router(workspace.router, prefix="/api", tags=["workspace"])
 app.include_router(project.router, prefix="/api", tags=["project"])
 app.include_router(tools.router, prefix="/api", tags=["tools"])
+app.include_router(image.router, prefix="/api", tags=["image"])
 
 
 @app.get("/api/ping")

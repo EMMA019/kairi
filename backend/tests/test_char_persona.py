@@ -18,7 +18,7 @@ def test_char_system_prompt_generation():
     assert "メッセージアプリのチャット返信（セリフのみ）" in prompt
     assert "地の文（状況説明・描写テキスト）を絶対に書かないでください。" in prompt
     assert "AIアシスタントとしての自覚」の完全破棄" in prompt
-    assert "https://image.pollinations.ai/prompt/" in prompt
+    assert "/api/image/generate?prompt=" in prompt
     assert "visual_anchor" not in prompt  # visual_anchorは展開済みであること
     assert "caramel brown twintails" in prompt
 

@@ -10,8 +10,26 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { getApiUrl } from "../utils/api";
 
 const markdownComponents: any = {
+  img: ({ node, src, alt, ...props }: any) => {
+    let resolvedSrc = src;
+    if (src && src.startsWith("/api/")) {
+      resolvedSrc = getApiUrl(src);
+    }
+    return (
+      <div className="my-3 max-w-sm rounded-xl overflow-hidden border border-[#3c4043] bg-[#1a1b1e] shadow-lg">
+        <img src={resolvedSrc} alt={alt || "image"} className="w-full h-auto object-contain" {...props} />
+        {alt && (
+          <div className="px-3 py-1.5 text-xs text-gray-400 truncate bg-[#1e1f20] border-t border-[#3c4043] font-medium flex items-center gap-1.5">
+            <span>📸</span>
+            <span className="truncate">{alt}</span>
+          </div>
+        )}
+      </div>
+    );
+  },
   a: ({ node, href, children, ...props }: any) => (
     <a
       href={href}

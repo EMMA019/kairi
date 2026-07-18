@@ -18,6 +18,9 @@ interface Settings {
   persona_style?: string;
   char_profile?: string;
   visual_anchor?: string;
+  image_engine?: string;
+  cf_account_id?: string;
+  cf_api_token?: string;
   locale?: string;
   gemini_api_key?: string;
   anthropic_api_key?: string;
@@ -76,6 +79,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           persona_style: settings.persona_style || "standard",
           char_profile: settings.char_profile || "",
           visual_anchor: settings.visual_anchor || "",
+          image_engine: settings.image_engine || "pollinations",
+          cf_account_id: settings.cf_account_id || "8b2e7549807032bdd0e92885d6349fa9",
+          cf_api_token: settings.cf_api_token || "",
           locale: settings.locale || "en",
           gemini_api_key: settings.gemini_api_key || "",
           anthropic_api_key: settings.anthropic_api_key || "",
@@ -286,6 +292,68 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                   <div className="bg-[#161a25] p-4 rounded-xl border border-[#2d3139]">
                     <h3 className="text-sm font-semibold text-gray-200 mb-3 flex items-center gap-2 leading-normal">
+                      🎨 Image Generation Engine (自撮り画像生成AIモデル)
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                      {[
+                        { id: "pollinations", name: "🌟 Pollinations.ai", desc: "無料・APIキー不要の標準画像生成エンジン" },
+                        { id: "cf-sdxl", name: "⚡ Cloudflare SDXL", desc: "SDXL Lightning による高品質＆高速生成" },
+                        { id: "cf-flux", name: "🔥 Cloudflare FLUX.1", desc: "オープンソース最高峰 FLUX.1 による圧倒的高画質" },
+                      ].map((item) => {
+                        const isSelected = (settings.image_engine || "pollinations") === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setSettings({ ...settings, image_engine: item.id })}
+                            className={`p-3 rounded-lg border text-left transition-all ${
+                              isSelected
+                                ? "bg-blue-600/15 border-blue-500 text-white"
+                                : "bg-[#0b0e14] border-[#2d3139] text-gray-400 hover:border-gray-500 hover:text-gray-200"
+                            }`}
+                          >
+                            <div className="font-semibold text-xs leading-normal">{item.name}</div>
+                            <div className="text-[11px] opacity-80 mt-1 leading-relaxed">{item.desc}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {(settings.image_engine === "cf-sdxl" || settings.image_engine === "cf-flux") && (
+                      <div className="mt-3 pt-3 border-t border-[#2d3139] space-y-3 bg-[#0b0e14]/50 p-3 rounded-lg">
+                        <div className="text-xs text-blue-400 font-medium">
+                          ⚡ Cloudflare Workers AI 設定（※無料枠対応）
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-300 font-semibold mb-1">
+                            Cloudflare Account ID
+                          </label>
+                          <input
+                            type="text"
+                            value={settings.cf_account_id || ""}
+                            onChange={(e) => setSettings({ ...settings, cf_account_id: e.target.value })}
+                            placeholder="例: 8b2e7549807032bdd0e92885d6349fa9"
+                            className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3.5 py-2 text-xs text-gray-200 font-mono focus:border-blue-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-300 font-semibold mb-1">
+                            Cloudflare API Token (Workers AI Read/Write 権限付き)
+                          </label>
+                          <input
+                            type="password"
+                            value={settings.cf_api_token || ""}
+                            onChange={(e) => setSettings({ ...settings, cf_api_token: e.target.value })}
+                            placeholder="Cloudflareのダッシュボードで発行したAPIトークン"
+                            className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3.5 py-2 text-xs text-gray-200 font-mono focus:border-blue-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-[#161a25] p-4 rounded-xl border border-[#2d3139]">
+                    <h3 className="text-sm font-semibold text-gray-200 mb-3 flex items-center gap-2 leading-normal">
                       🎭 Assistant Tone & Persona
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -405,6 +473,42 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           />
                         </div>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Cloudflare Workers AI キー */}
+                  <div className="bg-[#161a25] p-4 rounded-xl border border-[#2d3139]">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2 leading-normal mb-1">
+                      ⚡ Cloudflare Workers AI Keys (画像生成用)
+                    </h3>
+                    <p className="text-xs text-gray-400 leading-relaxed mb-4">
+                      Configure Cloudflare Account ID & API Token for ultra-fast FLUX.1 & SDXL Lightning image generation.
+                    </p>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-gray-300 font-semibold mb-1">
+                          Cloudflare Account ID (CF_ACCOUNT_ID)
+                        </label>
+                        <input
+                          type="text"
+                          value={settings.cf_account_id || ""}
+                          onChange={(e) => setSettings({ ...settings, cf_account_id: e.target.value })}
+                          placeholder="8b2e7549807032bdd0e92885d6349fa9"
+                          className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3.5 py-2 text-xs text-gray-200 font-mono focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-300 font-semibold mb-1">
+                          Cloudflare API Token (CF_API_TOKEN)
+                        </label>
+                        <input
+                          type="password"
+                          value={settings.cf_api_token || ""}
+                          onChange={(e) => setSettings({ ...settings, cf_api_token: e.target.value })}
+                          placeholder="Workers AI AI-search/AI-run 権限トークン"
+                          className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3.5 py-2 text-xs text-gray-200 font-mono focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

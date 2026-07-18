@@ -61,6 +61,9 @@ _DEFAULT_SETTINGS = {
     "persona_style": "standard",
     "char_profile": "あなたはフレンドリーで親密なキャラクター相棒「Kairi」です。敬語や堅い業務説明は避け、自然で感情豊かな会話をテンポよく楽しんでください。",
     "visual_anchor": "1girl, anime style, kairi, 19yo japanese cute girl, long caramel brown twintails, amber eyes, high quality, masterpiece",
+    "image_engine": "pollinations",
+    "cf_account_id": "8b2e7549807032bdd0e92885d6349fa9",
+    "cf_api_token": "",
     "locale": "ja",
     "gemini_api_key": "",
     "anthropic_api_key": "",
@@ -95,6 +98,8 @@ class Settings:
             "world_news_api_key": "WORLD_NEWS_API_KEY",
             "newsdata_api_key": "NEWSDATA_API_KEY",
             "mapbox_api_key": "MAPBOX_API_KEY",
+            "cf_account_id": "CF_ACCOUNT_ID",
+            "cf_api_token": "CF_API_TOKEN",
         }
         for k, env_key in env_map.items():
             val = self._settings.get(k)
@@ -172,6 +177,9 @@ class SettingsUpdate(BaseModel):
     persona_style: Optional[str] = None
     char_profile: Optional[str] = None
     visual_anchor: Optional[str] = None
+    image_engine: Optional[str] = None
+    cf_account_id: Optional[str] = None
+    cf_api_token: Optional[str] = None
     locale: Optional[str] = None
     gemini_api_key: Optional[str] = None
     anthropic_api_key: Optional[str] = None

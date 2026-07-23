@@ -6,7 +6,8 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   reasoning?: string;
-  sources?: Array<{ title: string; url: string }>;
+  sources?: Array<{ title: string; url: string; tier?: number }>;
+  chartData?: { type: "bar" | "line" | "pie"; title: string; data: any[] };
 }
 
 export interface KVEntry {
@@ -39,13 +40,15 @@ export interface ViolationLog {
 }
 
 /** SSE イベントの型定義 */
-export type SSEEventType = "status" | "chunk" | "thinking" | "done" | "error" | "reasoning" | "sources" | "clear_buffer";
+export type SSEEventType = "status" | "chunk" | "thinking" | "done" | "error" | "reasoning" | "sources" | "clear_buffer" | "pipeline" | "chart";
 
 export interface SSEEvent {
   type: SSEEventType;
-  status?: "thinking" | "searching" | "responding";
+  status?: "thinking" | "searching" | "responding" | "planning_search";
   content?: string;
   query?: string;
+  stage?: string;
+  detail?: string;
   data?: any;
   message?: string;
 }

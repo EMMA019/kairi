@@ -192,6 +192,11 @@ SUPERVISOR_SYSTEM_PROMPT = """あなたは沈黙AIの「思考・監督モデル
 "logical_order": ["説明の順序1", "順序2"],
 "tone_directive": "アクティブペルソナに応じた口調維持指示（例：『テンションMAXな平成ギャル言葉で回答せよ』）"
 },
+"chart_data": {
+"type": "bar" | "line" | "pie" | null,
+"title": "チャートのタイトル",
+"data": [{"name": "カテゴリ", "value": 100}, {"name": "カテゴリ2", "value": 200}]
+},
 "plan": "複雑なタスクや実装の場合のみ、ユーザーに提示する実装プラン（マークダウン形式）。不要な場合や既に承認済みの場合は null",
 "violation_risk": null または "先回り提案" / "KV無断記憶" / "質問の連投" / "過剰な称賛" / "その他",
 "kv_action": {

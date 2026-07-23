@@ -244,6 +244,7 @@ async def chat(request: ChatRequest):
 
         # 1. 検索判定 (Search Planner LLM)
         yield _sse_event({"type": "status", "status": "planning_search"})
+        yield _sse_event({"type": "pipeline", "stage": "intent_analysis", "detail": "ユーザーの意図と検索要否を分析中..."})
         
         search_plan = await plan_search(user_input, messages)
         search_needed = search_plan["needs_search"] or request.force_search
@@ -343,6 +344,7 @@ async def chat(request: ChatRequest):
             max_queries = 2 # 検索API制限とコスト削減のため最大2クエリまでに制限（ユーザー指示）
             for q in search_queries[:max_queries]:
                 yield _sse_event({"type": "status", "status": "searching", "query": q})
+                yield _sse_event({"type": "pipeline", "stage": "search", "detail": f"情報収集中: {q}"})
                 tasks.append(web_search(q, providers=search_providers))
                 logger.info(f"検索実行: '{q}' (Providers: {search_providers}) (Original: '{user_input}')")
             
@@ -476,6 +478,7 @@ async def chat(request: ChatRequest):
             
             # 2. 思考モデル (V4 Pro)
             yield _sse_event({"type": "status", "status": "thinking"})
+            yield _sse_event({"type": "pipeline", "stage": "fact_checking", "detail": "検索結果とコンテキストを照合・検証中..."})
             
             current_user_input_with_context = user_input_with_context
             if escalation_history:
@@ -578,6 +581,9 @@ async def chat(request: ChatRequest):
             if supervisor_json.get("mode"):
                 mode = supervisor_json["mode"]
                 yield _sse_event({"type": "mode_switch", "mode": mode})
+            
+            if supervisor_json.get("chart_data"):
+                yield _sse_event({"type": "chart", "data": supervisor_json["chart_data"]})
             
             if mode == "hearing":
                 hearing_state = supervisor_json.get("hearing_state", {})
@@ -700,6 +706,7 @@ async def chat(request: ChatRequest):
                 sse_queue.put_nowait(data)
             
             yield _sse_event({"type": "status", "status": "responding"})
+            yield _sse_event({"type": "pipeline", "stage": "composing", "detail": "回答を構成・生成中..."})
             
             try:
                 exec_task = asyncio.create_task(
@@ -904,6 +911,27 @@ async def _save_messages(
                     json.dumps(search_sources, ensure_ascii=False) if search_sources else None
                 ),
             )
+
+            # 誠実さダッシュボード用データの計算と保存
+            if json_data:
+                instruction = json_data.get("instruction", {})
+                verified_facts = 0
+                unverified_facts = 0
+                if isinstance(instruction, dict):
+                    v_facts = instruction.get("verified_facts")
+                    u_facts = instruction.get("unverified_facts")
+                    if isinstance(v_facts, list):
+                        verified_facts = len(v_facts)
+                    if isinstance(u_facts, list):
+                        unverified_facts = len(u_facts)
+                
+                citations = len(search_sources) if search_sources else 0
+                excluded_sources = 0 # 暫定
+                
+                await db.execute(
+                    "INSERT INTO integrity_stats (session_id, verified_facts, unverified_facts, excluded_sources, citations) VALUES (?, ?, ?, ?, ?)",
+                    (session_id, verified_facts, unverified_facts, excluded_sources, citations)
+                )
 
             # セッションの updated_at を更新
             await db.execute(

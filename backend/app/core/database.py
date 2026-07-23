@@ -109,5 +109,17 @@ async def init_db():
         except Exception:
             pass
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS integrity_stats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT REFERENCES sessions(id),
+                verified_facts INTEGER DEFAULT 0,
+                unverified_facts INTEGER DEFAULT 0,
+                excluded_sources INTEGER DEFAULT 0,
+                citations INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         await db.commit()
 

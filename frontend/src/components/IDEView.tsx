@@ -12,7 +12,9 @@ interface IDEViewProps {
   messages: ChatMessage[];
   streamingContent: string;
   streamingReasoning?: string;
-  streamingSources?: Array<{ title: string; url: string }>;
+  streamingSources?: Array<{ title: string; url: string; tier?: number }>;
+  streamingChart?: any;
+  pipelineStages?: Array<{ stage: string; detail: string; status: "pending" | "active" | "done" }>;
   status: "idle" | "thinking" | "searching" | "responding" | "planning_search";
   searchQuery: string | null;
   isFetchingHistory: boolean;
@@ -29,6 +31,8 @@ export const IDEView = memo(({
   streamingContent,
   streamingReasoning,
   streamingSources,
+  streamingChart,
+  pipelineStages,
   status,
   searchQuery,
   isFetchingHistory,
@@ -147,6 +151,8 @@ export const IDEView = memo(({
             streamingContent={streamingContent}
             streamingReasoning={streamingReasoning}
             streamingSources={streamingSources}
+            streamingChart={streamingChart}
+            pipelineStages={pipelineStages}
             status={status}
             searchQuery={searchQuery}
             isFetchingHistory={isFetchingHistory}

@@ -10,6 +10,7 @@ import { ModeBadge } from "./components/ModeBadge";
 import { KVMemoryPanel } from "./components/KVMemoryPanel";
 import { SettingsModal } from "./components/SettingsModal";
 import { AuthModal } from "./components/AuthModal";
+import { IntegrityBadge } from "./components/IntegrityBadge";
 import { Sidebar } from "./components/Sidebar";
 import { ActivityBar } from "./components/ActivityBar";
 import { IDEView } from "./components/IDEView";
@@ -89,6 +90,8 @@ function App() {
     streamingContent,
     streamingReasoning,
     streamingSources,
+    streamingChart,
+    pipelineStages,
     searchQuery,
     error,
     isFetchingHistory,
@@ -293,6 +296,7 @@ function App() {
                 </span>
               </button>
             )}
+            <IntegrityBadge />
             <ModeBadge mode={mode} status={status} onToggle={handleToggleMode} />
           </div>
         </header>
@@ -312,6 +316,8 @@ function App() {
               streamingContent={streamingContent}
               streamingReasoning={streamingReasoning}
               streamingSources={streamingSources}
+              streamingChart={streamingChart}
+              pipelineStages={pipelineStages}
               status={status}
               searchQuery={searchQuery}
               isFetchingHistory={isFetchingHistory}
@@ -331,6 +337,8 @@ function App() {
                   streamingContent={streamingContent}
                   streamingReasoning={streamingReasoning}
                   streamingSources={streamingSources}
+                  streamingChart={streamingChart}
+                  pipelineStages={pipelineStages}
                   status={status}
                   searchQuery={searchQuery}
                   isFetchingHistory={isFetchingHistory}

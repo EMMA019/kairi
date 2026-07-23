@@ -4,8 +4,9 @@
  * ストリーミング中のリアルタイム文字追加表示 + 安全なスクロール制御。
  */
 import { useEffect, useRef, memo } from "react";
-import type { ChatMessage } from "../types";
 import { TypingIndicator } from "./TypingIndicator";
+import { PipelineIndicator } from "./PipelineIndicator";
+import { DataChart } from "./DataChart";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -69,7 +70,9 @@ interface ChatAreaProps {
   searchQuery: string | null;
   isFetchingHistory: boolean;
   streamingReasoning?: string;
-  streamingSources?: Array<{title: string, url: string}>;
+  streamingSources?: Array<{title: string, url: string, tier?: number}>;
+  streamingChart?: any;
+  pipelineStages?: Array<{stage: string, detail: string, status: "pending" | "active" | "done"}>;
   onSend?: (content: string) => void;
 }
 
@@ -228,9 +231,10 @@ export const ChatArea = memo(({
   streamingContent,
   status,
   searchQuery,
-  isFetchingHistory,
   streamingReasoning,
   streamingSources,
+  streamingChart,
+  pipelineStages = [],
   onSend,
 }: ChatAreaProps) => {
   // 1. ヘッダーを押し出さないための唯一の解決策：コンテナ自体を直接制御する
@@ -270,10 +274,13 @@ export const ChatArea = memo(({
                         </svg>
                         <span>Thought process</span>
                       </summary>
-                      <div className="mt-2.5 pt-2.5 border-t border-white/5 text-gray-400 whitespace-pre-wrap font-mono leading-relaxed opacity-90">
+                      <div className="mt-2.5 pt-2.5 border-t border-white/5 text-gray-400 whitespace-pre-wrap font-mono leading-relaxed opacity-90 shimmer-text text-[0.8rem]">
                         {msg.reasoning}
                       </div>
                     </details>
+                  )}
+                  {msg.role === "assistant" && msg.chartData && (
+                    <DataChart data={msg.chartData} />
                   )}
                   {msg.role === "assistant" && msg.sources && msg.sources.length > 0 && (
                     <div className="mb-3 text-xs bg-[#1a1b1e] border border-[#3c4043] rounded p-2">
@@ -320,15 +327,19 @@ export const ChatArea = memo(({
             </div>
           )}
 
-          {status === "searching" && searchQuery && (
+          {status === "searching" && searchQuery && pipelineStages.length === 0 && (
             <div className="search-banner">
               <div className="spinner" />
               <span>Searching "{searchQuery}"...</span>
             </div>
           )}
 
-          {(status === "thinking" || status === "searching" || (status === "responding" && !streamingContent)) && (
-            <TypingIndicator status={status} searchQuery={searchQuery} />
+          {(status === "thinking" || status === "searching" || status === "planning_search" || (status === "responding" && !streamingContent)) && (
+            pipelineStages.length > 0 ? (
+              <PipelineIndicator stages={pipelineStages} />
+            ) : (
+              <TypingIndicator status={status} searchQuery={searchQuery} />
+            )
           )}
 
           {/* ============================================================
@@ -346,10 +357,13 @@ export const ChatArea = memo(({
                       </svg>
                       <span>Thinking process</span>
                     </summary>
-                    <div className="mt-2.5 pt-2.5 border-t border-white/5 text-gray-400 whitespace-pre-wrap font-mono leading-relaxed opacity-90">
+                    <div className="mt-2.5 pt-2.5 border-t border-white/5 text-gray-400 whitespace-pre-wrap font-mono leading-relaxed opacity-90 shimmer-text text-[0.8rem]">
                       {streamingReasoning}
                     </div>
                   </details>
+                )}
+                {streamingChart && (
+                  <DataChart data={streamingChart} />
                 )}
                 {streamingSources && streamingSources.length > 0 && (
                   <div className="mb-3 text-xs bg-[#1a1b1e] border border-[#3c4043] rounded p-2">

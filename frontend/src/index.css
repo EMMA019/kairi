@@ -151,6 +151,25 @@ html {
   animation: slideUp 0.4s ease-out forwards;
 }
 
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(34, 211, 238, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
+}
+
+.pulse-ring-active {
+  animation: pulse-ring 2s infinite cubic-bezier(0.66, 0, 0, 1);
+}
+
+.shimmer-text {
+  background: linear-gradient(90deg, #9ca3af 0%, #f3f4f6 50%, #9ca3af 100%);
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+}
+
 /* ============================================
    App Layout & Header (Tailwind class based now)
    ============================================ */

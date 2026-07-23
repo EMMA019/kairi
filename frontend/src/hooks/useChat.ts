@@ -9,19 +9,28 @@ import type { ChatMessage, SSEEvent } from "../types";
 
 type ChatStatus = "idle" | "thinking" | "searching" | "responding" | "planning_search";
 
+export interface PipelineStage {
+  stage: string;
+  detail: string;
+  status: "pending" | "active" | "done";
+}
+
 export function useChat(sessionId: string, onMessageComplete?: () => void) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [status, setStatus] = useState<ChatStatus>("idle");
   const [streamingContent, setStreamingContent] = useState("");
   const [streamingReasoning, setStreamingReasoning] = useState<string | undefined>();
-  const [streamingSources, setStreamingSources] = useState<Array<{title: string, url: string}> | undefined>();
+  const [streamingSources, setStreamingSources] = useState<Array<{title: string, url: string, tier?: number}> | undefined>();
+  const [streamingChart, setStreamingChart] = useState<any>(undefined);
+  const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
   const [searchQuery, setSearchQuery] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isFetchingHistory, setIsFetchingHistory] = useState(true);
   const messageIdRef = useRef<number>(0);
   const streamingContentRef = useRef<string>("");
   const streamingReasoningRef = useRef<string | undefined>(undefined);
-  const streamingSourcesRef = useRef<Array<{title: string, url: string}> | undefined>(undefined);
+  const streamingSourcesRef = useRef<Array<{title: string, url: string, tier?: number}> | undefined>(undefined);
+  const streamingChartRef = useRef<any>(undefined);
   // メッセージIDのセット（二重保存防止）
   const messageIdSetRef = useRef<Set<string>>(new Set());
 
@@ -37,8 +46,11 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
     setStreamingContent("");
     setStreamingReasoning(undefined);
     setStreamingSources(undefined);
+    setStreamingChart(undefined);
+    setPipelineStages([]);
     streamingReasoningRef.current = undefined;
     streamingSourcesRef.current = undefined;
+    streamingChartRef.current = undefined;
     messageIdSetRef.current.clear();
     setError(null);
   }, [sessionId]);
@@ -52,6 +64,24 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
         }
         if (event.status === "responding") {
           setSearchQuery(null);
+        }
+        break;
+
+      case "pipeline":
+        if (event.stage && event.detail) {
+          setPipelineStages(prev => {
+            const next = [...prev];
+            // 既存の同じステージがあれば更新
+            const existingIdx = next.findIndex(p => p.stage === event.stage);
+            if (existingIdx >= 0) {
+              next[existingIdx] = { ...next[existingIdx], detail: event.detail, status: "active" };
+            } else {
+              // 以前のステージはdoneにする
+              next.forEach(p => p.status = "done");
+              next.push({ stage: event.stage, detail: event.detail, status: "active" });
+            }
+            return next;
+          });
         }
         break;
 
@@ -84,6 +114,13 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
         }
         break;
 
+      case "chart":
+        if (event.data) {
+          setStreamingChart(event.data);
+          streamingChartRef.current = event.data;
+        }
+        break;
+
       case "done":
         // ============================================================
         // 【修正ポイント1】最終コンテンツを確定
@@ -100,7 +137,8 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
             content: finalContent,
             timestamp: new Date(),
             reasoning: streamingReasoningRef.current,
-            sources: streamingSourcesRef.current
+            sources: streamingSourcesRef.current,
+            chartData: streamingChartRef.current
           };
           
           // 重複チェックを追加（同じ内容のメッセージが既にあれば追加しない）
@@ -130,8 +168,11 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
           streamingContentRef.current = "";
           setStreamingReasoning(undefined);
           setStreamingSources(undefined);
+          setStreamingChart(undefined);
+          setPipelineStages([]);
           streamingReasoningRef.current = undefined;
           streamingSourcesRef.current = undefined;
+          streamingChartRef.current = undefined;
           setStatus("idle");
           setSearchQuery(null);
         }, 0);
@@ -250,6 +291,8 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
     streamingContent,
     streamingReasoning,
     streamingSources,
+    streamingChart,
+    pipelineStages,
     searchQuery,
     error,
     isFetchingHistory,

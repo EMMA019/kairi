@@ -14,6 +14,7 @@ from app.core.database import init_db
 from app.core.news.database import init_db as init_news_db
 from app.core.news.scheduler import setup_scheduler, shutdown_scheduler
 from app.core.cache_manager import init_cache_db
+from app.core.monitor.scheduler import start_radar_scheduler, stop_radar_scheduler
 from app.routers import chat, history, memory, logs, mood, upload, settings, workspace, project, tools, image, integrity
 
 

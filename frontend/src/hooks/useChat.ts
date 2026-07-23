@@ -74,11 +74,11 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
             // 既存の同じステージがあれば更新
             const existingIdx = next.findIndex(p => p.stage === event.stage);
             if (existingIdx >= 0) {
-              next[existingIdx] = { ...next[existingIdx], detail: event.detail, status: "active" };
+              next[existingIdx] = { ...next[existingIdx], detail: event.detail!, status: "active" };
             } else {
               // 以前のステージはdoneにする
               next.forEach(p => p.status = "done");
-              next.push({ stage: event.stage, detail: event.detail, status: "active" });
+              next.push({ stage: event.stage!, detail: event.detail!, status: "active" });
             }
             return next;
           });

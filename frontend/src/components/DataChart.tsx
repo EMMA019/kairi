@@ -80,7 +80,7 @@ export function DataChart({ data }: DataChartProps) {
                 dataKey="value"
                 stroke="none"
               >
-                {data.data.map((entry, index) => (
+                {data.data.map((_entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>

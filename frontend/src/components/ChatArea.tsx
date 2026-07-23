@@ -8,6 +8,7 @@ import { TypingIndicator } from "./TypingIndicator";
 import { PipelineIndicator } from "./PipelineIndicator";
 import { DataChart } from "./DataChart";
 import ReactMarkdown from 'react-markdown';
+import type { ChatMessage } from "../types";
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -231,6 +232,7 @@ export const ChatArea = memo(({
   streamingContent,
   status,
   searchQuery,
+  isFetchingHistory,
   streamingReasoning,
   streamingSources,
   streamingChart,
@@ -286,7 +288,7 @@ export const ChatArea = memo(({
                     <div className="mb-3 text-xs bg-[#1a1b1e] border border-[#3c4043] rounded p-2">
                       <div className="text-gray-400 font-medium mb-1">🔗 Sources:</div>
                       <ul className="list-disc list-inside text-blue-400">
-                        {msg.sources.map((s, idx) => (
+                        {msg.sources.map((s: { title: string; url: string; tier?: number }, idx: number) => (
                           <li key={idx} className="truncate">
                             <a href={s.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
                               {s.title || s.url}

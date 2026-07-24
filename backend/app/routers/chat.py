@@ -634,7 +634,6 @@ async def chat(request: ChatRequest):
                 )
                 
                 # plan_awaiting_approval 状態を設定
-                from app.core.kv_store import kv_store
                 try:
                     kv_store.add({
                         "action": "add",

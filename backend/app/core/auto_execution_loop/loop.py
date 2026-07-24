@@ -13,7 +13,6 @@ logger = get_logger(__name__)
 from app.core.tools.handler import ToolHandler
 from app.core.llm_client import stream_model
 from app.routers.settings import get_settings
-from app.core.fact_filters import validate_and_refine_facts
 
 from .heuristics import _detect_test_failure, _detect_error, _detect_success
 from .compression import _smart_compress_loop_history

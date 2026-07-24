@@ -150,10 +150,22 @@ async def chat(request: ChatRequest):
             )
             
             response_text = ""
+            _in_think = False
             async for chunk in stream:
-                if not is_hyper_gal:
-                    yield _sse_event({"type": "chunk", "content": chunk})
+                if '<think>' in chunk:
+                    _in_think = True
+                if '</think>' in chunk:
+                    _in_think = False
+                    response_text += chunk
+                    continue
                 response_text += chunk
+                if not is_hyper_gal and not _in_think:
+                    yield _sse_event({"type": "chunk", "content": chunk})
+            
+            # <think> タグを除去
+            response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
+            response_text = re.sub(r'<think>(?:(?!</think>).)*$', '', response_text, flags=re.DOTALL)
+            response_text = response_text.strip()
             
             if is_hyper_gal and response_text:
                 response_text = to_hyper_gal_v3(response_text)
@@ -192,10 +204,22 @@ async def chat(request: ChatRequest):
                 system_instruction=char_sys,
             )
             response_text = ""
+            _in_think = False
             async for chunk in stream:
-                if not is_hyper_gal:
-                    yield _sse_event({"type": "chunk", "content": chunk})
+                if '<think>' in chunk:
+                    _in_think = True
+                if '</think>' in chunk:
+                    _in_think = False
+                    response_text += chunk
+                    continue
                 response_text += chunk
+                if not is_hyper_gal and not _in_think:
+                    yield _sse_event({"type": "chunk", "content": chunk})
+            
+            # <think> タグを除去
+            response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
+            response_text = re.sub(r'<think>(?:(?!</think>).)*$', '', response_text, flags=re.DOTALL)
+            response_text = response_text.strip()
             
             if is_hyper_gal and response_text:
                 response_text = to_hyper_gal_v3(response_text)
@@ -758,6 +782,7 @@ def _trim_history_content(content: str) -> str:
         return content
 
     content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+    content = re.sub(r'<think>(?:(?!</think>).)*$', '', content, flags=re.DOTALL)
     content = re.sub(r'(?m)^(?:まず、ユーザーの発言を分析します[^\n]*\n+|Output format:[^\n]*\n+|user_intent_analysis:[^\n]*\n+)+', '', content)
     content = re.sub(r'【一般検索結果:.*?】\s*(?:\[brave\s*\[Tier.*?\]\].*?\n?)+', '', content, flags=re.DOTALL).strip()
 

@@ -12,6 +12,7 @@ logger = get_logger(__name__)
 
 from app.core.tools.handler import ToolHandler
 from app.core.llm_client import stream_model
+from app.core.executor import run_executor
 from app.routers.settings import get_settings
 
 from .heuristics import _detect_test_failure, _detect_error, _detect_success
@@ -156,25 +157,39 @@ async def auto_execute_with_retry(
         async def stream_with_newline(original_stream):
             tag_buf = ""
             in_tag = False
+            in_think_block = False  # <think>ブロック内かどうか
             async for c in original_stream:
                 if in_tag:
                     tag_buf += c
                     if ">" in tag_buf or "\n" in tag_buf:
-                        if not re.search(r'<(search|read_url|read_file|run_command|file|replace|list_dir|get_hot_stocks|search_news|mcp_call|escalate)', tag_buf):
-                            if yield_sse_func:
+                        # <think> 開始タグ検出
+                        if re.search(r'<think\s*>', tag_buf):
+                            in_think_block = True
+                            tag_buf = ""
+                            in_tag = False
+                        # </think> 閉じタグ検出
+                        elif re.search(r'</think\s*>', tag_buf):
+                            in_think_block = False
+                            tag_buf = ""
+                            in_tag = False
+                        elif not re.search(r'<(search|read_url|read_file|run_command|file|replace|list_dir|get_hot_stocks|search_news|mcp_call|escalate)', tag_buf):
+                            if yield_sse_func and not in_think_block:
                                 yield_sse_func({"type": "chunk", "content": tag_buf})
-                        tag_buf = ""
-                        in_tag = False
+                            tag_buf = ""
+                            in_tag = False
+                        else:
+                            tag_buf = ""
+                            in_tag = False
                 else:
                     if "<" in c:
                         in_tag = True
                         tag_buf += c
                     else:
-                        if yield_sse_func:
+                        if yield_sse_func and not in_think_block:
                             yield_sse_func({"type": "chunk", "content": c})
                 yield c
             if tag_buf and not in_tag:
-                if yield_sse_func:
+                if yield_sse_func and not in_think_block:
                     yield_sse_func({"type": "chunk", "content": tag_buf})
             yield '\n'
         
@@ -474,6 +489,8 @@ async def auto_execute_with_retry(
         final_accumulated_response = parts[-1].strip()
 
     final_accumulated_response = re.sub(r'<think>.*?</think>', '', final_accumulated_response, flags=re.DOTALL)
+    # 閉じタグなしの <think> も除去（モデルが </think> を出力し忘れた場合）
+    final_accumulated_response = re.sub(r'<think>(?:(?!</think>).)*$', '', final_accumulated_response, flags=re.DOTALL)
     final_accumulated_response = re.sub(r'(?m)^(?:まず、ユーザーの発言を分析します[^\n]*\n+|Output format:[^\n]*\n+|user_intent_analysis:[^\n]*\n+)+', '', final_accumulated_response)
     final_accumulated_response = re.sub(r'【一般検索結果:.*?】\s*(?:\[brave\s*\[Tier.*?\]\].*?\n?)+', '', final_accumulated_response, flags=re.DOTALL)
     try:

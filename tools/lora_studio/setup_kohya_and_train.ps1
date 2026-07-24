@@ -39,7 +39,7 @@ $ConfigContent = @"
 enable_bucket = true
 
 [[datasets]]
-resolution = 512
+resolution = 1024
 batch_size = 1
 
   [[datasets.subsets]]
@@ -80,13 +80,16 @@ Write-Host "`nPress Enter to begin automated LoRA training right now (or Ctrl+C 
 Read-Host
 
 Write-Host "`n🚀 Launching training process right now..." -ForegroundColor Green
-$TrainScript = Join-Path $SdScriptsDir "train_network.py"
+$TrainScript = Join-Path $SdScriptsDir "sdxl_train_network.py"
 
-# Base model: using stable-diffusion-v1-5 directly via diffusers/huggingface if no local safetensors specified
-$BaseModel = "runwayml/stable-diffusion-v1-5"
-$LocalBase = Join-Path $BaseModelDir "anime_base.safetensors"
-if (Test-Path $LocalBase) {
-    $BaseModel = $LocalBase
+# Base model: Animagine XL or any SDXL model. We will ask user to copy it to base_models or we point to the Forge one.
+$BaseModel = Join-Path $ScriptDir "sd-webui-forge\models\Stable-diffusion\animagineXL40_v4Opt.safetensors"
+if (-not (Test-Path $BaseModel)) {
+    # Fallback to local base_models dir
+    $BaseModel = Join-Path $BaseModelDir "animagineXL40_v4Opt.safetensors"
+}
+if (-not (Test-Path $BaseModel)) {
+    Write-Host "Warning: Base model animagineXL40_v4Opt.safetensors not found in standard paths. Training might fail!" -ForegroundColor Red
 }
 
 & $PythonExe $TrainScript `
@@ -105,7 +108,9 @@ if (Test-Path $LocalBase) {
     --network_module=networks.lora `
     --network_dim=32 `
     --network_alpha=16 `
+    --network_train_unet_only `
     --cache_latents `
+    --cache_text_encoder_outputs `
     --gradient_checkpointing
 
-Write-Host "`n🎉 Training Finished! Your custom Kairi LoRA is saved at: $OutputDir\kairi_v1.safetensors" -ForegroundColor Green
+Write-Host "`n🎉 Training Finished! Your custom SDXL Kairi LoRA is saved at: $OutputDir\kairi_v1.safetensors" -ForegroundColor Green

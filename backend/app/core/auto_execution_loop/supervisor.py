@@ -11,8 +11,7 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 from app.core.llm_client import call_model
 from app.routers.settings import get_settings
-from app.core.supervisor import get_supervisor_system_prompt
-from app.core.tools.manager import get_tool_descriptions
+from app.core.supervisor import get_supervisor_system_prompt, run_supervisor
 
 async def _analyze_with_supervisor(
     escalation_history: list,

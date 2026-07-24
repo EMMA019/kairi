@@ -227,6 +227,21 @@ async def init_cache_db():
             await db.execute("ALTER TABLE llm_cache ADD COLUMN response_size INTEGER DEFAULT 0")
         except Exception:
             pass
+            
+        try:
+            await db.execute("ALTER TABLE llm_cache ADD COLUMN last_access_at REAL")
+        except Exception:
+            pass
+            
+        try:
+            await db.execute("ALTER TABLE search_cache ADD COLUMN last_access_at REAL")
+        except Exception:
+            pass
+            
+        try:
+            await db.execute("ALTER TABLE command_cache ADD COLUMN last_access_at REAL")
+        except Exception:
+            pass
         
         await db.commit()
     logger.info("Cache DB initialized with LRU support")

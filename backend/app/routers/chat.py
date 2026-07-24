@@ -356,101 +356,57 @@ async def chat(request: ChatRequest):
             
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
-            combined_texts = []
+            all_raw_sources = []
+            direct_url_fallback_texts = []
             for i, res in enumerate(results):
                 q = search_queries[i]
                 if isinstance(res, Exception):
                     logger.error(f"検索実行エラー '{q}': {res}")
                 else:
                     text, sources = res
-                    combined_texts.append(f"【検索クエリ: {q}】\n{text}")
-                    search_sources.extend(sources)
+                    if "URL (" in text and "の内容:" in text: # URL直指定フェッチの場合はそのまま保持
+                        direct_url_fallback_texts.append(text)
+                    all_raw_sources.extend(sources)
             
-            # --- 🔴 P0: 検索失敗・不十分な場合の自動構造化クエリ再試行 (Sentinel 指示準拠) ---
-            if not combined_texts or not any(len(t.strip()) > 50 for t in combined_texts):
-                logger.warning("初回検索が不十分または空のため、構造化クエリ (site:指定、英語キーワード追加等) に切り替えて自動再試行します。")
-                fallback_queries = []
-                from datetime import datetime, timezone, timedelta
-                _recent_date = (datetime.now(timezone(timedelta(hours=9))) - timedelta(days=7)).strftime("%Y-%m-%d")
-                for q in search_queries[:max_queries]:
-                    # クエリから長い会話文言を除去してクリーンな単語のみ抽出
-                    clean_q = _sanitize_conversational_query(q)
-                    if any(p in clean_q for p in ["思惑", "短期", "見ての通り", "比率", "リバランス", "組み込"]):
-                        clean_q = "半導体 ETF 株 注目銘柄 2026" if "半導体" in user_input else "米国株 日本株 高配当 ETF 注目 2026"
-
-                    # 質問がニュースや一般的なトピックの場合と、個別株・日本市場の場合で構造化クエリをスマートに切り替え
-                    if any(kw in user_input for kw in ["日本", "日経", "株", "東京", "円", "国内", "市場", "半導体", "銘柄", "ETF"]):
-                        fallback_queries.append(f"{clean_q} 2026 動向 OR 見通し OR 注目")
-                        fallback_queries.append(f"{clean_q} 日経平均 米国株 ETF")
-                    elif any(kw in user_input for kw in ["ニュース", "話題", "最新", "世界", "経済", "一般"]):
-                        fallback_queries.append(f"{clean_q} after:{_recent_date}")
-                        fallback_queries.append(f"{clean_q} latest news July 2026")
-                    else:
-                        fallback_queries.append(f"{clean_q} site:sec.gov OR site:finance.yahoo.com OR investor relations 2026")
+            # --- 🔴 P0: 全クエリの検索結果を統合し、グローバルで関連度トップ20件にリランキング＆重複排除 ---
+            combined_texts = direct_url_fallback_texts
+            if all_raw_sources:
+                from app.core.search.reranker import rerank
+                from app.core.search.formatter import format_for_prompt
+                from app.core.source_evaluator import evaluate_source_authority
                 
-                if fallback_queries:
-                    retry_providers = ["news", "brave"] if any(kw in user_input for kw in ["ニュース", "話題", "最新", "一般"]) else ["brave", "finance"]
-                    yield _sse_event({"type": "status", "status": "searching_retry", "query": fallback_queries[0]})
-                    res_retry = await web_search(fallback_queries[0], providers=retry_providers)
-                    if not isinstance(res_retry, Exception):
-                        t_retry, s_retry = res_retry
-                        if t_retry:
-                            combined_texts.append(f"【構造化再検索クエリ: {fallback_queries[0]}】\n{t_retry}")
-                            search_sources.extend(s_retry)
-
-            # --- 🚀 改善案準拠: 自動スクレイピング昇格＆ディープフェッチパイプライン ---
-            if search_sources:
-                promoted_texts = []
+                # ユーザーの元の質問をベースに、全体からトップ20件を厳選して重複排除
+                global_top_sources = rerank(user_input, all_raw_sources, top_k=20)
+                
+                # --- 🚀 Tier 1 の記事を最大1つ取得 (ディープフェッチ) 釣りタイトル対策 ---
+                deep_fetched_text = ""
                 from app.core.search.router import fetch_url
-
-                # 重要お知らせ検出キーワード（工事・休業・メンテナンス等）
-                # 旅行日程に直接影響しうる施設側の通知を自動昇格で本文取得する
-                CRITICAL_NOTICE_KEYWORDS = [
-                    "工事", "メンテナンス", "休業", "臨時休館", "休止", "中止",
-                    "運休", "お知らせ", "注意", "変更", "改装", "閉鎖",
-                ]
-
-                # 通常昇格候補（上位2件）
-                normal_candidates = list(search_sources[:2])
-                promoted_urls = {s.get("url", "") for s in normal_candidates}
-
-                # 重要通知の追加昇格（3〜5件目をスキャン、最大1件追加）
-                for src in search_sources[2:5]:
-                    url = src.get("url", "")
-                    if url in promoted_urls:
-                        continue
-                    title = src.get("title", "")
-                    snippet = src.get("snippet", "")
-                    combined_check = f"{title} {snippet}"
-                    if any(kw in combined_check for kw in CRITICAL_NOTICE_KEYWORDS):
-                        logger.info(f"🔔 重要お知らせ検出による追加昇格: {url} (Title: {title})")
-                        normal_candidates.append(src)
-                        promoted_urls.add(url)
-                        break  # 追加は1件まで
-
-                for src in normal_candidates:
+                for src in global_top_sources:
                     url = src.get("url", "")
                     title = src.get("title", "")
-                    snippet = src.get("snippet", "")
-                    combined_check = f"{title} {snippet}"
-                    # 昇格条件: 学術論文・技術記事・数値確認・100字未満スニペット・ニュース・重要お知らせ等
-                    is_academic_or_tech = any(dom in url.lower() for dom in ["pmc.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov", "arxiv.org", "ieee.org", "nature.com", "sciencedirect.com", "springer.com", "acm.org", "github.com"])
-                    is_deep_query = any(kw in user_input for kw in ["論文", "成功率", "数値", "報告", "教え", "詳細", "攻撃", "防御", "パッチ", "スクレイピング", "記事", "読んで"])
-                    is_critical_notice = any(kw in combined_check for kw in CRITICAL_NOTICE_KEYWORDS)
-                    if len(snippet) < 200 or is_academic_or_tech or is_deep_query or is_critical_notice or any(kw in title for kw in ["今朝の", "5本", "Wrap", "Stories", "Digest", "まとめ", "ニュース"]):
-                        logger.info(f"自動スクレイピング昇格実行: {url} (Title: {title}){' [重要お知らせ]' if is_critical_notice else ''}")
+                    source_label = src.get("source", "")
+                    eval_res = evaluate_source_authority(url, title, source_label)
+                    
+                    if eval_res["tier"] == 1 and url:
+                        logger.info(f"🚀 Tier 1 記事の本文取得(ディープフェッチ)実行: {url} (Title: {title})")
                         yield _sse_event({"type": "status", "status": "scraping_promotion", "url": url})
                         try:
                             scraped_content = await fetch_url(url)
                             if scraped_content and not scraped_content.startswith("❌") and len(scraped_content.strip()) > 50:
-                                # 論文後半のDefense/結論セクションまで含めて最大15000字抽出（トークン爆発防止）
+                                # 論文後半のDefense/結論セクションまで含めて最大15000字抽出（スマート抽出）
                                 content_snippet = _extract_smart_snippet(scraped_content, 15000)
-                                promoted_texts.append(f"【自動スクレイピング昇格本文: {title} ({url})】\n{content_snippet}")
+                                deep_fetched_text = f"【Tier 1記事 本文抽出: {title} ({url})】\n{content_snippet}\n\n"
+                                break # 最大1件で終了
                         except Exception as e:
-                            logger.warning(f"自動スクレイピング昇格失敗 {url}: {e}")
+                            logger.warning(f"Tier 1記事の本文取得失敗 {url}: {e}")
                 
-                if promoted_texts:
-                    combined_texts.extend(promoted_texts)
+                # 厳選されたトップ20件のテキストをフォーマット
+                global_text = format_for_prompt(global_top_sources, user_input)
+                combined_texts.append(f"【統合検索結果（関連度トップ20件）】\n{global_text}")
+                if deep_fetched_text:
+                    combined_texts.append(deep_fetched_text)
+                
+                search_sources = global_top_sources
 
             # 最終的な検索結果テキストの結合とサイズクリップ
             if combined_texts:

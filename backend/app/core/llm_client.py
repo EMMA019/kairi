@@ -235,7 +235,7 @@ def _ensure_request_size(system_instruction: str, messages: list, max_bytes: int
 
 @retry(
     wait=wait_exponential(multiplier=1, min=2, max=10),
-    stop=stop_after_attempt(4),
+    stop=stop_after_attempt(2),
     retry=retry_if_exception_type(Exception),
     reraise=True
 )
@@ -334,7 +334,7 @@ async def _call_model_inner(
 
 @retry(
     wait=wait_exponential(multiplier=1, min=2, max=10),
-    stop=stop_after_attempt(4),
+    stop=stop_after_attempt(2),
     retry=retry_if_exception_type(Exception),
     reraise=True
 )
@@ -392,9 +392,27 @@ async def _stream_model_inner(
             stream=True,
             temperature=temperature,  # ← 追加
         )
+        is_thinking = False
+        has_finished_thinking = False
         async for chunk in stream:
-            if chunk.choices and chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            
+            # 思考プロセス（reasoning_content）もフロントにストリームして100秒タイムアウトを回避
+            reasoning = getattr(delta, "reasoning_content", None)
+            if reasoning:
+                if not is_thinking:
+                    is_thinking = True
+                    yield "<think>\n"
+                yield reasoning
+                
+            content = getattr(delta, "content", None)
+            if content:
+                if is_thinking and not has_finished_thinking:
+                    has_finished_thinking = True
+                    yield "\n</think>\n\n"
+                yield content
 
     elif effective_provider == "openai":
         client = get_openai_client()

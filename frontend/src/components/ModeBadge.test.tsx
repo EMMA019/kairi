@@ -4,7 +4,7 @@ import { ModeBadge } from './ModeBadge'
 
 describe('ModeBadge', () => {
   it('renders chat mode', () => {
-    render(<ModeBadge mode="chat" />)
+    render(<ModeBadge mode="chat" status="idle" onToggle={() => {}} />)
     expect(screen.getByText('Chat')).toBeInTheDocument()
   })
 })

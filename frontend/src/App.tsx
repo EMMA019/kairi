@@ -77,28 +77,22 @@ function App() {
   const [isCodePanelOpen, setIsCodePanelOpen] = useState(false);
   const [isToolPanelOpen, setIsToolPanelOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [backendStatus, setBackendStatus] = useState<"online" | "offline" | "checking">("checking");
 
   useEffect(() => {
     if (window.innerWidth >= 768) {
       setIsSidebarOpen(true);
     }
     
-    // Check backend status
-    const checkBackend = async () => {
+    // Wake up backend ping
+    const wakeBackend = async () => {
       try {
-        const res = await fetch(getApiUrl("/api/ping"));
-        if (res.ok) {
-          setBackendStatus("online");
-        } else {
-          setBackendStatus("offline");
-        }
+        await fetch(getApiUrl("/api/ping"));
       } catch (e) {
-        setBackendStatus("offline");
+        console.error(e)
       }
     };
-    checkBackend();
-    const interval = setInterval(checkBackend, 10000);
+    wakeBackend();
+    const interval = setInterval(wakeBackend, 10000);
     return () => clearInterval(interval);
   }, []);
 

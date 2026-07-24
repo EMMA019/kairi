@@ -16,3 +16,5 @@ libsql-client>=0.3.0
 google-genai>=0.1.0
 python-multipart>=0.0.9
 jpholiday>=1.0.0
+tiktoken
+tenacity

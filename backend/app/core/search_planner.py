@@ -16,7 +16,8 @@ PLANNER_SYSTEM_PROMPT = """あなたはユーザーの入力と文脈から、**
   "search_queries": ["検索キーワード1", "検索キーワード2"],
   "providers": ["brave", "wikipedia", "news", "weather"],
   "needs_deep_search": true または false,
-  "recommended_mode": "chat" または "task" # 株式分析の場合は必ず "chat" にすること
+  "recommended_mode": "chat" または "task",
+  "category": "finance" または "coding" または "travel" または "general" # ユーザーの質問のジャンル。株式・金融・相場・経済は finance, プログラミング・システム開発・エラー解決は coding, 旅行・観光・乗り換えは travel, それ以外の一般的な日常会話や話題は general
 }
 
 【🔴 検索クエリ設計の絶対ルール (P1/P3 改善指示準拠・キーワード抽出必須化)】
@@ -33,12 +34,12 @@ PLANNER_SYSTEM_PROMPT = """あなたはユーザーの入力と文脈から、**
 6.6. **日本株・日本市場に関する検索クエリ (🔴 P0)**: 「今日の日本市場どうだった？」「日経平均は？」等の日本市場・国内市況に関する質問時は、必ず日本語の具体的キーワード（例: `["東京株式市場 日経平均 今日 終値 市況", "日本株 今日 動向 ニュース"]`）を作成し、`providers` は必ず `["brave", "news"]` を併用してください。"news" 単体だと海外英語RSSに偏るため、日本の終値や株価動向を確実に取得するため `["brave", "news"]` を必須とします。
 6.7. **企業のCEO・経営陣・組織トップに関する検索クエリ (🔴 P0)**: 企業や団体のCEO、役員体制、人事異動に関する質問時は、AIモデルの過去データによる古い役職ハルシネーションを防ぐため、必ず現在の年号 `2026` を含めた最新情報を取得できるキーワード（例: `["Company name current CEO leadership 2026", "企業名 現CEO 経営陣 2026"]`）を生成してください。
 6.8. **選択肢・推薦リストからの個別タイトル・作品・項目への言及時の必須検索とエンティティ特定 (🔴 P0)**: 直前の会話履歴に複数の選択肢や推薦リスト（アーティスト、アルバム、作品、製品、機能等）が存在し、ユーザーがそのうちの特定の曲名・作品名・項目名（例：「How Long Have I Been You Fool聴きました」「〇〇について詳しく」）に言及した場合、コンテキスト内の近接バイアスで別の直近アーティストや主語に誤帰属させるハルシネーションを防ぐため、必ず `needs_search: true` とし、その個別タイトルと親エンティティを特定確認する検索クエリ（例: `["How Long Have I Been You Fool artist song details"]`）を作成すること。
-6.9. **全経済統計・決算イベントにおける対象期間（データ月/四半期）と公表日の明確化・時系列同期クエリ (🔴 P0)**: ユーザーから雇用統計・CPI・PCE・PPI・GDP・ISM・日銀短観等の月次/四半期統計、または企業の決算（Q1/Q2/Q3/Q4）・ガイダンスに関する質問があった場合、データ自体の **「【対象期間 (Data Month/Quarter)】」** と **「【公表月/発表日 (Release Date)】」** には必ず時差・タイムラグが存在することを踏まえ、以下の普遍的クエリ設計を行ってください。
-   - 例えば「7月の雇用統計／PCE／決算」と問われた場合、片方に決めつけず以下2パターンのクエリを作成すること：
-     - ① **当月に発表された直近実績データ**: `["US jobs report June 2026 actual July release", "米雇用統計 2026年6月度 7月発表 結果", "Company Q1 2026 earnings actual July release"]`
-     - ② **当月度（次回発表予定）の見通し**: `["US jobs report July 2026 forecast release August", "Company Q2 2026 earnings preview August"]`
-   - **複数指標・決算・イベントの比較・同期検索原則**: 「今回のCPI（例: 7/14発表・6月度）は良かったが、雇用統計やPCEのときは？」「Q2決算と他社の比較」のように複数の項目を比較・言及している際は、比較先の全項目も必ず同じデータ対象期間（例：同じ6月度データ、同じ四半期）のキーワード (`["US jobs report June 2026 nonfarm payrolls actual July 2 release", "US PCE June 2026 release"]`) にアンカー・同期させ、過去の別月（6月5日発表の5月分など）や異なる期を取り違えて検索する頓珍漢なクエリ生成を全ドメインで厳格に禁止します。
-   - これにより、特定の指標・銘柄にとどまらず、あらゆる統計・決算において「対象期間と公表時期の混同」や「比較時における時系列のズレ・頓珍漢」を根絶します。
+6.9. **【実績と見通しの厳格分離】全経済統計・決算イベントにおける対象期間と時系列同期クエリ (🔴 P0)**: ユーザーから雇用統計・CPI・PCE・決算等の質問があった場合、必ずユーザーの意図が「過去の実績」か「未来の見通し」かを判定し、検索クエリ内で両者を明確に分離してください。
+   - **実績を求めている場合（例: 「Q3実績は？」「前回の決算はどうだった？」「Capexはいくら？」）**: 検索キーワードに必ず `actual results`, `reported`, `earnings release` 等を優先し、`outlook`, `guidance`, `forecast`, `estimate` は**絶対に含めない**でください。
+   - **見通しを求めている場合（例: 「来期はどうなる？」「今後の予測は？」）**: 検索キーワードに `outlook`, `guidance`, `forecast` などを意図的に追加してください。
+   - **意図が曖昧な場合（例: 「最近の〇〇の決算について」）**: この場合のみ、実績のクエリと見通しのクエリの2パターンを作成（例: `["Company Q1 2026 earnings actual", "Company Q2 2026 guidance outlook"]`）してください。片方に決めつけてはいけません。
+   - **複数指標・決算・イベントの比較・同期検索原則**: 「今回のCPIは良かったが、雇用統計のときは？」「Q2決算と他社の比較」のように複数の項目を比較・言及している際は、比較先の全項目も必ず同じデータ対象期間（例：同じ6月度データ、同じ四半期）のキーワード (`["US jobs report June 2026 actual", "US PCE June 2026"]`) にアンカー・同期させ、異なる期を取り違えて検索する頓珍漢なクエリ生成を全ドメインで厳格に禁止します。
+   - これにより、ユーザーが過去の確定データを求めているのに「予想・見通し」記事が混入して実績値と誤認してしまう最悪のハルシネーションリスクを根本から根絶します。
 7. **マルチトピック・人物のクエリ分割**: ユーザーの質問に複数の人物、異なる企業、異なるトピック（例: 「鈴木ザイオンと佐野海舟の最新情報」）が含まれている場合、必ず各トピックや人物ごとに独立した検索キーワードを作成し、`search_queries` 配列に複数出力してください。APIコスト削減のため**クエリ数は最大2個まで**に厳格制限してください。
 8. **一般的なトレンド・カルチャー・ライフスタイル検索のクエリ設計**: 「最近欧米のトレンドって何かある？」「最近の話題は？」等の一般的なトレンドを問われた際、経済・マクロ指標だけに偏らないよう、カルチャー、テクノロジー、ライフスタイル、旅行、社会動向など多様なトピックをカバーする英語クエリ（例: `["latest US Europe cultural lifestyle tech trends July 2026", "current consumer lifestyle trends US Europe 2026"]`）を作成してください。また、年始に書かれた過去の年間予測記事ばかりヒットしないよう、現在の日時を踏まえた時期キーワードや日付範囲（`after:YYYY-MM-DD`）を組み合わせて最新情報が取得できるようにしてください。
 
@@ -138,6 +139,7 @@ async def plan_search(user_input: str, history_messages: list[dict]) -> dict[str
         providers = data.get("providers", ["brave"])
         needs_deep_search = bool(data.get("needs_deep_search", False))
         recommended_mode = str(data.get("recommended_mode", "chat"))
+        category = str(data.get("category", "general"))
 
     except Exception as e:
         logger.error(f"Search Planner failed or invalid format: {e}")
@@ -146,6 +148,7 @@ async def plan_search(user_input: str, history_messages: list[dict]) -> dict[str
         providers = ["brave"]
         needs_deep_search = False
         recommended_mode = "chat"
+        category = "general"
     
     # 【強制ハードコード】ユーザーが明示的にRSSを求めた場合のみ強制上書き
     if "RSS" in user_input.upper():
@@ -161,5 +164,6 @@ async def plan_search(user_input: str, history_messages: list[dict]) -> dict[str
         "search_queries": search_queries,
         "providers": providers,
         "needs_deep_search": needs_deep_search,
-        "recommended_mode": recommended_mode
+        "recommended_mode": recommended_mode,
+        "category": category
     }

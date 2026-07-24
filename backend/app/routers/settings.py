@@ -8,6 +8,7 @@ import os
 import tempfile
 from pathlib import Path
 from fastapi import APIRouter
+from app.core.usage_tracker import get_daily_usage
 from pydantic import BaseModel
 from typing import Optional
 from app.utils.logger import get_logger
@@ -216,3 +217,15 @@ async def update_settings(req: SettingsUpdate):
         "status": "ok",
         **app_settings.get(),
     }
+
+@router.get("/usage")
+async def get_usage():
+    """現在のトークン使用量と概算コストを取得"""
+    return get_daily_usage()
+
+from app.core.cache_manager import get_cache_stats
+
+@router.get("/stats")
+async def get_stats():
+    """キャッシュ統計情報を取得"""
+    return await get_cache_stats()

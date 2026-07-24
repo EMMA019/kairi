@@ -1,5 +1,24 @@
 import os
 import re
+
+import shutil
+import datetime
+from pathlib import Path
+
+def _create_backup(filepath: str, workspace_dir: str):
+    try:
+        if not os.path.exists(filepath):
+            return
+        backup_dir = os.path.join(workspace_dir, ".backup")
+        os.makedirs(backup_dir, exist_ok=True)
+        filename = os.path.basename(filepath)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = os.path.join(backup_dir, f"{filename}_{timestamp}.bak")
+        shutil.copy2(filepath, backup_path)
+        logger.info(f"🛡️ Backup created: {backup_path}")
+    except Exception as e:
+        logger.warning(f"Failed to create backup for {filepath}: {e}")
+
 import py_compile
 import traceback
 import logging
@@ -40,6 +59,25 @@ class ToolHandler:
             return output
 
         import re
+
+import shutil
+import datetime
+from pathlib import Path
+
+def _create_backup(filepath: str, workspace_dir: str):
+    try:
+        if not os.path.exists(filepath):
+            return
+        backup_dir = os.path.join(workspace_dir, ".backup")
+        os.makedirs(backup_dir, exist_ok=True)
+        filename = os.path.basename(filepath)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = os.path.join(backup_dir, f"{filename}_{timestamp}.bak")
+        shutil.copy2(filepath, backup_path)
+        logger.info(f"🛡️ Backup created: {backup_path}")
+    except Exception as e:
+        logger.warning(f"Failed to create backup for {filepath}: {e}")
+
         error_pattern = re.compile(r'(error|exception|traceback|err!|fatal|failed)', re.IGNORECASE)
         
         error_indices = [i for i, line in enumerate(lines) if error_pattern.search(line)]
@@ -440,6 +478,22 @@ class ToolHandler:
                 sandbox = get_sandbox(self.session_id, workspace_dir)
                 for match in re.finditer(r'<run_command[^>]*>(.*?)</run_command>', current_response, re.DOTALL):
                     cmd = match.group(1).strip()
+                    
+                    # 危険コマンドの事前ブロック
+                    dangerous_patterns = [r'^rm\s+-rf\s+/', r'^rm\s+-rf\s+\*', r'^sudo\s+']
+                    is_dangerous = False
+                    for dp in dangerous_patterns:
+                        if re.search(dp, cmd):
+                            is_dangerous = True
+                            break
+                    if is_dangerous:
+                        blocked_msg = f"🛡️ Security Block: Command '{cmd}' is blocked for safety reasons."
+                        logger.warning(blocked_msg)
+                        self.tool_results.append(blocked_msg)
+                        events.append({"type": "chunk", "content": f"\n\n*[{blocked_msg}]*\n\n"})
+                        current_response = current_response.replace(match.group(0), f"\n\n*[{blocked_msg}]*\n\n")
+                        continue
+                    
                     # サプライチェーン攻撃・マルウェアスクリプト自動実行防止 (セキュアサニタイズ)
                     if re.search(r'\bnpm\s+(install|i)\b', cmd) and '--ignore-scripts' not in cmd:
                         cmd += " --ignore-scripts"

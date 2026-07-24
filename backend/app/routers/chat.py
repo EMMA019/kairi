@@ -71,6 +71,11 @@ async def chat(request: ChatRequest):
     user_input = request.message
     mode = request.mode
 
+    if not user_input or not user_input.strip():
+        raise HTTPException(status_code=400, detail="メッセージを入力してください。")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="セッションIDが必要です。")
+
     # フォローアップ・クールダウン判定（demo.py のロジック移植）
     # メモリリーク防止: 古いセッションを自動削除
     if len(_followup_histories) >= _MAX_FOLLOWUP_SESSIONS and session_id not in _followup_histories:
@@ -220,11 +225,11 @@ async def chat(request: ChatRequest):
                         # pending_planをクリア
                         try:
                             kv_store.delete(item["id"])
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.warning(f"Failed to delete pending plan {item['id']}: {e}")
                         break
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Error processing pending plan approval: {e}")
         
         # --- 🔴 P0: ユーザー発言内に直接URLが含まれる場合の自動ディープスクレイピング ---
         url_matches = re.findall(r'https?://[^\s)\]"]+', user_input)
@@ -249,6 +254,7 @@ async def chat(request: ChatRequest):
         search_plan = await plan_search(user_input, messages)
         search_needed = search_plan["needs_search"] or request.force_search
         search_queries = search_plan.get("search_queries", [])
+        chat_category = search_plan.get("category", "general")
         search_providers = search_plan.get("providers", ["brave"])
         def _sanitize_conversational_query(q_text: str) -> str:
             if not q_text or len(q_text) <= 20:
@@ -518,6 +524,7 @@ async def chat(request: ChatRequest):
                         history_messages=messages,
                         mode=mode,
                         system_instruction=supervisor_sys_prompt,
+                        category=chat_category,
                     )
                     # キャッシュに保存
                     await set_llm_cache(
@@ -533,7 +540,7 @@ async def chat(request: ChatRequest):
                     )
                 except Exception as e:
                     logger.error(f"Supervisor error: {e}")
-                    yield _sse_event({"type": "error", "message": str(e)})
+                    yield _sse_event({"type": "error", "message": "システムエラーが発生しました。処理を完了できませんでした。", "detail": str(e)})
                     return
             
             if reasoning:
@@ -640,8 +647,8 @@ async def chat(request: ChatRequest):
                             "tags": ["plan", "approval", "pending"]
                         }
                     })
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to save plan approval request to KV store: {e}")
                 
                 yield _sse_event({"type": "done", "content": plan_text})
                 return
@@ -654,8 +661,8 @@ async def chat(request: ChatRequest):
                         parsed = json.loads(msg["thinking_json"])
                         if parsed.get("spec_document") and parsed["spec_document"].get("internal"):
                             internal_spec = parsed["spec_document"]["internal"]
-                    except:
-                        pass
+                    except Exception as e:
+                        logger.warning(f"Failed to parse thinking_json for spec_document: {e}")
             if supervisor_json.get("spec_document") and supervisor_json["spec_document"].get("internal"):
                 internal_spec = supervisor_json["spec_document"]["internal"]
             
@@ -739,7 +746,7 @@ async def chat(request: ChatRequest):
                 escalation_history.extend(new_escalation)
             except Exception as e:
                 logger.error(f"Auto execution loop error: {e}")
-                yield _sse_event({"type": "error", "message": str(e)})
+                yield _sse_event({"type": "error", "message": "システムエラーが発生しました。処理を完了できませんでした。", "detail": str(e)})
                 return
             
             if escalation_history:

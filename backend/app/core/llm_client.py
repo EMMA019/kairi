@@ -24,6 +24,10 @@ except ImportError:
     genai = None
     types = None
 from app.utils.logger import get_logger
+from app.core.usage_tracker import check_budget, record_usage
+from fastapi import HTTPException
+import tiktoken
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 
 logger = get_logger(__name__)
 
@@ -229,7 +233,13 @@ def _ensure_request_size(system_instruction: str, messages: list, max_bytes: int
     return system_instruction, sanitized
 
 
-async def call_model(
+@retry(
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    stop=stop_after_attempt(4),
+    retry=retry_if_exception_type(Exception),
+    reraise=True
+)
+async def _call_model_inner(
     system_instruction: str,
     messages: list,
     model_name: str | None = None,
@@ -322,7 +332,13 @@ async def call_model(
         return response.content[0].text
 
 
-async def stream_model(
+@retry(
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    stop=stop_after_attempt(4),
+    retry=retry_if_exception_type(Exception),
+    reraise=True
+)
+async def _stream_model_inner(
     system_instruction: str,
     messages: list,
     model_name: str | None = None,
@@ -422,3 +438,56 @@ async def stream_model(
         ) as stream:
             async for text in stream.text_stream:
                 yield text
+
+def _estimate_tokens(text: str) -> int:
+    try:
+        enc = tiktoken.get_encoding("cl100k_base")
+        return len(enc.encode(text))
+    except Exception:
+        return len(text) // 2
+
+async def call_model(
+    system_instruction: str,
+    messages: list,
+    model_name: str | None = None,
+    max_tokens: int = 16384,
+    provider: str | None = None,
+    temperature: float = 0.7,
+) -> str:
+    if not check_budget():
+        raise HTTPException(status_code=429, detail="API utilization limit (daily budget) exceeded. Please try again tomorrow.")
+        
+    prompt_text = system_instruction + "".join([m.get("content", "") for m in messages])
+    prompt_tokens = _estimate_tokens(prompt_text)
+    
+    result = await _call_model_inner(system_instruction, messages, model_name, max_tokens, provider, temperature)
+    
+    completion_tokens = _estimate_tokens(result)
+    actual_model = model_name or "default-model"
+    record_usage(actual_model, prompt_tokens, completion_tokens)
+    
+    return result
+
+async def stream_model(
+    system_instruction: str,
+    messages: list,
+    model_name: str | None = None,
+    max_tokens: int = 16384,
+    provider: str | None = None,
+    temperature: float = 0.7,
+):
+    if not check_budget():
+        yield "【エラー】本日のAPI利用上限に達しました。明日またお試しください。"
+        return
+        
+    prompt_text = system_instruction + "".join([m.get("content", "") for m in messages])
+    prompt_tokens = _estimate_tokens(prompt_text)
+    
+    completion_text = ""
+    async for chunk in _stream_model_inner(system_instruction, messages, model_name, max_tokens, provider, temperature):
+        completion_text += chunk
+        yield chunk
+        
+    completion_tokens = _estimate_tokens(completion_text)
+    actual_model = model_name or "default-model"
+    record_usage(actual_model, prompt_tokens, completion_tokens)

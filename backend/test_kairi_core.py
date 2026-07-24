@@ -9,8 +9,8 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app.core.cache_manager import _normalize_query
-from app.core.fact_filter import verify_numbers_exist_in_source
-from app.core.auto_execution_loop import _detect_test_failure
+from app.core.fact_filters import verify_numbers_exist_in_source
+from app.core.auto_execution_loop.heuristics import _detect_test_failure
 from app.core.project_context import generate_tree, detect_project_type
 
 
@@ -73,7 +73,7 @@ def test_project_context():
 
 def test_prohibit_jpy_conversion_for_foreign_currency():
     """外貨金額における勝手な日本円換算（（約〇〇億円）等）の除去テスト"""
-    from app.core.fact_filter import check_currency_consistency, filter_fact
+    from app.core.fact_filters import check_currency_consistency, filter_fact
     
     raw_text = "30億ポンド（約5700億円） を支出しとるねんって。イサク獲得（1億2500万ポンド＝約237億円） が最高額。"
     _, cleaned = check_currency_consistency(raw_text)
@@ -98,7 +98,7 @@ def test_user_case_285m_euros():
 
 def test_prohibit_currency_conflation():
     """異なる外貨同士の混同や同一視並記（47億ドル（約47億ユーロ）等）の除去テスト"""
-    from app.core.fact_filter import check_currency_consistency, filter_fact
+    from app.core.fact_filters import check_currency_consistency, filter_fact
     
     raw_text = "GoogleがEUから47億ドル（約47億ユーロ）の制裁金を科された。さらに41億ユーロ＝約47億ドルの罰金。"
     _, cleaned = check_currency_consistency(raw_text)
@@ -123,7 +123,7 @@ def test_abolish_unverified_number_badge():
 
 def test_typo_correction_ream_to_risk():
     """進行形タイポ対策：『未入金リーム』『連鎖倒産リーム』が『リスク』へ自動補正されること"""
-    from app.core.fact_filter import correct_common_typos, filter_fact
+    from app.core.fact_filters import correct_common_typos, filter_fact
     
     raw_text = "未入金リーム：全東信が立て替えてくれるはずやった売上代金が未払いのまま回収できへん可能性がある。"
     corrected = correct_common_typos(raw_text)
@@ -140,7 +140,7 @@ def test_typo_correction_ream_to_risk():
 
 def test_strip_unverified_day_of_week():
     """曜日間違いハルシネーション防衛：ソースに記載がない/不一致の曜日（（火）等）表記を自動削除すること"""
-    from app.core.fact_filter import strip_unverified_day_of_week, filter_fact
+    from app.core.fact_filters import strip_unverified_day_of_week, filter_fact
 
     # 1. 2026年7月13日は実際には月曜だがAIが（火）と書いた場合、ソースにTuesday表記がなければ曜日が除去されること
     text = "7月13日（火）にSKHYへ自動切り替え予定。"
@@ -164,7 +164,7 @@ def test_strip_unverified_day_of_week():
 
 def test_strip_unrequested_memory_mentions():
     """記憶参照違反防衛：ユーザーの質問にない過去プロジェクト（顔写真保護アプリ等）を結語へ絡めた場合、自動削除すること"""
-    from app.core.fact_filter import strip_unrequested_memory_mentions
+    from app.core.fact_filters import strip_unrequested_memory_mentions
 
     raw_text = (
         "推奨アーキテクチャ案としてgpt-oss-20bやOllamaを活用すれば実装可能です。\n\n"
@@ -183,7 +183,7 @@ def test_strip_unrequested_memory_mentions():
 
 def test_strip_unrequested_yahoo_finance():
     """非金融・一般トレンド質問時に不要なYahoo Finance案内が自動削除されることのテスト"""
-    from app.core.fact_filter import strip_unrequested_yahoo_finance
+    from app.core.fact_filters import strip_unrequested_yahoo_finance
 
     raw_answer = (
         "欧米ではエコツーリズムやデジタルデトックス旅が注目を集めています。\n\n"
@@ -202,7 +202,7 @@ def test_strip_unrequested_yahoo_finance():
 
 def test_strip_outdated_past_event_predictions():
     """時系列ハルシネーション防衛：過去イベントの進行形記述（冬季五輪に向けて等）が是正されることのテスト"""
-    from app.core.fact_filter import strip_outdated_past_event_predictions
+    from app.core.fact_filters import strip_outdated_past_event_predictions
     raw_text = "ミラノ冬季五輪に向けて航空券の検索数が増加しています。"
     corrected = strip_outdated_past_event_predictions(raw_text)
     assert "冬季五輪に向けて" not in corrected
@@ -211,7 +211,7 @@ def test_strip_outdated_past_event_predictions():
 
 def test_enforce_variable_numerical_claims_normalization():
     """所要時間・料金情報の検証テスト（末尾一括注記方式）"""
-    from app.core.fact_filter import enforce_variable_numerical_claims
+    from app.core.fact_filters import enforce_variable_numerical_claims
 
     source_text = "白浜中央海水浴場から徒歩1分、車で約13分。ランチ丼は大人 2,500円"
 
@@ -244,7 +244,7 @@ def test_enforce_variable_numerical_claims_normalization():
 
 def test_verify_maintenance_date_relevance():
     """工事・休業期間の日付重複検証および誤警報補正テスト"""
-    from app.core.fact_filter import verify_maintenance_date_relevance
+    from app.core.fact_filters import verify_maintenance_date_relevance
 
     user_input = "下田プリンスホテル周辺のおすすめ教えて7/19-7/20家族3人で旅行行くんだよね"
     source_text = "プール施設メンテナンス工事のお知らせ 工事期間：2026年7月13日（月）〜7月15日（水）"
@@ -317,7 +317,7 @@ def test_analyst_mode_finance_tier3_filter():
 
 def test_financial_arithmetic_consistency_check():
     """株価・指数の差額と変動幅の算術不整合検知テスト"""
-    from app.core.fact_filter import enforce_variable_numerical_claims
+    from app.core.fact_filters import enforce_variable_numerical_claims
 
     # 寄り68,410円と安値66,653円の価格帯が書かれているのに「一時2,500円超下落」と矛盾するテキスト
     inconsistent_text = "日経平均の寄り付きは68,410円、午後の安値は66,653円となりましたが、一時2,500円超下落する場面もありました。"

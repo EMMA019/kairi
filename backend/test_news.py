@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.core.news.database import init_db, get_unprocessed_news, search_news
-from app.core.news.fetcher import fetch_rss_feeds
+from app.core.news.rss import fetch_rss_feeds
 
 async def main():
     print("=== News Pipeline Test ===")

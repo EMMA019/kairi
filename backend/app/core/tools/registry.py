@@ -205,4 +205,9 @@ def _check_radar_logs(log_type: str = "rejected", limit: int = 10) -> str:
 try:
     import app.core.tools.travel
 except Exception as e:
-    logger.warning(f"travelツールのロードに失敗しました: {e}")
+    logger.warning(f"travelツールのロードに失敗しました: {e}")
+
+try:
+    import app.core.tools.quant_tools
+except Exception as e:
+    logger.warning(f"quantツールのロードに失敗しました: {e}")

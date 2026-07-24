@@ -100,15 +100,21 @@ async def send_discord_alert(
     else:
         display_title = title
 
+    full_title = f"{header_title}\n{display_title}"
+    if len(full_title) > 256:
+        full_title = full_title[:253] + "..."
+
     embed = {
-        "title": f"{header_title}\n{display_title}",
-        "url": url if url else None,
+        "title": full_title,
         "color": color,
         "fields": fields,
         "footer": {
             "text": f"出典: {source} | Kairi Proactive Market Radar (自動ファクト検証済み)"
         }
     }
+    
+    if url:
+        embed["url"] = url
 
     payload = {"embeds": [embed]}
 

@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from typing import Optional
 from app.utils.logger import get_logger
 from app.core.source_evaluator import verify_entity_claim_attribution
+from .financial import check_financial_arithmetic_consistency
 
 logger = get_logger(__name__)
 

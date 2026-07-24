@@ -1,7 +1,9 @@
 """検索ルーター — 天気・Wikipedia・Brave・ニュースDBの統合"""
+import re
 from app.utils.logger import get_logger
 from .providers.wikipedia import search_wikipedia
 from .providers.brave import search_brave
+from .providers.tavily import search_tavily
 from .providers.jina import fetch_with_jina, search_jina
 from .providers.weather import get_weather, format_weather_for_prompt
 from .cache import cache
@@ -96,17 +98,25 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
                 combined_results.extend(formatted_news)
                 logger.info(f"✅ オンデマンドニュース取得成功: {len(formatted_news)}件")
             else:
-                # フォールバック: Braveで一般検索（日付フィルタ付き）
-                logger.info("⚠️ 1次情報取得失敗、Braveでフォールバック検索")
-                _brave_query = _date_filtered_query if _date_filtered_query else (query or "latest news 2026")
-                results = await search_brave(_brave_query)
+                # フォールバック: Tavily等で一般検索（日付フィルタ付き）
+                logger.info("⚠️ 1次情報取得失敗、フォールバック検索を実行")
+                _fallback_query = _date_filtered_query if _date_filtered_query else (query or "latest news 2026")
+                
+                results = await search_tavily(_fallback_query)
                 if not results:
-                    results = await search_jina(_brave_query)
+                    logger.info("🔍 Tavily結果なし、Brave APIにフォールバックします")
+                    results = await search_brave(_fallback_query)
+                
+                if not results:
+                    _clean_query = re.sub(r'site:[^\s]+\s*', '', _fallback_query).strip()
+                    logger.info("🔍 Tavily結果なし、Jina Searchにフォールバックします")
+                    results = await search_jina(_clean_query)
+                
                 if results:
                     combined_results.extend(format_results(results, query))
 
-    # 4. 一般クエリ (Brave Search / Jina Search / DuckDuckGo 無料フォールバック)
-    if "brave" in providers or "duckduckgo" in providers or "free" in providers or "jina" in providers:
+    # 4. 一般クエリ (Tavily / Brave Search / Jina Search / DuckDuckGo 無料フォールバック)
+    if "brave" in providers or "duckduckgo" in providers or "free" in providers or "jina" in providers or "tavily" in providers:
         _search_query = query
         cached = cache.get(_search_query, "general")
         if cached:
@@ -114,18 +124,25 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
         else:
             results = []
             if "duckduckgo" not in providers and "free" not in providers and "jina" not in providers:
+                results = await search_tavily(_search_query)
+
+            # Tavily結果なし時は Brave Search API へ自動フォールバック
+            if not results and "duckduckgo" not in providers and "jina" not in providers:
+                logger.info("🔍 Tavily結果なし、Brave APIに自動フォールバックします")
                 results = await search_brave(_search_query)
 
-            # Brave結果なし時は Jina Search API (s.jina.ai) へ自動フォールバック
+            # Tavily結果なし時は Jina Search API へ自動フォールバック
             if not results and "duckduckgo" not in providers:
-                logger.info("🔍 Brave結果なし/無料優先指示のため、Jina Search API (s.jina.ai) に自動フォールバックします")
-                results = await search_jina(_search_query)
+                logger.info("🔍 Tavily/Brave結果なし、Jina Search API (s.jina.ai) に自動フォールバックします")
+                _clean_query = re.sub(r'site:[^\s]+\s*', '', _search_query).strip()
+                results = await search_jina(_clean_query)
 
             # Jina結果なし・あるいはDuckDuckGo指定時は DuckDuckGo へ自動フォールバック
             if not results:
-                logger.info("🦆 Jina結果なし/DuckDuckGo優先のため、DuckDuckGo無料検索プロバイダに自動フォールバックします")
+                logger.info("🦆 Jina/Tavily結果なし、DuckDuckGo無料検索プロバイダに自動フォールバックします")
+                _clean_query = re.sub(r'site:[^\s]+\s*', '', _search_query).strip()
                 from .providers.duckduckgo import search_duckduckgo
-                results = await search_duckduckgo(_search_query)
+                results = await search_duckduckgo(_clean_query)
                 
             if results:
                 formatted_res = format_results(results, query)
@@ -136,11 +153,13 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
     if not combined_results and "wikipedia" not in providers:
         logger.info("一般検索結果なし、Jina/DuckDuckGo無料検索およびWikipediaでフォールバック検索を実行します")
         from .providers.duckduckgo import search_duckduckgo
-        jina_results = await search_jina(query)
+        
+        _clean_query = re.sub(r'site:[^\s]+\s*', '', query).strip()
+        jina_results = await search_jina(_clean_query)
         if jina_results:
             combined_results.extend(format_results(jina_results, query))
         else:
-            ddg_results = await search_duckduckgo(query)
+            ddg_results = await search_duckduckgo(_clean_query)
             if ddg_results:
                 combined_results.extend(format_results(ddg_results, query))
             else:

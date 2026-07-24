@@ -51,5 +51,5 @@ async def search_brave(query: str, count: int = 10) -> list[dict]:
             })
         return results
     except Exception as e:
-        logger.error(f"Brave検索エラー: {e}")
+        logger.error(f"Brave検索例外 [{type(e).__name__}]: {repr(e)}")
         return []

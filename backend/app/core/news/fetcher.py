@@ -75,13 +75,54 @@ async def fetch_rss_on_demand(feeds: list[dict] = None) -> list[dict]:
     all_items = []
     logger.info(f"📡 オンデマンドRSS取得開始: {len(feeds)}フィード")
     
+    from app.core.search.providers.http_client import get_http_client
+    import bs4
+
     for feed in feeds:
         try:
             parsed = feedparser.parse(feed["url"])
-            if parsed.bozo:
-                # bozoエラーでも一部取得できている場合がある
-                if not parsed.entries:
-                    logger.warning(f"⚠️ RSSパース失敗: {feed['name']} - {parsed.bozo_exception}")
+            if parsed.bozo and not parsed.entries:
+                logger.warning(f"⚠️ RSSパース失敗: {feed['name']} - {parsed.bozo_exception}。BeautifulSoupでの強制抽出を試みます")
+                try:
+                    client = get_http_client()
+                    resp = await client.get(feed["url"], timeout=10)
+                    # XMLパーサーで試行
+                    soup = bs4.BeautifulSoup(resp.content, "xml")
+                    items = soup.find_all(['item', 'entry'])
+                    if not items:
+                        # HTMLパーサーで再試行（タグのネストが壊れている場合用）
+                        soup = bs4.BeautifulSoup(resp.content, "html.parser")
+                        items = soup.find_all(['item', 'entry'])
+                    
+                    added = 0
+                    for item in items:
+                        title_tag = item.find('title')
+                        link_tag = item.find('link')
+                        # linkは <link>URL</link> と <link href="URL"/> の両方に対応
+                        link_val = link_tag.get('href') if link_tag and link_tag.has_attr('href') else (link_tag.text if link_tag else "")
+                        
+                        summary_tag = item.find('description') or item.find('summary') or item.find('content')
+                        pub_tag = item.find('pubDate') or item.find('published') or item.find('updated')
+                        
+                        if title_tag and link_val:
+                            normalized = {
+                                "title": title_tag.text.strip(),
+                                "url": link_val.strip(),
+                                "published": pub_tag.text.strip() if pub_tag else "",
+                                "source": feed["name"],
+                                "summary": summary_tag.text.strip() if summary_tag else "",
+                            }
+                            all_items.append(normalized)
+                            added += 1
+                    
+                    if added > 0:
+                        logger.info(f"✅ {feed['name']}: {added}件 (BeautifulSoupフォールバック)")
+                        continue
+                    else:
+                        logger.warning(f"⚠️ フォールバック抽出でも記事が見つかりませんでした: {feed['name']}")
+                        continue
+                except Exception as fb_e:
+                    logger.warning(f"⚠️ フォールバック処理エラー: {feed['name']} - {fb_e}")
                     continue
             
             logger.info(f"✅ {feed['name']}: {len(parsed.entries)}件")

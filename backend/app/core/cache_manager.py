@@ -218,6 +218,16 @@ async def init_cache_db():
             ON command_cache(created_at)
         """)
         
+        try:
+            await db.execute("ALTER TABLE search_cache ADD COLUMN query_normalized TEXT")
+        except Exception:
+            pass
+            
+        try:
+            await db.execute("ALTER TABLE llm_cache ADD COLUMN response_size INTEGER DEFAULT 0")
+        except Exception:
+            pass
+        
         await db.commit()
     logger.info("Cache DB initialized with LRU support")
 

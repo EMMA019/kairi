@@ -42,7 +42,7 @@ async def extract_and_save_memory(session_id: str, user_input: str, ai_response:
     非同期で会話内容からメモリを抽出し、KVストアを更新する
     """
     # すでに保存されている全メモリ一覧を渡し、重複や上書きを防ぐ
-    current_memory = kv_store.format_summary()
+    current_memory = await kv_store.format_summary()
     
     prompt = f"【現在のメモリ状態】\n{current_memory}\n\n【今回の会話】\nユーザー: {user_input}\nAI: {ai_response}\n\n"
     prompt += "追加・更新・削除すべきメモリがあれば、JSON配列形式で出力してください。"
@@ -70,13 +70,13 @@ async def extract_and_save_memory(session_id: str, user_input: str, ai_response:
             for action_data in actions:
                 action = action_data.get("action")
                 if action == "add":
-                    kv_store.add(action_data)
+                    await kv_store.add(action_data)
                     logger.info(f"自動メモリ抽出: 追加 - {action_data.get('summary', {}).get('target')}")
                 elif action == "update" and action_data.get("target_id"):
-                    kv_store.update(action_data["target_id"], action_data)
+                    await kv_store.update(action_data["target_id"], action_data)
                     logger.info(f"自動メモリ抽出: 更新 - ID {action_data['target_id']}")
                 elif action == "delete" and action_data.get("target_id"):
-                    kv_store.delete(action_data["target_id"])
+                    await kv_store.delete(action_data["target_id"])
                     logger.info(f"自動メモリ抽出: 削除 - ID {action_data['target_id']}")
     except json.JSONDecodeError:
         pass # JSONがない場合は何もしない

@@ -168,19 +168,25 @@ async def auto_execute_with_retry(
                         # <think> 開始タグ検出
                         if match_think:
                             in_think_block = True
+                            # <think> より前のテキストがあれば出力
+                            before_think = tag_buf[:match_think.start()]
+                            if before_think and not in_think_block:
+                                if yield_sse_func:
+                                    yield_sse_func({"type": "chunk", "content": before_think})
+                                yield before_think
+                            
                             remainder = tag_buf[match_think.end():]
-                            tag_buf = ""
-                            in_tag = False
-                            # remainderが改行のみ等の場合は無視。テキストがあればin_think_block中で破棄される
+                            tag_buf = remainder
+                            in_tag = "<" in tag_buf
                             continue
                             
                         # </think> 閉じタグ検出
                         elif match_end_think:
                             in_think_block = False
                             remainder = tag_buf[match_end_think.end():]
-                            tag_buf = ""
-                            in_tag = False
-                            if remainder:
+                            tag_buf = remainder
+                            in_tag = "<" in tag_buf
+                            if remainder and not in_tag:
                                 if yield_sse_func:
                                     yield_sse_func({"type": "chunk", "content": remainder})
                                 yield remainder
@@ -195,6 +201,16 @@ async def auto_execute_with_retry(
                             in_tag = False
                             continue
                         else:
+                            # ツールタグを検出（SSEには流さず内部バッファへ）
+                            # もしツールタグの前にテキストがあればそれは流す
+                            tool_match = re.search(r'<(search|read_url|read_file|run_command|file|replace|list_dir|search_news|mcp_call|escalate)', tag_buf)
+                            if tool_match and tool_match.start() > 0:
+                                before_tool = tag_buf[:tool_match.start()]
+                                if not in_think_block:
+                                    if yield_sse_func:
+                                        yield_sse_func({"type": "chunk", "content": before_tool})
+                                    # yield before_tool  # yield it along with tag_buf below
+                            
                             if not in_think_block:
                                 yield tag_buf
                             tag_buf = ""
@@ -202,8 +218,14 @@ async def auto_execute_with_retry(
                             continue
                 else:
                     if "<" in c:
+                        idx = c.find("<")
+                        before_lt = c[:idx]
+                        if before_lt and not in_think_block:
+                            if yield_sse_func:
+                                yield_sse_func({"type": "chunk", "content": before_lt})
+                            yield before_lt
                         in_tag = True
-                        tag_buf += c
+                        tag_buf += c[idx:]
                         continue
                     else:
                         if not in_think_block:
@@ -214,6 +236,12 @@ async def auto_execute_with_retry(
                         
             if tag_buf and not in_tag:
                 if not in_think_block:
+                    if yield_sse_func:
+                        yield_sse_func({"type": "chunk", "content": tag_buf})
+                    yield tag_buf
+            elif tag_buf and in_tag:
+                if not in_think_block:
+                    # ストリーム終了時、タグが未完了なら流す
                     if yield_sse_func:
                         yield_sse_func({"type": "chunk", "content": tag_buf})
                     yield tag_buf

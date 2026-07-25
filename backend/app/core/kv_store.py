@@ -4,203 +4,230 @@ demo.py の mock_kv_store + filter_kv_by_scope() + format_kv_for_prompt() を移
 JSON ファイルで永続化。
 """
 import json
-import os
-import tempfile
-import threading
-from pathlib import Path
 from typing import Optional
 from app.utils.logger import get_logger
+from app.core.database import get_db
 
 logger = get_logger(__name__)
 
-# ベクトル検索はユーザー要望により廃止（関連性が薄い記憶が意図せず引っ張られるのを防ぐため）
-
-STORAGE_PATH = Path(__file__).parent.parent.parent / "storage" / "kv_store.json"
-
 # demo.py から移植したデフォルトKVデータ（10件）
 _DEFAULT_KV_DATA = [
-    {"id": 1, "category": "preference", "quote": "コーヒーはブラック派かな", "summary": {"target": "コーヒー", "stance": "好き", "tags": ["飲み物", "カフェ", "ブラック", "珈琲"]}},
-    {"id": 2, "category": "preference", "quote": "辛いものはあんまり得意じゃない", "summary": {"target": "辛い食べ物", "stance": "苦手", "tags": ["辛い", "スパイス", "唐辛子", "激辛", "料理"]}},
-    {"id": 3, "category": "profile", "quote": "猫を2匹飼ってる", "summary": {"target": "猫", "stance": "好き", "tags": ["ペット", "動物", "ねこ", "にゃんこ"]}},
-    {"id": 4, "category": "preference", "quote": "ロックよりジャズが好き", "summary": {"target": "ジャズ", "stance": "好き", "tags": ["音楽", "ジャズ", "ロック", "楽器", "演奏"]}},
-    {"id": 5, "category": "agreement", "quote": "毎週金曜は早めに切り上げたい", "summary": {"target": "金曜の早退", "stance": "条件付き", "tags": ["金曜", "早退", "仕事", "勤務時間"]}},
-    {"id": 6, "category": "preference", "quote": "登山はきついから苦手", "summary": {"target": "登山", "stance": "苦手", "tags": ["山", "アウトドア", "ハイキング", "運動"]}},
-    {"id": 7, "category": "profile", "quote": "在宅勤務がメイン", "summary": {"target": "在宅勤務", "stance": "好き", "tags": ["リモートワーク", "テレワーク", "仕事", "自宅"]}},
-    {"id": 8, "category": "preference", "quote": "映画は静かなドラマ系が好み", "summary": {"target": "静かなドラマ映画", "stance": "好き", "tags": ["映画", "ドラマ", "映画鑑賞", "DVD", "Netflix"]}},
-    {"id": 9, "category": "preference", "quote": "甘いお酒は苦手、辛口が好き", "summary": {"target": "辛口のお酒", "stance": "好き", "tags": ["お酒", "酒", "辛口", "ワイン", "日本酒", "ビール", "飲み会"]}},
-    {"id": 10, "category": "agreement", "quote": "誕生日は特に祝わなくていい", "summary": {"target": "誕生日祝い", "stance": "条件付き", "tags": ["誕生日", "お祝い", "プレゼント", "記念日"]}},
+    {"category": "preference", "quote": "コーヒーはブラック派かな", "summary": {"target": "コーヒー", "stance": "好き", "tags": ["飲み物", "カフェ", "ブラック", "珈琲"]}},
+    {"category": "preference", "quote": "辛いものはあんまり得意じゃない", "summary": {"target": "辛い食べ物", "stance": "苦手", "tags": ["辛い", "スパイス", "唐辛子", "激辛", "料理"]}},
+    {"category": "profile", "quote": "猫を2匹飼ってる", "summary": {"target": "猫", "stance": "好き", "tags": ["ペット", "動物", "ねこ", "にゃんこ"]}},
+    {"category": "preference", "quote": "ロックよりジャズが好き", "summary": {"target": "ジャズ", "stance": "好き", "tags": ["音楽", "ジャズ", "ロック", "楽器", "演奏"]}},
+    {"category": "agreement", "quote": "毎週金曜は早めに切り上げたい", "summary": {"target": "金曜の早退", "stance": "条件付き", "tags": ["金曜", "早退", "仕事", "勤務時間"]}},
+    {"category": "preference", "quote": "登山はきついから苦手", "summary": {"target": "登山", "stance": "苦手", "tags": ["山", "アウトドア", "ハイキング", "運動"]}},
+    {"category": "profile", "quote": "在宅勤務がメイン", "summary": {"target": "在宅勤務", "stance": "好き", "tags": ["リモートワーク", "テレワーク", "仕事", "自宅"]}},
+    {"category": "preference", "quote": "映画は静かなドラマ系が好み", "summary": {"target": "静かなドラマ映画", "stance": "好き", "tags": ["映画", "ドラマ", "映画鑑賞", "DVD", "Netflix"]}},
+    {"category": "preference", "quote": "甘いお酒は苦手、辛口が好き", "summary": {"target": "辛口のお酒", "stance": "好き", "tags": ["お酒", "酒", "辛口", "ワイン", "日本酒", "ビール", "飲み会"]}},
+    {"category": "agreement", "quote": "誕生日は特に祝わなくていい", "summary": {"target": "誕生日祝い", "stance": "条件付き", "tags": ["誕生日", "お祝い", "プレゼント", "記念日"]}},
 ]
 
-
 class KVStore:
-    """KVメモリの管理（CRUD + フィルタリング + JSON永続化）"""
+    """KVメモリの管理（CRUD + フィルタリング + Turso/SQLite永続化）"""
 
     def __init__(self):
-        self._store: list[dict] = []
-        self._next_id: int = 1
-        self._lock = threading.Lock()
-        self._load()
+        pass
 
-    def _load(self):
-        """ストレージからKVデータをロード。存在しなければデフォルトデータで初期化。"""
-        if STORAGE_PATH.exists():
-            try:
-                with open(STORAGE_PATH, "r", encoding="utf-8") as f:
-                    self._store = json.load(f)
-                if self._store:
-                    self._next_id = max(e.get("id", 0) for e in self._store) + 1
-                logger.info(f"KVストアをロードしました: {len(self._store)}件")
-            except (json.JSONDecodeError, Exception) as e:
-                logger.info(f"KVストアのロードに失敗、デフォルトデータを使用: {e}")
-                self._init_defaults()
-        else:
-            self._init_defaults()
+    async def _init_defaults_if_empty(self):
+        """データベースが空の場合、デフォルトデータを挿入する"""
+        async with get_db() as db:
+            result = await db.execute("SELECT COUNT(id) FROM kv_memories")
+            row = await result.fetchone()
+            count = row[0] if row else 0
+            if count == 0:
+                for entry in _DEFAULT_KV_DATA:
+                    await self._insert_to_db(db, entry)
+                await db.commit()
+                logger.info("KVメモリのデフォルトデータをデータベースに挿入しました。")
 
-    def _init_defaults(self):
-        """デフォルトKVデータで初期化"""
-        self._store = [entry.copy() for entry in _DEFAULT_KV_DATA]
-        self._next_id = 11
-        self._save()
-
-    def _save(self):
-        """現在のストアをJSONファイルにアトミック保存（書き込み途中のクラッシュ耐性）"""
-        STORAGE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            fd, tmp_path = tempfile.mkstemp(
-                dir=str(STORAGE_PATH.parent), suffix=".tmp"
+    async def _insert_to_db(self, db, entry: dict):
+        summary = entry.get("summary", {})
+        tags = summary.get("tags", [])
+        await db.execute(
+            """
+            INSERT INTO kv_memories (category, quote, target, stance, note, tags)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                entry.get("category"),
+                entry.get("quote"),
+                summary.get("target"),
+                summary.get("stance"),
+                summary.get("note"),
+                json.dumps(tags, ensure_ascii=False) if tags else "[]"
             )
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(self._store, f, ensure_ascii=False, indent=2)
-            
-            try:
-                os.replace(tmp_path, str(STORAGE_PATH))
-            except PermissionError:
-                # Windows環境下等でファイルロック(Uvicornリロード監視等)によりos.replaceが失敗する場合のフォールバック
-                logger.warning("os.replace failed with PermissionError. Falling back to direct write.")
-                with open(STORAGE_PATH, "w", encoding="utf-8") as fallback_f:
-                    json.dump(self._store, fallback_f, ensure_ascii=False, indent=2)
-                try:
-                    os.unlink(tmp_path)
-                except Exception:
-                    pass
-        except Exception as e:
-            logger.error(f"KVストア保存エラー: {e}")
-            # 一時ファイルが残っていたら掃除
-            try:
-                os.unlink(tmp_path)
-            except Exception:
-                pass
+        )
 
-    def get_all(self) -> list[dict]:
-        """全KVエントリを取得（ファイルが更新されていれば自動再ロード）"""
-        with self._lock:
-            self._load()
-            return self._store
-
-    def get_by_category(self, category: str) -> list[dict]:
-        """指定カテゴリのKVエントリを取得"""
-        return [e for e in self._store if e.get("category") == category]
-
-    # ============================================================
-    # 新規追加：set / get（スキャン結果など一時データ用）
-    # ============================================================
-    def set(self, key: str, value: str) -> None:
-        """任意のキーで文字列データを保存（スキャン結果など一時データ用）"""
-        with self._lock:
-            # 既存のエントリを検索（キーを target として利用）
-            for entry in self._store:
-                if entry["summary"].get("target") == key:
-                    entry["summary"]["note"] = value
-                    self._save()
-                    return
-            # 新規追加
-            new_entry = {
-                "id": self._next_id,
-                "category": "profile",
-                "quote": key,
-                "summary": {
-                    "target": key,
-                    "note": value,
-                    "tags": ["一時データ", "スキャン結果"]
-                }
+    def _row_to_dict(self, row) -> dict:
+        # id: 0, category: 1, quote: 2, target: 3, stance: 4, note: 5, tags: 6
+        tags_str = row[6]
+        tags = json.loads(tags_str) if tags_str else []
+        return {
+            "id": row[0],
+            "category": row[1],
+            "quote": row[2],
+            "summary": {
+                "target": row[3],
+                "stance": row[4],
+                "note": row[5],
+                "tags": tags
             }
-            self._next_id += 1
-            self._store.append(new_entry)
-            self._save()
+        }
 
-    def get(self, key: str) -> str | None:
+    async def get_all(self) -> list[dict]:
+        """全KVエントリを取得"""
+        await self._init_defaults_if_empty()
+        async with get_db() as db:
+            result = await db.execute("SELECT id, category, quote, target, stance, note, tags FROM kv_memories ORDER BY id ASC")
+            rows = await result.fetchall()
+            return [self._row_to_dict(row) for row in rows]
+
+    async def get_by_category(self, category: str) -> list[dict]:
+        """指定カテゴリのKVエントリを取得"""
+        await self._init_defaults_if_empty()
+        async with get_db() as db:
+            result = await db.execute("SELECT id, category, quote, target, stance, note, tags FROM kv_memories WHERE category = ? ORDER BY id ASC", (category,))
+            rows = await result.fetchall()
+            return [self._row_to_dict(row) for row in rows]
+
+    async def set(self, key: str, value: str) -> None:
+        """任意のキーで文字列データを保存（スキャン結果など一時データ用）"""
+        await self._init_defaults_if_empty()
+        async with get_db() as db:
+            result = await db.execute("SELECT id, category, quote, target, stance, note, tags FROM kv_memories WHERE target = ?", (key,))
+            row = await result.fetchone()
+            if row:
+                await db.execute(
+                    "UPDATE kv_memories SET note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (value, row[0])
+                )
+            else:
+                tags = json.dumps(["一時データ", "スキャン結果"], ensure_ascii=False)
+                await db.execute(
+                    """
+                    INSERT INTO kv_memories (category, quote, target, stance, note, tags)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    ("profile", key, key, None, value, tags)
+                )
+            await db.commit()
+
+    async def get(self, key: str) -> str | None:
         """任意のキーで保存されたデータを取得"""
-        with self._lock:
-            for entry in self._store:
-                if entry["summary"].get("target") == key:
-                    return entry["summary"].get("note")
+        await self._init_defaults_if_empty()
+        async with get_db() as db:
+            result = await db.execute("SELECT note FROM kv_memories WHERE target = ?", (key,))
+            row = await result.fetchone()
+            if row:
+                return row[0]
             return None
-    # ============================================================
 
-    def add(self, entry: dict) -> dict:
+    async def add(self, entry: dict) -> dict:
         """新規KVエントリを追加"""
-        with self._lock:
-            self._load()
-            entry["id"] = self._next_id
-            self._next_id += 1
-            self._store.append(entry)
-            self._save()
-        logger.info(f"KV追加: {entry.get('summary', {}).get('target', 'unknown')}")
-        return entry
+        await self._init_defaults_if_empty()
+        async with get_db() as db:
+            summary = entry.get("summary", {})
+            tags = summary.get("tags", [])
+            await db.execute(
+                """
+                INSERT INTO kv_memories (category, quote, target, stance, note, tags)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    entry.get("category"),
+                    entry.get("quote"),
+                    summary.get("target"),
+                    summary.get("stance"),
+                    summary.get("note"),
+                    json.dumps(tags, ensure_ascii=False) if tags else "[]"
+                )
+            )
+            # 挿入した行のIDを取得
+            result = await db.execute("SELECT last_insert_rowid()")
+            row = await result.fetchone()
+            new_id = row[0] if row else None
+            
+            await db.commit()
+            
+            entry["id"] = new_id
+            logger.info(f"KV追加: {summary.get('target', 'unknown')}")
+            return entry
 
-    def delete(self, entry_id: int) -> bool:
+    async def delete(self, entry_id: int) -> bool:
         """指定IDのKVエントリを削除"""
-        with self._lock:
-            self._load()
-            before = len(self._store)
-            self._store = [e for e in self._store if e.get("id") != entry_id]
-            if len(self._store) < before:
-                self._save()
-                logger.info(f"KV削除: id={entry_id}")
-                return True
-        return False
+        async with get_db() as db:
+            result = await db.execute("SELECT id FROM kv_memories WHERE id = ?", (entry_id,))
+            if not await result.fetchone():
+                return False
+            await db.execute("DELETE FROM kv_memories WHERE id = ?", (entry_id,))
+            await db.commit()
+            logger.info(f"KV削除: id={entry_id}")
+            return True
 
-    def update(self, entry_id: int, entry: dict) -> Optional[dict]:
+    async def update(self, entry_id: int, entry: dict) -> Optional[dict]:
         """指定IDのKVエントリを更新"""
-        with self._lock:
-            self._load()
-            for i, e in enumerate(self._store):
-                if e.get("id") == entry_id:
-                    # 部分更新: 指定されたフィールドのみ上書き
-                    if "quote" in entry and entry["quote"] is not None:
-                        e["quote"] = entry["quote"]
-                    if "summary" in entry and entry["summary"] is not None:
-                        # summary内も部分更新
-                        for key, val in entry["summary"].items():
-                            if val is not None:
-                                e["summary"][key] = val
-                    if "category" in entry and entry["category"] is not None:
-                        e["category"] = entry["category"]
-                    
-                    # 埋め込み再計算は廃止
-                    self._save()
-                    logger.info(f"KV更新: id={entry_id}")
-                    return e
-        return None
+        async with get_db() as db:
+            result = await db.execute("SELECT id, category, quote, target, stance, note, tags FROM kv_memories WHERE id = ?", (entry_id,))
+            row = await result.fetchone()
+            if not row:
+                return None
+                
+            current = self._row_to_dict(row)
+            
+            # 部分更新
+            if "quote" in entry and entry["quote"] is not None:
+                current["quote"] = entry["quote"]
+            if "summary" in entry and entry["summary"] is not None:
+                for key, val in entry["summary"].items():
+                    if val is not None:
+                        current["summary"][key] = val
+            if "category" in entry and entry["category"] is not None:
+                current["category"] = entry["category"]
+                
+            tags = current["summary"].get("tags", [])
+            await db.execute(
+                """
+                UPDATE kv_memories 
+                SET category = ?, quote = ?, target = ?, stance = ?, note = ?, tags = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (
+                    current["category"],
+                    current["quote"],
+                    current["summary"].get("target"),
+                    current["summary"].get("stance"),
+                    current["summary"].get("note"),
+                    json.dumps(tags, ensure_ascii=False) if tags else "[]",
+                    entry_id
+                )
+            )
+            await db.commit()
+            logger.info(f"KV更新: id={entry_id}")
+            return current
 
-    def get_exclusions(self) -> list[str]:
+    async def get_exclusions(self) -> list[str]:
         """除外対象のキーワード一覧を取得"""
         exclusions = []
-        for e in self._store:
-            if e.get("category") == "exclusion":
-                exclusions.append(e["summary"]["target"])
-                # tagsも除外対象に含める
-                exclusions.extend(e["summary"].get("tags", []))
+        async with get_db() as db:
+            result = await db.execute("SELECT target, tags FROM kv_memories WHERE category = 'exclusion'")
+            rows = await result.fetchall()
+            for row in rows:
+                exclusions.append(row[0])
+                tags_str = row[1]
+                tags = json.loads(tags_str) if tags_str else []
+                exclusions.extend(tags)
         return exclusions
 
-    def filter_by_scope(self, user_input: str, top_k: int = 25) -> list[dict]:
+    async def filter_by_scope(self, user_input: str, top_k: int = 25) -> list[dict]:
         """
         重要カテゴリー（project / profile / rule / preference / schedule）は常にコンテキストに常駐させる。
         その他のエントリもキーワード検索で合致すれば追加する。
         """
-        with self._lock:
-            self._load()
-            candidates = [e for e in self._store if e.get("category") != "exclusion"]
+        all_memories = await self.get_all()
+        candidates = [e for e in all_memories if e.get("category") != "exclusion"]
+        
         if not candidates:
             return []
 
@@ -210,14 +237,13 @@ class KVStore:
 
         for entry in candidates:
             cat = entry.get("category", "")
-            # プロジェクト約束やプロフィール、好み、予定、開発ルール等の重要記憶は常に注入する
             if cat in ("project", "profile", "rule", "preference", "schedule"):
                 always_inject.append(entry)
                 continue
 
             target = entry.get("summary", {}).get("target", "")
             tags = entry.get("summary", {}).get("tags", [])
-            quote = entry.get("quote", "")
+            
             if (
                 target in user_input
                 or any(tag in user_lower for tag in tags if len(tag) >= 2)
@@ -243,14 +269,15 @@ class KVStore:
             lines.append(f"- [{cat.upper()}] {target} ({stance}): {note} (引用: 「{quote}」)")
         return "\n".join(lines)
 
-    def format_summary(self) -> str:
+    async def format_summary(self) -> str:
         """全KVメモリの一覧をプロンプト注入用テキストに整形（AIが自分の記憶状態を把握するため）"""
-        if not self._store:
+        all_memories = await self.get_all()
+        if not all_memories:
             return "（KVメモリは空です）"
         lines = []
-        for kv in self._store:
+        for kv in all_memories:
             cat = kv.get("category", "")
-            target = kv["summary"]["target"]
+            target = kv["summary"].get("target", "")
             stance = kv["summary"].get("stance", "")
             note = kv["summary"].get("note", "")
             tags = kv["summary"].get("tags", [])

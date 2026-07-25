@@ -85,9 +85,9 @@ async def chat(request: ChatRequest):
     followup_cooldown = len(history) >= 2 and all(history[-2:])
 
     # KV フィルタリング + KV一覧 + プロンプト構築
-    relevant_kv = kv_store.filter_by_scope(user_input)
+    relevant_kv = await kv_store.filter_by_scope(user_input)
     filtered_kv_text = kv_store.format_for_prompt(relevant_kv)
-    kv_summary = kv_store.format_summary()
+    kv_summary = await kv_store.format_summary()
     mood = get_mood()
 
     # --- ギャルモード (Lv3 Hyper Gal / omous Engine) 判定 ---
@@ -235,7 +235,7 @@ async def chat(request: ChatRequest):
         # --- 🔴 P0: Plan承認検出（前回のプランを「はい」で承認→即実装） ---
         if mode in ["chat", "task"]:
             try:
-                kv_items = kv_store.filter_by_scope("pending_plan")
+                kv_items = await kv_store.filter_by_scope("pending_plan")
                 approval_keywords = ["はい", "OK", "ok", "進めて", "お願い", "やろう", "GO", "go", "yes", "Yes", "うん", "いいよ", "頼む", "承認", "実装", "開始", "作って", "作成", "よろしく", "いいです", "大丈夫", "お願いします"]
                 for item in kv_items:
                     summary = item.get("summary", {})
@@ -248,7 +248,7 @@ async def chat(request: ChatRequest):
                             user_input = f"{user_input}\n\n【承認済みプラン】\n{plan_note}\n上記プランを直ちに実行せよ。"
                         # pending_planをクリア
                         try:
-                            kv_store.delete(item["id"])
+                            await kv_store.delete(item["id"])
                         except Exception as e:
                             logger.warning(f"Failed to delete pending plan {item['id']}: {e}")
                         break
@@ -532,23 +532,23 @@ async def chat(request: ChatRequest):
                 try:
                     action = kv_action.get("action")
                     if action == "add":
-                        kv_store.add(kv_action)
+                        await kv_store.add(kv_action)
                         logger.info(f"Supervisor指示によるメモリ追加: {kv_action.get('summary', {}).get('target')}")
                     elif action == "update" and kv_action.get("target_id"):
                         target_id = int(kv_action["target_id"])
-                        kv_store.update(target_id, kv_action)
+                        await kv_store.update(target_id, kv_action)
                         logger.info(f"Supervisor指示によるメモリ更新: ID {target_id}")
                     elif action == "delete" and kv_action.get("target_id"):
                         target_id = int(kv_action["target_id"])
-                        kv_store.delete(target_id)
+                        await kv_store.delete(target_id)
                         logger.info(f"Supervisor指示によるメモリ削除: ID {target_id}")
                 
                     # KVメモリが更新されたので、プロンプト用のテキストを再生成する
-                    relevant_kv = kv_store.filter_by_scope(user_input)
+                    relevant_kv = await kv_store.filter_by_scope(user_input)
                     filtered_kv_text = kv_store.format_for_prompt(relevant_kv)
                     if any(k in user_input for k in ["メモリ", "記憶", "覚えて", "KV", "プロフィール"]):
                         filtered_kv_text = "（ユーザーの記憶やプロフィールを確認する場合は <internal_kv_state> を参照してください）"
-                    kv_summary = kv_store.format_summary()
+                    kv_summary = await kv_store.format_summary()
                 
                     # Supervisor向けにプロンプトを再構築 (エスカレーション再試行用)
                     retry_static, retry_dynamic = build_system_instruction(
@@ -615,7 +615,7 @@ async def chat(request: ChatRequest):
                 
                 # plan_awaiting_approval 状態を設定
                 try:
-                    kv_store.add({
+                    await kv_store.add({
                         "action": "add",
                         "category": "agreement",
                         "quote": user_input[:40],

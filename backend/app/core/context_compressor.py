@@ -156,7 +156,7 @@ async def compress_messages_stage2(
                 target = fact.get("target")
                 note = fact.get("note")
                 if target and note:
-                    kv_store.set(target, note)
+                    await kv_store.set(target, note)
     except Exception as e:
         logger.error(f"圧縮モジュールのJSONパース/KV保存エラー: {e}")
 

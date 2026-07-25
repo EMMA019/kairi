@@ -121,5 +121,19 @@ async def init_db():
             )
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS kv_memories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                category TEXT,
+                quote TEXT,
+                target TEXT,
+                stance TEXT,
+                note TEXT,
+                tags TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         await db.commit()
 

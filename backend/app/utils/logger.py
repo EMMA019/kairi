@@ -27,6 +27,12 @@ def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     if not logger.handlers:
         handler = logging.StreamHandler(sys.stdout)
+        try:
+            # For Windows environments with cp932 default, try to force utf-8 for json dumping emojis
+            if hasattr(sys.stdout, 'reconfigure'):
+                sys.stdout.reconfigure(encoding='utf-8')
+        except Exception:
+            pass
         handler.setFormatter(JSONFormatter())
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)

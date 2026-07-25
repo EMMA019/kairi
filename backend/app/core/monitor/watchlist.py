@@ -569,6 +569,21 @@ def systematic_screen_and_score(news_item: Dict[str, Any]) -> Dict[str, Any]:
     if not matched_targets and not matched_entities:
         pass
 
+    # 0. スパム・煽り・広告記事（Motley Fool等）の検知 (-100点)
+    spam_keywords = [
+        r"10 best stocks", r"motley fool", r"stock advisor", r"don't miss the latest", 
+        r"monster returns", r"if you invested \$", r"market-crushing", r"before you buy",
+        r"buy right now\?", r"10銘柄", r"テンバガー", r"爆上げ", r"無料メルマガ"
+    ]
+    if any(re.search(pat, full_text, re.IGNORECASE) for pat in spam_keywords):
+        processed = dict(news_item)
+        processed["importance"] = 0
+        processed["matched_targets"] = matched_targets
+        processed["matched_entities"] = matched_entities
+        processed["detected_catalysts"] = ["🗑️ SPAM / 広告記事"]
+        processed["score_reasons"] = ["スパム・広告フィルターによる即時棄却(-100pt)"]
+        return processed
+
     base_score = 20
     score = base_score
     reasons = []

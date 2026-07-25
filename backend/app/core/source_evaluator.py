@@ -41,6 +41,12 @@ SEO_SUMMARY_KEYWORDS = [
     "まとめ", "速報", "ブログ", "キュレーション", "おすすめ",
 ]
 
+# 絶対に1次情報として扱ってはいけないUGC・個人投稿プラットフォーム (Tier 4)
+UGC_BANNED_DOMAINS = [
+    "note.com", "qiita.com", "zenn.dev", "medium.com", "ameblo.jp", 
+    "togetter.com", "hatenablog.com", "chiebukuro.yahoo.co.jp", "5ch.net"
+]
+
 
 def evaluate_source_authority(url: str, title: str = "", source_label: str = "") -> Dict[str, Any]:
     """
@@ -88,6 +94,15 @@ def evaluate_source_authority(url: str, title: str = "", source_label: str = "")
             "tier": 3,
             "label": "⚠️ 【偽装疑いドメイン: 学術機関を模した非公式ドメイン】",
             "is_spoofed": True,
+            "domain": hostname,
+        }
+
+    # 1.5 UGC・個人投稿サイトのハードブロック (Tier 4)
+    if any(d in hostname for d in UGC_BANNED_DOMAINS):
+        return {
+            "tier": 4,
+            "label": "❌ UGC・個人投稿サイト (信頼性担保不可)",
+            "is_spoofed": False,
             "domain": hostname,
         }
 
@@ -186,14 +201,21 @@ def filter_untrusted_sources_for_finance(results: List[Dict[str, Any]], query_or
     if not is_finance_context_query(query_or_text):
         return results
 
-    filtered = [r for r in results if not r.get("is_spoofed", False) and r.get("tier", 3) in [1, 2]]
+    # まず、Tier 4 (UGC・個人サイト) と偽装サイトは無条件で完全除外する
+    no_ugc_results = [r for r in results if r.get("tier", 3) != 4 and not r.get("is_spoofed", False)]
+    
+    if not no_ugc_results:
+        return []
+
+    # さらに金融用の厳格フィルター (Tier 1, 2のみを残す)
+    filtered = [r for r in no_ugc_results if r.get("tier", 3) in [1, 2]]
     if not filtered:
-        logger.info("[SourceEvaluator] 金融コンテキストでTier 1/2ソースが見つからなかったため、全ソースを維持します")
-        return results
+        logger.info("[SourceEvaluator] 金融コンテキストでTier 1/2ソースが見つからなかったため、Tier 3ソースを維持します(UGCは除外済み)")
+        return no_ugc_results
 
     removed_count = len(results) - len(filtered)
     if removed_count > 0:
-        logger.info(f"[SourceEvaluator] 金融・市場分析モード: Tier 3 (ブログ・SEO等) ソースを {removed_count} 件ハード除外しました")
+        logger.info(f"[SourceEvaluator] 金融・市場分析モード: Tier 3以下 (UGC/ブログ/SEO等) ソースを {removed_count} 件ハード除外しました")
     return filtered
 
 

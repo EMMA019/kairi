@@ -202,45 +202,51 @@ async def search_news(query: str = None, limit: int = 15) -> list[dict]:
             # 日付キーワードが含まれる場合はpublishedの日付範囲フィルタを追加
             if date_keywords:
                 year_match = re.search(r'(202[0-9])年?', query)
-                if year_match:
-                    year = year_match.group(1)
-                    # 月の特定
-                    month_match = re.search(r'(1?[0-9])月', query)
-                    if month_match:
-                        month = month_match.group(1).zfill(2)
-                        day_match = re.search(r'(\d{1,2})日', query)
-                        if day_match:
-                            day = day_match.group(1).zfill(2)
-                            # 特定日付: その日を含む前後1日
-                            from datetime import datetime, timedelta
-                            try:
-                                target_date = datetime(int(year), int(month), int(day))
-                                start_date = (target_date - timedelta(days=1)).strftime("%Y-%m-%d")
-                                end_date = (target_date + timedelta(days=1)).strftime("%Y-%m-%d")
-                                sql += f" AND published >= ? AND published <= ?"
-                                params.extend([start_date, end_date])
-                            except ValueError:
-                                pass
-                        else:
-                            # 月のみ: その月全体
-                            sql += f" AND published LIKE ?"
-                            params.append(f"{year}-{month}%")
-                    else:
-                        # 年のみ
+                year = year_match.group(1) if year_match else None
+                
+                # Check for English month
+                month_map = {
+                    'january': '01', 'february': '02', 'march': '03', 'april': '04',
+                    'may': '05', 'june': '06', 'july': '07', 'august': '08',
+                    'september': '09', 'october': '10', 'november': '11', 'december': '12'
+                }
+                eng_month = None
+                for m_name, m_num in month_map.items():
+                    if m_name in query.lower():
+                        eng_month = m_num
+                        break
+                
+                # Check for Japanese month
+                jp_month_match = re.search(r'(1?[0-9])月', query)
+                jp_month = jp_month_match.group(1).zfill(2) if jp_month_match else None
+                
+                month = eng_month or jp_month
+                
+                # Check for day (1-2 digits not surrounded by other digits)
+                day_match = re.search(r'(?<!\d)(\d{1,2})(?:日)?(?!\d)', query)
+                day = day_match.group(1).zfill(2) if day_match else None
+                
+                if year and month and day:
+                    from datetime import datetime, timedelta
+                    try:
+                        target_date = datetime(int(year), int(month), int(day))
+                        start_date = (target_date - timedelta(days=1)).strftime("%Y-%m-%d")
+                        end_date = (target_date + timedelta(days=1)).strftime("%Y-%m-%d")
+                        sql += f" AND published >= ? AND published <= ?"
+                        params.extend([start_date, end_date])
+                    except ValueError:
+                        # Invalid day, fallback to month
                         sql += f" AND published LIKE ?"
-                        params.append(f"{year}%")
-                elif any(m in query.lower() for m in ['july', 'august', 'september', 'october', 'november', 'december', 'january', 'february', 'march', 'april', 'may', 'june']):
-                    # 英語の月名が含まれる場合、直近1年以内の該当月にフィルタ
-                    month_map = {
-                        'january': '01', 'february': '02', 'march': '03', 'april': '04',
-                        'may': '05', 'june': '06', 'july': '07', 'august': '08',
-                        'september': '09', 'october': '10', 'november': '11', 'december': '12'
-                    }
-                    for m_name, m_num in month_map.items():
-                        if m_name in query.lower():
-                            sql += f" AND (published LIKE ? OR published LIKE ?)"
-                            params.extend([f"2026-{m_num}%", f"2025-{m_num}%"])
-                            break
+                        params.append(f"{year}-{month}%")
+                elif year and month:
+                    sql += f" AND published LIKE ?"
+                    params.append(f"{year}-{month}%")
+                elif year:
+                    sql += f" AND published LIKE ?"
+                    params.append(f"{year}%")
+                elif month:
+                    sql += f" AND (published LIKE ? OR published LIKE ?)"
+                    params.extend([f"2026-{month}%", f"2025-{month}%"])
             
         sql += " ORDER BY published DESC, importance DESC LIMIT ?"
         params.append(limit)

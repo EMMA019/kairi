@@ -182,9 +182,9 @@ class KVStore:
                 exclusions.extend(e["summary"].get("tags", []))
         return exclusions
 
-    def filter_by_scope(self, user_input: str, top_k: int = 10) -> list[dict]:
+    def filter_by_scope(self, user_input: str, top_k: int = 25) -> list[dict]:
         """
-        重要カテゴリー（project / profile / rule）は常にコンテキストに常駐させる。
+        重要カテゴリー（project / profile / rule / preference / schedule）は常にコンテキストに常駐させる。
         その他のエントリもキーワード検索で合致すれば追加する。
         """
         with self._lock:
@@ -199,8 +199,8 @@ class KVStore:
 
         for entry in candidates:
             cat = entry.get("category", "")
-            # プロジェクト約束やプロフィールや開発ルールなどの最重要記憶は常に注入する
-            if cat in ("project", "profile", "rule"):
+            # プロジェクト約束やプロフィール、好み、予定、開発ルール等の重要記憶は常に注入する
+            if cat in ("project", "profile", "rule", "preference", "schedule"):
                 always_inject.append(entry)
                 continue
 
@@ -211,7 +211,7 @@ class KVStore:
                 target in user_input
                 or any(tag in user_lower for tag in tags if len(tag) >= 2)
                 or any(tok in user_input for tok in target.split() if len(tok) >= 2)
-                or any(kw in user_input for kw in ["アプリ", "プロジェクト", "作る", "覚えて", "約束", "タスク"])
+                or any(kw in user_input for kw in ["アプリ", "プロジェクト", "作る", "覚えて", "約束", "タスク", "好き", "予定", "旅行"])
             ):
                 keyword_matched.append(entry)
 

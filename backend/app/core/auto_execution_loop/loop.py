@@ -249,6 +249,20 @@ async def auto_execute_with_retry(
             if tool_tag_detected:
                 break
         
+        # ストリーム末尾で改行を伴わずにバッファに残ったタグやテキストを処理・救済
+        if not tool_tag_detected and buffer.strip():
+            line = buffer.strip()
+            stream_response += line + '\n'
+            if (
+                tool_tag_start_pattern.search(line)
+                or self_closing_pattern.search(line)
+                or closing_tag_pattern.search(line)
+                or in_xml_block
+            ):
+                tool_tag_detected = True
+        elif buffer:
+            stream_response += buffer + '\n'
+
         # --- ツール実行 ---
         if tool_tag_detected:
             try:

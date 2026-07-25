@@ -162,35 +162,61 @@ async def auto_execute_with_retry(
                 if in_tag:
                     tag_buf += c
                     if ">" in tag_buf or "\n" in tag_buf:
+                        match_think = re.search(r'<think\s*>', tag_buf)
+                        match_end_think = re.search(r'</think\s*>', tag_buf)
+                        
                         # <think> 開始タグ検出
-                        if re.search(r'<think\s*>', tag_buf):
+                        if match_think:
                             in_think_block = True
+                            remainder = tag_buf[match_think.end():]
                             tag_buf = ""
                             in_tag = False
+                            # remainderが改行のみ等の場合は無視。テキストがあればin_think_block中で破棄される
+                            continue
+                            
                         # </think> 閉じタグ検出
-                        elif re.search(r'</think\s*>', tag_buf):
+                        elif match_end_think:
                             in_think_block = False
+                            remainder = tag_buf[match_end_think.end():]
                             tag_buf = ""
                             in_tag = False
+                            if remainder:
+                                if yield_sse_func:
+                                    yield_sse_func({"type": "chunk", "content": remainder})
+                                yield remainder
+                            continue
+                            
                         elif not re.search(r'<(search|read_url|read_file|run_command|file|replace|list_dir|get_hot_stocks|search_news|mcp_call|escalate)', tag_buf):
-                            if yield_sse_func and not in_think_block:
-                                yield_sse_func({"type": "chunk", "content": tag_buf})
+                            if not in_think_block:
+                                if yield_sse_func:
+                                    yield_sse_func({"type": "chunk", "content": tag_buf})
+                                yield tag_buf
                             tag_buf = ""
                             in_tag = False
+                            continue
                         else:
+                            if not in_think_block:
+                                yield tag_buf
                             tag_buf = ""
                             in_tag = False
+                            continue
                 else:
                     if "<" in c:
                         in_tag = True
                         tag_buf += c
+                        continue
                     else:
-                        if yield_sse_func and not in_think_block:
-                            yield_sse_func({"type": "chunk", "content": c})
-                yield c
+                        if not in_think_block:
+                            if yield_sse_func:
+                                yield_sse_func({"type": "chunk", "content": c})
+                            yield c
+                        continue
+                        
             if tag_buf and not in_tag:
-                if yield_sse_func and not in_think_block:
-                    yield_sse_func({"type": "chunk", "content": tag_buf})
+                if not in_think_block:
+                    if yield_sse_func:
+                        yield_sse_func({"type": "chunk", "content": tag_buf})
+                    yield tag_buf
             yield '\n'
         
         async for chunk in stream_with_newline(stream):

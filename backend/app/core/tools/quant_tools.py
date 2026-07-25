@@ -50,13 +50,27 @@ def analyze_sector_lead_lag() -> str:
         }
         explained_factors = {factor_names.get(k, k): v for k, v in latest_factors.items()}
         
+        # Generate a Markdown Sector Map representation
+        long_items = list(longs.items())
+        short_items = list(shorts.items())
+        
+        map_md = "### 🗺️ Kairi's Sector Map (US Lead-Lag Prediction)\n\n"
+        map_md += "| 🟩 **BUY (資金流入予測)** | 🟥 **SELL (資金流出予測)** |\n"
+        map_md += "|:---|:---|\n"
+        
+        for i in range(max(len(long_items), len(short_items))):
+            l_text = f"**{long_items[i][0]}**<br>+{long_items[i][1]:.3f}" if i < len(long_items) else ""
+            s_text = f"**{short_items[i][0]}**<br>{short_items[i][1]:.3f}" if i < len(short_items) else ""
+            map_md += f"| {l_text} | {s_text} |\n"
+
         result = {
             "Status": "Success",
             "Model": "Subspace Regularized PCA (Nakagawa et al. 2026)",
             "Date": Y_jp.index[-1].strftime("%Y-%m-%d"),
             "Recommended_Longs": longs,
             "Recommended_Shorts": shorts,
-            "Latest_US_Drivers": explained_factors
+            "Latest_US_Drivers": explained_factors,
+            "Markdown_Sector_Map": map_md
         }
         return json.dumps(result, indent=2)
         

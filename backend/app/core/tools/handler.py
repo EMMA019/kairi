@@ -60,24 +60,6 @@ class ToolHandler:
 
         import re
 
-import shutil
-import datetime
-from pathlib import Path
-
-def _create_backup(filepath: str, workspace_dir: str):
-    try:
-        if not os.path.exists(filepath):
-            return
-        backup_dir = os.path.join(workspace_dir, ".backup")
-        os.makedirs(backup_dir, exist_ok=True)
-        filename = os.path.basename(filepath)
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_path = os.path.join(backup_dir, f"{filename}_{timestamp}.bak")
-        shutil.copy2(filepath, backup_path)
-        logger.info(f"🛡️ Backup created: {backup_path}")
-    except Exception as e:
-        logger.warning(f"Failed to create backup for {filepath}: {e}")
-
         error_pattern = re.compile(r'(error|exception|traceback|err!|fatal|failed)', re.IGNORECASE)
         
         error_indices = [i for i, line in enumerate(lines) if error_pattern.search(line)]

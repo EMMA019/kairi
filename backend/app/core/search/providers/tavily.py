@@ -4,7 +4,7 @@ from .http_client import get_http_client
 
 logger = get_logger(__name__)
 
-async def search_tavily(query: str, max_results: int = 10) -> list[dict]:
+async def search_tavily(query: str, max_results: int = 10, topic: str = "general", days: int = 3) -> list[dict]:
     """
     Tavily Search API (AI向け検索特化)。
     クリーンなテキスト結果を返す。
@@ -23,7 +23,9 @@ async def search_tavily(query: str, max_results: int = 10) -> list[dict]:
         "include_answer": False,
         "include_images": False,
         "include_raw_content": False,
-        "max_results": max_results
+        "max_results": max_results,
+        "topic": topic,
+        "days": days
     }
     
     try:

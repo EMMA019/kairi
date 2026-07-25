@@ -124,7 +124,11 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
         else:
             results = []
             if "duckduckgo" not in providers and "free" not in providers and "jina" not in providers:
-                results = await search_tavily(_search_query)
+                _is_news = any(kw in _search_query for kw in ["市場", "株", "市況", "ニュース", "決算", "相場", "market", "news"])
+                if _is_news:
+                    results = await search_tavily(_search_query, topic="news", days=7)
+                else:
+                    results = await search_tavily(_search_query)
 
             # Tavily結果なし時は Brave Search API へ自動フォールバック
             if not results and "duckduckgo" not in providers and "jina" not in providers:

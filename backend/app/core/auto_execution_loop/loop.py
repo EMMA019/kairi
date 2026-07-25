@@ -401,11 +401,11 @@ async def auto_execute_with_retry(
                     break
 
             # ツールタグなし → 通常の回答として返す
+            logger.warning(f"🔍 [DEBUG] LLMの生出力(ツールなし): {repr(stream_response)}")
             final_accumulated_response += stream_response + "\n"
             
             # ハルシネーションチェック（ツール指示があるのにタグがない）
             tool_keywords = any(kw in instruction for kw in [
-                '<file', '<replace', '<run_command', '<read_file', '<list_dir',
                 '<read_url', '<search',
                 'ファイルを作成', 'ファイルを修正', 'コードを修正', 'コードを書',
                 'コマンドを実行',
@@ -477,6 +477,13 @@ async def auto_execute_with_retry(
         logger.warning(f"Fact filter validation warning in auto_execution_loop: {e}")
 
     tool_results_summary = "\n".join(tool_handler.tool_results) if tool_handler.tool_results else ""
+    if not final_accumulated_response.strip():
+        if tool_results_summary:
+            final_accumulated_response = "ツールを実行し、結果をシステムに連携しました。"
+        else:
+            final_accumulated_response = "*(⚠️ 応答が生成されなかったか、システムによってフィルタリングされました。もう一度お試しください)*"
+            logger.warning("⚠️ 最終応答が空になったため、フォールバックメッセージを挿入しました。")
+            
     if not final_accumulated_response.strip() and tool_results_summary:
         logger.info("⚠️ ツール実行後に最終回答が未生成だったため、ツール結果をもとに集約回答を生成します")
         try:

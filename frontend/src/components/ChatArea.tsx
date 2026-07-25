@@ -107,6 +107,7 @@ function renderMessageContent(content: string) {
   cleanContent = cleanContent.replace(/<run_command>[\s\S]*?<\/run_command>/g, "");
   cleanContent = cleanContent.replace(/<read_file path="[^"]+"\s*\/>/g, "");
   cleanContent = cleanContent.replace(/<list_dir path="[^"]+"\s*\/>/g, "");
+  cleanContent = cleanContent.replace(/<search(?:_news|_codebase)?\s+query="[^"]+"\s*\/>/g, "");
 
   // AI Judgment の連携用 JSON ブロック（およびフェンス閉じ忘れ・生JSON）を左側チャット表示からスマートに除去し、緑色浸食バグとリンク不全を完全防止
   cleanContent = cleanContent.replace(/```(?:json:ai_judgment|json)?\s*\{[\s\S]*?"judgment"[\s\S]*?\}\s*(?:```)?\s*/g, "");

@@ -927,7 +927,6 @@ async def _save_messages(
             )
 
             await db.commit()
-            # 会話内容からの自動KVメモリ抽出・保存を非同期バックグラウンドで必ず実行する
-            asyncio.create_task(extract_and_save_memory(session_id, user_message, ai_response))
+            # Supervisorによって判断されたKVアクションはすでに適用済みのため、ここでの無条件な全件抽出は廃止（ハルシネーション・過剰記憶の防止）
     except Exception as e:
         logger.error(f"メッセージ保存エラー: {e}")

@@ -71,7 +71,18 @@ class KVStore:
             )
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(self._store, f, ensure_ascii=False, indent=2)
-            os.replace(tmp_path, str(STORAGE_PATH))
+            
+            try:
+                os.replace(tmp_path, str(STORAGE_PATH))
+            except PermissionError:
+                # Windows環境下等でファイルロック(Uvicornリロード監視等)によりos.replaceが失敗する場合のフォールバック
+                logger.warning("os.replace failed with PermissionError. Falling back to direct write.")
+                with open(STORAGE_PATH, "w", encoding="utf-8") as fallback_f:
+                    json.dump(self._store, fallback_f, ensure_ascii=False, indent=2)
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
         except Exception as e:
             logger.error(f"KVストア保存エラー: {e}")
             # 一時ファイルが残っていたら掃除

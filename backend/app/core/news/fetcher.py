@@ -149,13 +149,23 @@ async def fetch_primary_news(query: str = "") -> list[dict]:
     3. キーワードがあればBraveで補完検索
     4. 結果を結合して返す
     """
-    results = await fetch_rss_on_demand()
-    
     is_jp_or_market = any(
         kw in query
         for kw in ["日本", "日経", "東京", "東証", "TOPIX", "株", "為替", "円", "国内", "市場"]
     )
-    if is_jp_or_market:
+    is_finance = any(
+        kw in query
+        for kw in ["銘柄", "投資", "ETF", "決算", "半導体", "インフレ", "経済", "FRB", "金利", "雇用", "相場"]
+    )
+
+    if query and not (is_jp_or_market or is_finance or "ニュース" in query or "news" in query.lower()):
+        # 経済・市場以外の一般的なクエリ（例：酒、トレンドなど）の場合は、
+        # 証券系のRSSを叩かずに空配列から開始し、後続のBraveフォールバックへ委譲する
+        results = []
+    else:
+        results = await fetch_rss_on_demand()
+    
+    if is_jp_or_market and results:
         # 日本市場や株価に関する質問の場合、無関係な海外テック系RSS（Hacker News等）を除外する
         results = [
             r for r in results

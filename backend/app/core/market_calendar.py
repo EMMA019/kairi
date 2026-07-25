@@ -407,8 +407,11 @@ def check_market_status(dt: Optional[datetime.datetime] = None) -> dict:
                 jp_status = "closed"
                 jp_reason = "outside_trading_hours"
     
+    weekdays_ja = ["月", "火", "水", "木", "金", "土", "日"]
+    jp_weekday = weekdays_ja[dt.weekday()]
+    
     return {
-        "datetime": dt.strftime("%Y-%m-%d %H:%M (JST)"),
+        "datetime": f"{dt.strftime('%Y-%m-%d')} ({jp_weekday}) {dt.strftime('%H:%M')} (JST)",
         "et_datetime": et_datetime_str,
         "us_market": us_status,
         "us_reason": us_reason,

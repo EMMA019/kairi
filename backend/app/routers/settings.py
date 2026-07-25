@@ -63,7 +63,7 @@ _DEFAULT_SETTINGS = {
     "char_profile": "あなたはフレンドリーで親密なキャラクター相棒「Kairi」です。敬語や堅い業務説明は避け、自然で感情豊かな会話をテンポよく楽しんでください。",
     "visual_anchor": "1girl, anime style, kairi, 19yo japanese cute girl, long caramel brown twintails, amber eyes, high quality, masterpiece",
     "image_engine": "pollinations",
-    "cf_account_id": "8b2e7549807032bdd0e92885d6349fa9",
+    "cf_account_id": "",
     "cf_api_token": "",
     "locale": "ja",
     "gemini_api_key": "",
@@ -75,8 +75,18 @@ _DEFAULT_SETTINGS = {
     "newsdata_api_key": "",
     "mapbox_api_key": "",
     "is_licensed": True,
-    "license_key": "KAIRI-PRO-ESTABLISHED",
+    "license_key": "",
     "app_pin": "",
+    "api_token": "",
+    "allowed_origins": [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+        "http://localhost",
+        "https://localhost",
+        "capacitor://localhost",
+    ],
 }
 
 

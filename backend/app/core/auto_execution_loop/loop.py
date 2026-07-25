@@ -493,48 +493,12 @@ async def auto_execute_with_retry(
         final_accumulated_response += f"\n\n*(⚠️ 最大実行ループ数 {max_tool_loops} に到達しました。作業が途中となっている場合は、「続きを作成して」と指示してください)*"
     
     try:
-        from app.core.fact_filter import (
-            check_currency_consistency,
-            verify_numbers_exist_in_source,
-            correct_common_typos,
-            strip_unrequested_memory_mentions,
-            strip_unrequested_yahoo_finance,
-            strip_outdated_past_event_predictions,
-            deduplicate_spot_listings,
-            verify_exit_and_address_entanglement,
-            sanitize_internal_tool_mentions,
-            clean_broken_markdown_tables,
-            verify_holiday_and_weekend_claims,
-            strip_excuse_hallucinations,
-            enforce_variable_numerical_claims,
-            verify_temporal_leadership_claims,
-            verify_chronological_rationalization,
-            filter_unknown_entity_listings,
-            sanitize_buffer_contamination,
-            strip_out_of_period_event_mentions,
-            trim_incomplete_trailing_sentence,
-            strip_dangling_tool_promises,
+        from app.core.fact_filters.pipeline import apply_grounding_pipeline
+        final_accumulated_response = apply_grounding_pipeline(
+            final_accumulated_response,
+            str(search_results or ""),
+            user_input=user_input,
         )
-        _, final_accumulated_response = check_currency_consistency(final_accumulated_response)
-        _, final_accumulated_response = verify_numbers_exist_in_source(final_accumulated_response, str(search_results or ""))
-        final_accumulated_response = verify_temporal_leadership_claims(final_accumulated_response, str(search_results or ""))
-        final_accumulated_response = verify_chronological_rationalization(final_accumulated_response, str(search_results or ""))
-        final_accumulated_response = filter_unknown_entity_listings(final_accumulated_response)
-        final_accumulated_response = enforce_variable_numerical_claims(final_accumulated_response, str(search_results or ""))
-        final_accumulated_response = correct_common_typos(final_accumulated_response)
-        final_accumulated_response = strip_unrequested_memory_mentions(final_accumulated_response, user_input=user_input)
-        final_accumulated_response = strip_unrequested_yahoo_finance(final_accumulated_response, user_input=user_input)
-        final_accumulated_response = strip_outdated_past_event_predictions(final_accumulated_response)
-        final_accumulated_response = deduplicate_spot_listings(final_accumulated_response)
-        final_accumulated_response = verify_exit_and_address_entanglement(final_accumulated_response)
-        final_accumulated_response = sanitize_internal_tool_mentions(final_accumulated_response)
-        final_accumulated_response = clean_broken_markdown_tables(final_accumulated_response)
-        final_accumulated_response = strip_out_of_period_event_mentions(final_accumulated_response)
-        final_accumulated_response = verify_holiday_and_weekend_claims(final_accumulated_response)
-        final_accumulated_response = strip_excuse_hallucinations(final_accumulated_response)
-        final_accumulated_response = sanitize_buffer_contamination(final_accumulated_response)
-        final_accumulated_response = strip_dangling_tool_promises(final_accumulated_response)
-        final_accumulated_response = trim_incomplete_trailing_sentence(final_accumulated_response)
     except Exception as e:
         logger.warning(f"Fact filter validation warning in auto_execution_loop: {e}")
 

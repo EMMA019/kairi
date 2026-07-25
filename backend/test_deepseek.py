@@ -6,8 +6,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 async def main():
+    api_key = os.environ.get("DEEPSEEK_API_KEY")
+    if not api_key:
+        raise SystemExit("DEEPSEEK_API_KEY が未設定です。backend/.env に設定してください。")
     client = AsyncOpenAI(
-        api_key=os.environ.get("DEEPSEEK_API_KEY", "sk-ac763202bbee4db795beadc9eb72f50d"),
+        api_key=api_key,
         base_url="https://api.deepseek.com/v1"
     )
     

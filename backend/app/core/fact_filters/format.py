@@ -153,10 +153,14 @@ def strip_unrequested_yahoo_finance(
 
 
 _TERMINAL_CHARS = set("。．！？!?…‼⁉」』）)]\"'”’")
+_TOOL_PROMISE_CORE = (
+    r"(?:まず[、,]?)?(?:残りの)?(?:主要(?:指数)?)?(?:指数)?(?:データ|情報|記事|詳細)を"
+    r"(?:取得|検索|確認|調べ)(?:し(?:ます|て(?:き|まい)|ますね)|する(?:わ|ね|よ)?)"
+)
 _TOOL_PROMISE_PATTERN = re.compile(
     r"(?:"
-    r"(?:まず[、,]?)?(?:残りの)?(?:主要)?(?:指数|データ|情報|記事|詳細)を(?:取得|検索|確認|調べ)(?:し(?:ます|て(?:き|まい)|ますね)|する(?:わ|ね|よ)?)"
-    r"|(?:検索|スクレイピング|データ取得)(?:して|しに)(?:き|まい)(?:ます|る)(?:ね|よ|わ)?"
+    + _TOOL_PROMISE_CORE
+    + r"|(?:検索|スクレイピング|データ取得)(?:して|しに)(?:き|まい)(?:ます|る)(?:ね|よ|わ)?"
     r"|(?:少々|少し)?お待ちください"
     r")[。．！!…]*\s*$"
 )
@@ -257,31 +261,29 @@ def trim_incomplete_trailing_sentence(text: str) -> str:
 
 def strip_dangling_tool_promises(text: str) -> str:
     """
-    ツール実行予告で終わり、その後に結果が続かない末尾段落を除去する。
+    ツール実行予告で終わる末尾文を除去する。
     例: 「まず、残りの主要指数データを取得します。」
+    改行が潰れて同一行になっていても、末尾の予告文だけを刈り取る。
     """
     if not text or not isinstance(text, str):
         return text
 
-    paragraphs = re.split(r"(\n\s*\n)", text)
-    if not paragraphs:
-        return text
+    # 末尾のツール予告文のみ除去（先行文は必ず残す）
+    trailing_promise = re.compile(
+        r"(?:(?<=[。．！？!?\n])|^)\s*"
+        + _TOOL_PROMISE_CORE
+        + r"[。．！!…]*\s*$"
+    )
+    new_text, n = trailing_promise.subn("", text)
+    if n:
+        logger.info("✂️ ツール実行予告の末尾文を除去しました")
+        return new_text.rstrip()
 
-    # 末尾の空段落をスキップして最後の実質段落を探す
-    idx = len(paragraphs) - 1
-    while idx >= 0 and not paragraphs[idx].strip():
-        idx -= 1
-    if idx < 0:
-        return text
-
-    last = paragraphs[idx].strip()
-    if _TOOL_PROMISE_PATTERN.search(last) and len(last) < 120:
-        logger.info(f"✂️ ツール実行予告の宙ぶらりん段落を除去: {last[:50]!r}")
-        del paragraphs[idx]
-        # 直前の区切りも除去
-        if idx > 0 and not paragraphs[idx - 1].strip():
-            del paragraphs[idx - 1]
-        return "".join(paragraphs).rstrip()
+    # 予告文だけの短文（他の文が無い）なら全体を除去
+    stripped = text.strip()
+    if _TOOL_PROMISE_PATTERN.fullmatch(stripped):
+        logger.info(f"✂️ ツール実行予告のみの応答を除去: {stripped[:50]!r}")
+        return ""
     return text
 
 

@@ -5,10 +5,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import logging
 from dotenv import load_dotenv
 
 # .env ファイルから環境変数を読み込み（他のモジュールで環境変数を使うため、最初に行う）
 load_dotenv()
+_main_logger = logging.getLogger("app.main")
 
 from app.core.database import init_db
 from app.core.news.database import init_db as init_news_db
@@ -42,23 +44,42 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS 設定（フロントエンド開発・Tailscale・Capacitorモバイルアプリ等を全面許可）
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",   # Vite デフォルト
-        "http://localhost:3000",   # 予備
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-        "http://localhost",        # Capacitor Android/iOS ネイティブ
-        "https://localhost",
-        "capacitor://localhost",
-    ],
-    allow_origin_regex=r"(https?|capacitor)://.*",  # Tailscale (100.x) やLAN内、あらゆるポートとIPからのアクセスを100%許可
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS 設定（既定はローカル開発オリジンのみ。広域許可は ALLOW_OPEN_CORS=1 のときのみ）
+_default_origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+    "http://localhost",
+    "https://localhost",
+    "capacitor://localhost",
+]
+try:
+    from app.routers.settings import app_settings as _cors_settings
+    _configured = _cors_settings.get().get("allowed_origins") or []
+    if isinstance(_configured, list) and _configured:
+        _default_origins = list(dict.fromkeys(_default_origins + [str(o) for o in _configured]))
+except Exception:
+    pass
+
+_cors_kwargs = {
+    "allow_origins": _default_origins,
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+}
+if os.environ.get("ALLOW_OPEN_CORS", "").strip() in ("1", "true", "TRUE", "yes"):
+    # 明示オプトイン時のみ広域 regex を許可（Tailscale 等）
+    _cors_kwargs["allow_origin_regex"] = r"(https?|capacitor)://.*"
+    _main_logger.warning("⚠️ ALLOW_OPEN_CORS=1: 任意オリジンからの CORS を許可しています")
+else:
+    _main_logger.info("CORS: 許可オリジンをローカル開発リストに制限しています（広域は ALLOW_OPEN_CORS=1）")
+
+app.add_middleware(CORSMiddleware, **_cors_kwargs)
+
+# API トークン認証（api_token / KAIRI_API_TOKEN 未設定時は開発モードでスキップ）
+from app.core.auth import APITokenMiddleware
+app.add_middleware(APITokenMiddleware)
 
 # ルーター登録
 app.include_router(chat.router, prefix="/api", tags=["chat"])

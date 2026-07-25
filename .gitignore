@@ -28,9 +28,27 @@ backend/storage/*.db
 backend/storage/*.db-shm
 backend/storage/*.db-wal
 backend/storage/*.json
+!backend/storage/settings.example.json
+backend/storage/search_cache/
+backend/storage/violation_logs/
 
-# Local scratch & output directories
+# Local scratch & output directories (separate projects / generated)
 Github/
+personal/
+gyaru_dash/
+scratch/
 output/
 tools/lora_studio/sd-scripts/
 tools/lora_studio/sd-webui-forge/
+tools/lora_studio/output/
+tools/lora_studio/dataset/
+img/
+
+# One-off patch / split scripts (do not re-add)
+backend/patch*.py
+backend/split_*.py
+backend/extract_prompt.py
+backend/read_db.py
+
+img/
+*.safetensors

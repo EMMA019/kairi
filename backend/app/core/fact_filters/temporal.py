@@ -29,7 +29,10 @@ def strip_unverified_day_of_week(text: str, source_text: Optional[str] = None, s
     if not text or not isinstance(text, str):
         return text
 
-    pattern = re.compile(r'(?P<date>(?:\d{1,4}年)?\d{1,2}月\d{1,2}日)\s*[（\(](?P<dow>[月火水木金土日])[）\)]')
+    # 「（月）」「（月曜日）」の両方に対応
+    pattern = re.compile(
+        r'(?P<date>(?:\d{1,4}年)?\d{1,2}月\d{1,2}日)\s*[（\(](?P<dow>[月火水木金土日])(?:曜日)?[）\)]'
+    )
 
     def replace_dow(match: re.Match) -> str:
         date_part = match.group("date")

@@ -136,6 +136,11 @@ async def _can_fetch_robots(url: str, user_agent: str = "*") -> bool:
 
 async def fetch_direct_html(url: str, depth: int = 0, max_depth: int = 1) -> str:
     """Jina失敗時の直接HTTP+HTMLテキストスクレイピングフォールバック (robots.txt厳守・重要お知らせ1階層追跡対応)"""
+    from app.core.ssrf import is_blocked_url
+    if is_blocked_url(url):
+        logger.warning(f"🚫 SSRF遮断(直接HTTP): {url}")
+        return ""
+
     now = time.time()
     if url in _RECENT_FETCH_CACHE:
         cached_time, cached_text = _RECENT_FETCH_CACHE[url]

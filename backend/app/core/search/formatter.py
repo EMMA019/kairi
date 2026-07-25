@@ -65,12 +65,17 @@ def format_for_prompt(results: list[dict], query: str = "") -> str:
             "推測や古い情報を混ぜることは固く禁じます。"
         )
         
-    lines = []
+    lines = [
+        "【引用契約】以下の各ソースには番号 [n] が付いています。"
+        "時事的な事実（人名/役職/数値/レース結果/市場結果等）を断定する文には、"
+        "根拠としたソース番号を文末に [n] 形式で必ず付与してください。"
+        "番号を付けられない事実は断定せず、『（要確認）』とするか書かないでください。"
+    ]
     for i, r in enumerate(results, 1):
         display_src = r.get("display_source", r["source"])
         warning = " ⚠️【学術ドメイン偽装疑い】" if r.get("is_spoofed") else ""
         lines.append(
-            f"{i}. [{display_src}]{warning} {r['title']}\n"
+            f"[{i}] [{display_src}]{warning} {r['title']}\n"
             f"   {r['snippet']}\n"
             f"   URL: {r['url']}"
         )

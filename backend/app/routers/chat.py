@@ -178,79 +178,36 @@ async def chat(request: ChatRequest):
         from app.core.executor import run_executor
         
         # --- 🔴 Greeting Short-Circuit ---
+        from app.core.chat_pipeline import (
+            stream_simple_executor,
+            build_greeting_system_prompt,
+            build_facts_instruction,
+        )
         greeting_json = check_greeting_short_circuit(user_input)
         if greeting_json and mode == "chat" and not request.force_search:
-            # 定型挨拶の場合はSupervisorをスキップ
             yield _sse_event({"type": "mode_switch", "mode": "chat"})
-            
-            # 簡単な返答を生成
-            facts = greeting_json.get("instruction", {}).get("facts_to_present", [])
-            order = greeting_json.get("instruction", {}).get("logical_order", [])
-            
-            # Executorで挨拶文を生成（簡易プロンプト）
             settings_dict = app_settings.get()
             persona_style = settings_dict.get("persona_style", "standard")
-            if persona_style in ["hyper_gal", "gal", "gyaru"]:
-                greeting_sys = """あなたは最強の平成ギャル相棒Kairiです。テンションMAXなギャル言葉・顔文字・絵文字を使って親密に挨拶を返してください。"""
-            elif persona_style in ["analyst", "financial_analyst"]:
-                greeting_sys = """あなたは冷静かつ客観的なデータストラテジスト／プロの市場アナリスト「Kairi」です。推測を排し、定量ファクトと論理に基づくプロフェッショナルな挨拶を返してください。"""
-            elif persona_style == "kairi_kansai":
-                greeting_sys = """あなたは頼れる相棒Kairiです。親しみやすい関西弁で挨拶を返してください。"""
-            else:
-                greeting_sys = """あなたはユーザーと直接対話するAIです。簡潔で自然な挨拶を返してください。"""
-            greeting_instruction = ""
-            if facts:
-                greeting_instruction += "【必ず含めるべき事実】\n"
-                for f in facts:
-                    greeting_instruction += f"- {f}\n"
-            if order:
-                greeting_instruction += "\n【回答の構成（順序）】\n"
-                for o in order:
-                    greeting_instruction += f"- {o}\n"
-            
-            stream = run_executor(
+            greeting_sys = build_greeting_system_prompt(persona_style)
+            greeting_instruction = build_facts_instruction(greeting_json.get("instruction") or {})
+            async for ev, payload in stream_simple_executor(
                 user_input=user_input,
                 instruction=greeting_instruction,
-                search_results=None,
-                memory_text=filtered_kv_text if greeting_json.get("memory_inject") else None,
-                history_messages=messages,
-                mode="chat",
                 system_instruction=greeting_sys,
-            )
-            
-            response_text = ""
-            _in_think = False
-            async for chunk in stream:
-                if '<think>' in chunk:
-                    _in_think = True
-                if '</think>' in chunk:
-                    _in_think = False
-                    response_text += chunk
-                    continue
-                response_text += chunk
-                if not is_hyper_gal and not _in_think:
-                    yield _sse_event({"type": "chunk", "content": chunk})
-            
-            # <think> タグを除去
-            response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
-            response_text = re.sub(r'<think>(?:(?!</think>).)*$', '', response_text, flags=re.DOTALL)
-            response_text = response_text.strip()
-            try:
-                from app.core.fact_filter import trim_incomplete_trailing_sentence, strip_dangling_tool_promises
-                response_text = strip_dangling_tool_promises(response_text)
-                response_text = trim_incomplete_trailing_sentence(response_text)
-            except Exception:
-                pass
-            
-            if is_hyper_gal and response_text:
-                response_text = to_hyper_gal_v3(response_text)
-            
-            await _save_messages(
-                session_id, user_input, response_text,
-                json.dumps(greeting_json, ensure_ascii=False),
-                greeting_json, None, []
-            )
-            yield _sse_event({"type": "done", "content": response_text})
+                history_messages=messages,
+                memory_text=filtered_kv_text if greeting_json.get("memory_inject") else None,
+                mode="chat",
+                is_hyper_gal=is_hyper_gal,
+            ):
+                if ev == "chunk":
+                    yield _sse_event({"type": "chunk", "content": payload})
+                elif ev == "done":
+                    await _save_messages(
+                        session_id, user_input, payload,
+                        json.dumps(greeting_json, ensure_ascii=False),
+                        greeting_json, None, []
+                    )
+                    yield _sse_event({"type": "done", "content": payload})
             return
         
         # --- 🔴 P0: Char Mode (1-Pass Direct Fast Roleplay) ---
@@ -267,50 +224,25 @@ async def chat(request: ChatRequest):
             char_profile = settings_dict.get("char_profile", "")
             visual_anchor = settings_dict.get("visual_anchor", "")
             user_name = settings_dict.get("user_name", "ご主人様")
-            
             char_sys = get_char_system_prompt(user_name, char_profile, persona_style, visual_anchor)
-            stream = run_executor(
+            async for ev, payload in stream_simple_executor(
                 user_input=user_input,
                 instruction="キャラクターになりきって、ユーザーとの会話を自然かつテンポよく楽しく盛り上げてください。",
-                search_results=None,
-                memory_text=filtered_kv_text,
-                history_messages=messages,
-                mode="char",
                 system_instruction=char_sys,
-            )
-            response_text = ""
-            _in_think = False
-            async for chunk in stream:
-                if '<think>' in chunk:
-                    _in_think = True
-                if '</think>' in chunk:
-                    _in_think = False
-                    response_text += chunk
-                    continue
-                response_text += chunk
-                if not is_hyper_gal and not _in_think:
-                    yield _sse_event({"type": "chunk", "content": chunk})
-            
-            # <think> タグを除去
-            response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
-            response_text = re.sub(r'<think>(?:(?!</think>).)*$', '', response_text, flags=re.DOTALL)
-            response_text = response_text.strip()
-            try:
-                from app.core.fact_filter import trim_incomplete_trailing_sentence, strip_dangling_tool_promises
-                response_text = strip_dangling_tool_promises(response_text)
-                response_text = trim_incomplete_trailing_sentence(response_text)
-            except Exception:
-                pass
-            
-            if is_hyper_gal and response_text:
-                response_text = to_hyper_gal_v3(response_text)
-            
-            await _save_messages(
-                session_id, user_input, response_text,
-                json.dumps({"mode": "char", "status": "char_fast_response"}, ensure_ascii=False),
-                {"mode": "char", "fast": True}, None, []
-            )
-            yield _sse_event({"type": "done", "content": response_text})
+                history_messages=messages,
+                memory_text=filtered_kv_text,
+                mode="char",
+                is_hyper_gal=is_hyper_gal,
+            ):
+                if ev == "chunk":
+                    yield _sse_event({"type": "chunk", "content": payload})
+                elif ev == "done":
+                    await _save_messages(
+                        session_id, user_input, payload,
+                        json.dumps({"mode": "char", "status": "char_fast_response"}, ensure_ascii=False),
+                        {"mode": "char", "fast": True}, None, []
+                    )
+                    yield _sse_event({"type": "done", "content": payload})
             return
         
         # --- 🔴 P0: Plan承認検出（前回のプランを「はい」で承認→即実装） ---
@@ -1007,10 +939,30 @@ async def _save_messages(
                 
                 citations = len(search_sources) if search_sources else 0
                 excluded_sources = 0 # 暫定
+                truncation_detected = 0
+                trim_applied = 0
+                uncited_assertions = 0
+                try:
+                    from app.core.fact_filters.citation import get_last_citation_metrics
+                    m = get_last_citation_metrics()
+                    truncation_detected = int(getattr(m, "truncation_detected", 0) or 0)
+                    trim_applied = int(getattr(m, "trim_applied", 0) or 0)
+                    uncited_assertions = int(getattr(m, "uncited_assertions", 0) or 0)
+                    # 本文中の [n] 引用数も加算可能なら上書き
+                    if getattr(m, "citations_found", 0):
+                        citations = max(citations, int(m.citations_found))
+                except Exception:
+                    pass
                 
                 await db.execute(
-                    "INSERT INTO integrity_stats (session_id, verified_facts, unverified_facts, excluded_sources, citations) VALUES (?, ?, ?, ?, ?)",
-                    (session_id, verified_facts, unverified_facts, excluded_sources, citations)
+                    "INSERT INTO integrity_stats ("
+                    "session_id, verified_facts, unverified_facts, excluded_sources, citations, "
+                    "truncation_detected, trim_applied, uncited_assertions"
+                    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        session_id, verified_facts, unverified_facts, excluded_sources, citations,
+                        truncation_detected, trim_applied, uncited_assertions,
+                    )
                 )
 
             # セッションの updated_at を更新

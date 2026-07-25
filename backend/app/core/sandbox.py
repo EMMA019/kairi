@@ -85,6 +85,7 @@ class DockerSandbox:
         self.workspace_dir = os.path.abspath(workspace_dir)
         self.docker_workspace = self.workspace_dir.replace('\\', '/')
         self.use_host_fallback = False
+        self._docker_unavailable = False
         self._ensure_container_running()
 
     def _ensure_container_running(self):
@@ -111,12 +112,28 @@ class DockerSandbox:
                     raise Exception(f"Docker startup failed: {res_run.stderr}")
                 time.sleep(1)
         except Exception as e:
-            logger.warning(f"Docker未検出または起動不可のためホスト直接実行モードを使用します: {e}")
-            self.use_host_fallback = True
+            # セキュリティ: ホスト fallback は明示オプトイン時のみ
+            allow_host = os.environ.get("ALLOW_HOST_FALLBACK", "").strip() in ("1", "true", "TRUE", "yes")
+            if allow_host:
+                logger.warning(f"Docker未検出のためホスト直接実行モードを使用します (ALLOW_HOST_FALLBACK=1): {e}")
+                self.use_host_fallback = True
+            else:
+                logger.error(
+                    f"Docker未検出/起動不可。ホスト実行は無効です。"
+                    f"Dockerを起動するか ALLOW_HOST_FALLBACK=1 を設定してください: {e}"
+                )
+                self.use_host_fallback = False
+                self._docker_unavailable = True
 
     def run_command(self, command: str, timeout: int = 60) -> str:
-        """コマンドを実行する（Dockerコンテナ優先、不可時はホスト側実行フォールバック）"""
+        """コマンドを実行する（Dockerコンテナ優先。ホストfallbackは ALLOW_HOST_FALLBACK=1 時のみ）"""
         try:
+            if getattr(self, "_docker_unavailable", False) and not self.use_host_fallback:
+                return (
+                    "❌ コマンド実行不可: Dockerが利用できず、ホストfallbackも無効です。"
+                    "Dockerを起動するか、開発時のみ ALLOW_HOST_FALLBACK=1 を設定してください。"
+                )
+
             build_keywords = ["npm install", "npm i", "npm run build", "create-vite", "create-next-app", "npx", "yarn", "pnpm", "cargo", "pip install", "pytest", "jest", "tsc"]
             if any(kw in command for kw in build_keywords) and timeout <= 60:
                 timeout = 300

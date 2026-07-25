@@ -176,13 +176,18 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
 
 async def fetch_url(url: str, force_refresh: bool = False) -> str:
     """特定URLの内容取得（Jina + 直接HTTPフォールバック使用・不完全キャッシュ自動更新）"""
+    from app.core.ssrf import is_blocked_url
+    if is_blocked_url(url):
+        logger.warning(f"🚫 SSRF遮断: 内部/プライベート向けURLのfetchを拒否しました: {url}")
+        return "❌ セキュリティ上の理由により、このURLへのアクセスは許可されていません。"
+
     cached = cache.get(url, "jina")
     # 古いキャッシュや不完全なキャッシュ（10,000文字以下で論文・学術ページ等）は破棄して最新フェッチ
     if cached and not force_refresh:
         content = cached[0].get("snippet", "")
         if len(content) >= 10000 or not any(dom in url for dom in ["pmc", "ncbi", "ieee", "arxiv"]):
             return content
-        
+
     text = await fetch_with_jina(url)
     if not text or len(text.strip()) < 50:
         from .providers.jina import fetch_direct_html

@@ -117,9 +117,18 @@ async def init_db():
                 unverified_facts INTEGER DEFAULT 0,
                 excluded_sources INTEGER DEFAULT 0,
                 citations INTEGER DEFAULT 0,
+                truncation_detected INTEGER DEFAULT 0,
+                trim_applied INTEGER DEFAULT 0,
+                uncited_assertions INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # 既存DBへのカラム追加（存在する場合は無視）
+        for col in ("truncation_detected", "trim_applied", "uncited_assertions"):
+            try:
+                await db.execute(f"ALTER TABLE integrity_stats ADD COLUMN {col} INTEGER DEFAULT 0")
+            except Exception:
+                pass
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS kv_memories (

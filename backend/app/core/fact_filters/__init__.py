@@ -12,6 +12,8 @@ from .temporal import *
 from .safety import *
 from .entity import *
 from .format import *
+from .citation import *
+from .pipeline import apply_grounding_pipeline, CONSOLIDATION_NOTES
 
 
 def filter_fact(fact: str) -> str:

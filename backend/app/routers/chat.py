@@ -285,9 +285,9 @@ async def chat(request: ChatRequest):
                 return q_text
             # 特定の市場・ポートフォリオ相談の会話文の場合は確実にヒットするクローズド/高ヒット率クエリへ変換
             if any(k in q_text for k in ["半導体", "SOX", "200A", "2243", "AVGO"]) and any(k in q_text for k in ["銘柄", "組み込", "リバランス", "思惑", "狙い"]):
-                return "半導体株 ETF 注目銘柄 リバウンド 見通し 最新"
+                return "半導体株 ETF 注目銘柄 リバウンド 見通し 2026"
             if any(k in q_text for k in ["ポートフォリオ", "比率", "リバランス"]) and any(k in q_text for k in ["銘柄", "組み込", "おすすめ", "何がいい", "かな"]):
-                return "米国株 日本株 分散 高配当 ETF おすすめ 銘柄 最新"
+                return "米国株 日本株 分散 高配当 ETF おすすめ 銘柄 2026"
             # 一般的な口語表現や不要な助詞・語尾・感嘆符を除去しキーワードのみ抽出
             cleaned = re.sub(r'[ｗw！!？?。、,（）()]', ' ', q_text)
             cleaned = re.sub(r'(?:だったんだ|なんだけど|だけど|思惑外れてる|外れてる|見ての通り|なので|から|ってこと|って|どう思う|いいと思う|いいかな|教えて|したい|しようと思ってます|思いますか|なんだよね|よね|だよね)', ' ', cleaned)
@@ -310,20 +310,20 @@ async def chat(request: ChatRequest):
             # 会話文がそのままクエリになっている場合はクリーンなセクターキーワードに置き換え
             if len(search_queries) == 1 and (len(search_queries[0]) > 30 or any(p in search_queries[0] for p in ["思惑", "短期", "見ての通り", "比率"])):
                 if any(k in user_input for k in ["半導体", "SOX", "SOXX", "インテル", "AVGO", "200A", "2243"]):
-                    search_queries[0] = "半導体株 ETF 見通し 動向 注目銘柄 最新"
+                    search_queries[0] = "半導体株 ETF 見通し 動向 注目銘柄 2026"
                 elif any(k in user_input for k in ["リバランス", "組み込", "ポートフォリオ", "高配当"]):
-                    search_queries[0] = "米国株 日本株 高配当 ETF おすすめ 注目銘柄 最新"
+                    search_queries[0] = "米国株 日本株 高配当 ETF おすすめ 注目銘柄 2026"
 
             has_rebound_query = any(w in q.lower() for q in search_queries for w in ["rebound", "recovery", "high", "反発", "回復", "見通し", "outlook"])
             if not has_rebound_query and len(search_queries) < 2:
                 if any(k in user_input for k in ["半導体", "SOX", "SOXX", "インテル", "AVGO", "200A", "2243"]):
-                    search_queries.append("semiconductor ETF stock market outlook current")
+                    search_queries.append("semiconductor ETF stock market outlook 2026")
                 else:
-                    search_queries.append("US Japan stock dividend ETF market outlook current")
+                    search_queries.append("US Japan stock dividend ETF market outlook 2026")
                 logger.info(f"📈 市場調査クエリにバランス反発・見通し検索クエリを自動追加しました: {search_queries[-1]}")
         elif search_needed and any(kw in user_input for kw in negative_keywords) and len(search_queries) < 2:
             # 市場以外のネガティブ単一問いに対して、改善・解決・最新フォローアップクエリを自動ペア補完
-            search_queries.append(f"{search_queries[0]} solutions improvements latest update")
+            search_queries.append(f"{search_queries[0]} solutions improvements latest update 2026")
             logger.info(f"⚖️ リサーチクエリに多角的バランス補完クエリを追加しました: {search_queries[-1]}")
 
         # --- Intent Routing (Auto Mode Switching) ---

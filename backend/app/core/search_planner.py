@@ -47,6 +47,7 @@ PLANNER_SYSTEM_PROMPT = """あなたはユーザーの入力と文脈から、**
 【判定ルール（優先順位順）】
 1. 【最優先】「なんか熱い銘柄ない？」「今日熱い銘柄は？」など具体的なティッカー・セクター名が含まれない単純な「注目銘柄」の質問は `needs_search: false` としますが、ユーザーが「半導体」「リバランス」「ポートフォリオ」「決算」「インフレ」等のセクターや市場見通しに言及しながら組み入れ候補・今後の動向を尋ねている場合（例：「半導体は短期狙いだった。組み込むなら？」「半導体比率が高いのでリバランスしたい、何がいい？」等）は、必ず `needs_search: true` とし、「半導体株 ETF リバウンド 見通し 2026」「半導体セクター 注目銘柄 リバランス 2026」「semiconductor ETF stock outlook July 2026」のような検索用キーワードクエリ配列を出力してください。
 2. 特定の話題やニュース、最近の出来事、あるいは過去の会話で提示されたおすすめ・選択肢内の個別作品名・曲名・製品・項目について尋ねられたり感想を言われた場合は、検索さぼりによる近接文脈バイアス・誤帰属を根絶するため、必ず `needs_search: true` として検索を実行してください。
+2.5. 【スポーツ・競馬・レース等の実世界イベントのフォローアップ】競馬（馬名・騎手・オッズ・配当・血統）、スポーツ試合結果、レース結果などの実世界イベントについて、直前の会話で触れた話題への感想・追加質問・補足確認（例：「でも直前まで13倍以上ついてた」「騎手は誰？」「アルゴ入ってるのかな」）であっても、必ず `needs_search: true` とし、関連する英語または日本語の事実確認クエリを生成してください。検索さぼりによる騎手名・オッズ・記録のパラメトリック記憶ハルシネーションを防ぐためです。
 3. 政治・経済・世界情勢・天気の質問も `true` にしてください。
 4. AI自身の記憶や日常の挨拶・単純な雑談は `false` にしてください。
 
@@ -104,43 +105,48 @@ async def plan_search(user_input: str, history_messages: list[dict]) -> dict[str
 
         logger.debug(f"Search Planner Raw Response: {response_text}")
 
+        needs_search = False
+        search_queries = []
+        providers = ["brave"]
+        needs_deep_search = False
+        recommended_mode = "chat"
+        category = "general"
+
         if not response_text or not response_text.strip():
             logger.warning("Search Planner received an empty response from LLM.")
-            return {"needs_search": False, "search_query": "", "needs_deep_search": False, "recommended_mode": "chat"}
-
-        # JSON抽出（ネスト対応の堅牢なパーサーを使用）
-        from app.utils.parser import find_json_objects
-        
-        json_str = None
-        # まずMarkdownのコードブロック内を探す
-        match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response_text, re.DOTALL)
-        if match:
-            json_str = match.group(1)
         else:
-            # ネスト対応のブレースカウントで抽出
-            objs = find_json_objects(response_text)
-            if objs:
-                json_str = objs[0]  # 最初のJSONオブジェクトを使用
+            # JSON抽出（ネスト対応の堅牢なパーサーを使用）
+            from app.utils.parser import find_json_objects
+            
+            json_str = None
+            # まずMarkdownのコードブロック内を探す
+            match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response_text, re.DOTALL)
+            if match:
+                json_str = match.group(1)
             else:
-                logger.error(f"JSON not found in response: {response_text[:200]}")
-                return {"needs_search": False, "search_queries": [], "needs_deep_search": False, "recommended_mode": "chat"}
+                # ネスト対応のブレースカウントで抽出
+                objs = find_json_objects(response_text)
+                if objs:
+                    json_str = objs[0]  # 最初のJSONオブジェクトを使用
+                else:
+                    logger.error(f"JSON not found in response: {response_text[:200]}")
 
-        json_str = json_str.strip()
-        data = json.loads(json_str)
+            if json_str:
+                json_str = json_str.strip()
+                data = json.loads(json_str)
 
-        needs_search = bool(data.get("needs_search", False))
-        
-        # search_queries のリストを取得し、もし古いフォーマットで search_query があればそれもリストに追加する
-        search_queries = data.get("search_queries", [])
-        if not search_queries and "search_query" in data and data["search_query"]:
-            search_queries = [str(data["search_query"])]
-        search_queries = search_queries[:2]  # 最大2個に厳格制限
+                needs_search = bool(data.get("needs_search", False))
+                
+                # search_queries のリストを取得し、もし古いフォーマットで search_query があればそれもリストに追加する
+                search_queries = data.get("search_queries", [])
+                if not search_queries and "search_query" in data and data["search_query"]:
+                    search_queries = [str(data["search_query"])]
+                search_queries = search_queries[:2]  # 最大2個に厳格制限
 
-        
-        providers = data.get("providers", ["brave"])
-        needs_deep_search = bool(data.get("needs_deep_search", False))
-        recommended_mode = str(data.get("recommended_mode", "chat"))
-        category = str(data.get("category", "general"))
+                providers = data.get("providers", ["brave"])
+                needs_deep_search = bool(data.get("needs_deep_search", False))
+                recommended_mode = str(data.get("recommended_mode", "chat"))
+                category = str(data.get("category", "general"))
 
     except Exception as e:
         logger.error(f"Search Planner failed or invalid format: {e}")
@@ -158,6 +164,22 @@ async def plan_search(user_input: str, history_messages: list[dict]) -> dict[str
         if not search_queries:
             search_queries = [user_input]
         logger.info(f"強制ルール適用: 'RSS' が含まれているため、providers を ['news']、needs_search を True に上書きしました。")
+
+    # 【強制ハードコード】競馬・スポーツ実世界イベントのフォローアップは検索必須
+    _SPORTS_EVENT_KW = [
+        "競馬", "騎手", "単勝", "オッズ", "配当", "馬券", "G1", "GⅠ",
+        "キングジョージ", "ダービー", "血統", "鞍上",
+        "試合結果", "スコア", "優勝", "決勝",
+    ]
+    history_blob = " ".join(str(m.get("content", ""))[:300] for m in recent_history)
+    if any(kw in user_input or kw in history_blob for kw in _SPORTS_EVENT_KW):
+        # 挨拶のみは除外
+        if not re.fullmatch(r"[\s　]*(おはよう|こんにちは|こんばんは|よろしく|ありがとう)[！!。．\s　]*", user_input or ""):
+            if not needs_search:
+                needs_search = True
+                logger.info("強制ルール適用: スポーツ・競馬関連の実世界イベント言及のため needs_search=True")
+            if not search_queries:
+                search_queries = [user_input[:80]]
 
 
     return {

@@ -83,6 +83,20 @@ async def auto_execute_with_retry(
     if "完全閉世界（Closed-World）原則" not in executor_sys_prompt:
         executor_sys_prompt += universal_closed_world_instruction
 
+    # ソースなしターン: 時事的固有名詞の新規断定を禁止
+    if not search_results:
+        no_source_guard = (
+            "\n\n【🔴 ソースなしターン：固有名詞断定の厳禁】\n"
+            "このターンは検索ソースがありません。"
+            "会話履歴・ユーザー発言に明示されていない時事的固有名詞"
+            "（人名・騎手・役職・所属・記録値・オッズ・日付付きイベント結果）を新規に断定することを禁止します。"
+            "必要なら『〜だったはず（要確認）』の不確実表現にするか、"
+            "先に <search query=\"...\" /> タグで検索を実行してください。"
+            "パラメトリック記憶（事前学習データ）からの補完は絶対に行わないこと。"
+        )
+        if "ソースなしターン" not in executor_sys_prompt:
+            executor_sys_prompt += no_source_guard
+
     if "<<<FINAL_ANSWER>>>" not in executor_sys_prompt:
         executor_sys_prompt += boundary_instruction
     
@@ -139,18 +153,19 @@ async def auto_execute_with_retry(
         
         buffer = ""
         in_xml_block = False
+        _TOOL_TAG_NAMES = (
+            r'file|replace|run_command|read_url|read_file|list_dir|search|search_news|'
+            r'search_codebase|grep_search|view_file|mcp_call|escalate'
+        )
         tool_tag_start_pattern = re.compile(
-            r'<(file|replace|run_command|read_url|read_file|list_dir|search|search_news|'
-            r'mcp_call|escalate)(?:\s|>|/>)'
+            rf'<({_TOOL_TAG_NAMES})(?:\s|>|/>)'
         )
         self_closing_pattern = re.compile(
-            r'<(file|replace|run_command|read_url|read_file|list_dir|search|search_news|'
-            r'mcp_call|escalate)[^>]*/>',
+            rf'<({_TOOL_TAG_NAMES})[^>]*/>',
             re.DOTALL
         )
         closing_tag_pattern = re.compile(
-            r'</(file|replace|run_command|read_url|read_file|list_dir|search|search_news|'
-            r'mcp_call|escalate)>',
+            rf'</({_TOOL_TAG_NAMES})>',
             re.DOTALL
         )
         
@@ -167,13 +182,13 @@ async def auto_execute_with_retry(
                         
                         # <think> 開始タグ検出
                         if match_think:
-                            in_think_block = True
-                            # <think> より前のテキストがあれば出力
+                            # <think> より前のテキストがあれば、フラグ設定前に出力
                             before_think = tag_buf[:match_think.start()]
                             if before_think and not in_think_block:
                                 if yield_sse_func:
                                     yield_sse_func({"type": "chunk", "content": before_think})
                                 yield before_think
+                            in_think_block = True
                             
                             remainder = tag_buf[match_think.end():]
                             tag_buf = remainder
@@ -192,7 +207,7 @@ async def auto_execute_with_retry(
                                 yield remainder
                             continue
                             
-                        elif not re.search(r'<(search|read_url|read_file|run_command|file|replace|list_dir|search_news|mcp_call|escalate)', tag_buf):
+                        elif not re.search(rf'<({_TOOL_TAG_NAMES})', tag_buf):
                             if not in_think_block:
                                 if yield_sse_func:
                                     yield_sse_func({"type": "chunk", "content": tag_buf})
@@ -203,7 +218,7 @@ async def auto_execute_with_retry(
                         else:
                             # ツールタグを検出（SSEには流さず内部バッファへ）
                             # もしツールタグの前にテキストがあればそれは流す
-                            tool_match = re.search(r'<(search|read_url|read_file|run_command|file|replace|list_dir|search_news|mcp_call|escalate)', tag_buf)
+                            tool_match = re.search(rf'<({_TOOL_TAG_NAMES})', tag_buf)
                             if tool_match and tool_match.start() > 0:
                                 before_tool = tag_buf[:tool_match.start()]
                                 if not in_think_block:
@@ -453,7 +468,8 @@ async def auto_execute_with_retry(
                 'コマンドを実行',
             ])
             has_any_xml = bool(re.search(
-                r'<(file|replace|run_command|read_url|read_file|list_dir|search|escalate)',
+                r'<(file|replace|run_command|read_url|read_file|list_dir|search|search_news|'
+                r'search_codebase|grep_search|view_file|mcp_call|escalate)',
                 stream_response
             ))
             
@@ -496,6 +512,8 @@ async def auto_execute_with_retry(
             filter_unknown_entity_listings,
             sanitize_buffer_contamination,
             strip_out_of_period_event_mentions,
+            trim_incomplete_trailing_sentence,
+            strip_dangling_tool_promises,
         )
         _, final_accumulated_response = check_currency_consistency(final_accumulated_response)
         _, final_accumulated_response = verify_numbers_exist_in_source(final_accumulated_response, str(search_results or ""))
@@ -515,6 +533,8 @@ async def auto_execute_with_retry(
         final_accumulated_response = verify_holiday_and_weekend_claims(final_accumulated_response)
         final_accumulated_response = strip_excuse_hallucinations(final_accumulated_response)
         final_accumulated_response = sanitize_buffer_contamination(final_accumulated_response)
+        final_accumulated_response = strip_dangling_tool_promises(final_accumulated_response)
+        final_accumulated_response = trim_incomplete_trailing_sentence(final_accumulated_response)
     except Exception as e:
         logger.warning(f"Fact filter validation warning in auto_execution_loop: {e}")
 
@@ -567,12 +587,22 @@ async def auto_execute_with_retry(
     final_accumulated_response = re.sub(r'<think>.*?</think>', '', final_accumulated_response, flags=re.DOTALL)
     # 閉じタグなしの <think> も除去（モデルが </think> を出力し忘れた場合）
     final_accumulated_response = re.sub(r'<think>(?:(?!</think>).)*$', '', final_accumulated_response, flags=re.DOTALL)
+    # エスカレーションタグの最終文面への漏れを防止
+    final_accumulated_response = re.sub(r'<escalate>.*?</escalate>', '', final_accumulated_response, flags=re.DOTALL)
+    final_accumulated_response = re.sub(r'<escalate>(?:(?!</escalate>).)*$', '', final_accumulated_response, flags=re.DOTALL)
     final_accumulated_response = re.sub(r'(?m)^(?:まず、ユーザーの発言を分析します[^\n]*\n+|Output format:[^\n]*\n+|user_intent_analysis:[^\n]*\n+)+', '', final_accumulated_response)
     final_accumulated_response = re.sub(r'【一般検索結果:.*?】\s*(?:\[brave\s*\[Tier.*?\]\].*?\n?)+', '', final_accumulated_response, flags=re.DOTALL)
     try:
-        from app.core.fact_filter import filter_unknown_entity_listings, sanitize_buffer_contamination
+        from app.core.fact_filter import (
+            filter_unknown_entity_listings,
+            sanitize_buffer_contamination,
+            trim_incomplete_trailing_sentence,
+            strip_dangling_tool_promises,
+        )
         final_accumulated_response = filter_unknown_entity_listings(final_accumulated_response)
         final_accumulated_response = sanitize_buffer_contamination(final_accumulated_response)
+        final_accumulated_response = strip_dangling_tool_promises(final_accumulated_response)
+        final_accumulated_response = trim_incomplete_trailing_sentence(final_accumulated_response)
     except Exception as e:
         logger.warning(f"Final cleanup warning: {e}")
 

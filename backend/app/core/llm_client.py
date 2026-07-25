@@ -332,12 +332,14 @@ async def _call_model_inner(
         return response.content[0].text
 
 
-@retry(
-    wait=wait_exponential(multiplier=1, min=2, max=10),
-    stop=stop_after_attempt(2),
-    retry=retry_if_exception_type(Exception),
-    reraise=True
-)
+def _escalate_for_truncation(reason: str) -> str:
+    """トークン上限・安全フィルタ等で途切れた場合のエスカレーションタグを生成する。"""
+    return (
+        f"\n\n<escalate>応答が途切れました（原因: {reason}）。"
+        "前の回答を最初から生成し直してください。</escalate>"
+    )
+
+
 async def _stream_model_inner(
     system_instruction: str,
     messages: list,
@@ -349,6 +351,7 @@ async def _stream_model_inner(
     """
     LLM をストリーミングモードで呼び出し、テキストチャンクを逐次 yield。
     ユーザーとのチャット応答で使用。
+    注: async generator には tenacity retry が効かないため付与しない。
     """
     system_instruction, messages = _ensure_request_size(system_instruction, messages)
     effective_provider = provider or get_provider()
@@ -380,6 +383,33 @@ async def _stream_model_inner(
         async for chunk in response_stream:
             if chunk.text:
                 yield chunk.text
+            # finish_reason 検出（MAX_TOKENS / SAFETY 等で途切れた場合にescalate）
+            candidates = getattr(chunk, "candidates", None) or []
+            if candidates:
+                finish_reason = getattr(candidates[0], "finish_reason", None)
+                if finish_reason is not None:
+                    reason_name = getattr(finish_reason, "name", None) or str(finish_reason)
+                    logger.info(f"📡 Gemini finish_reason={reason_name}")
+                    # FinishReason enum: STOP=1, MAX_TOKENS=2, SAFETY=3, RECITATION=4, OTHER=5
+                    # 文字列比較と数値比較の両方に対応
+                    reason_upper = reason_name.upper() if isinstance(reason_name, str) else ""
+                    is_truncated = (
+                        reason_upper in ("MAX_TOKENS", "SAFETY", "RECITATION", "OTHER")
+                        or reason_name in (2, 3, 4, 5)
+                        or str(finish_reason) in ("2", "3", "4", "5")
+                    )
+                    # STOP / FINISH_REASON_UNSPECIFIED は正常終了
+                    is_ok = reason_upper in ("STOP", "FINISH_REASON_UNSPECIFIED", "UNSPECIFIED", "1", "0") or reason_name in (0, 1)
+                    if is_truncated or (not is_ok and reason_upper and reason_upper != "STOP"):
+                        if reason_upper in ("MAX_TOKENS",) or reason_name == 2 or str(finish_reason) == "2":
+                            logger.warning(f"⚠️ Gemini応答がトークン上限で途切れました: finish_reason={reason_name}")
+                            yield _escalate_for_truncation(f"Gemini MAX_TOKENS ({reason_name})")
+                        elif reason_upper in ("SAFETY",) or reason_name == 3 or str(finish_reason) == "3":
+                            logger.warning(f"⚠️ Gemini応答がセーフティフィルタで遮断されました: finish_reason={reason_name}")
+                            yield _escalate_for_truncation(f"Gemini SAFETY ({reason_name})")
+                        elif not is_ok:
+                            logger.warning(f"⚠️ Gemini応答が異常終了しました: finish_reason={reason_name}")
+                            yield _escalate_for_truncation(f"Gemini {reason_name}")
 
     elif effective_provider == "deepseek":
         client = get_deepseek_client()
@@ -413,6 +443,13 @@ async def _stream_model_inner(
                     has_finished_thinking = True
                     yield "\n</think>\n\n"
                 yield content
+            
+            finish_reason = getattr(chunk.choices[0], "finish_reason", None)
+            if finish_reason:
+                logger.info(f"📡 DeepSeek finish_reason={finish_reason}")
+            if finish_reason == "length":
+                logger.warning("⚠️ DeepSeek応答がトークン上限で途切れました")
+                yield _escalate_for_truncation("DeepSeek length")
 
         # ストリーム終了時にまだ</think>を出力していなければ出力する
         if is_thinking and not has_finished_thinking:
@@ -430,8 +467,16 @@ async def _stream_model_inner(
             temperature=temperature,  # ← 追加
         )
         async for chunk in stream:
-            if chunk.choices and chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
+            if chunk.choices:
+                content = chunk.choices[0].delta.content
+                if content:
+                    yield content
+                finish_reason = getattr(chunk.choices[0], "finish_reason", None)
+                if finish_reason:
+                    logger.info(f"📡 OpenAI finish_reason={finish_reason}")
+                if finish_reason == "length":
+                    logger.warning("⚠️ OpenAI応答がトークン上限で途切れました")
+                    yield _escalate_for_truncation("OpenAI length")
                 
     elif effective_provider == "local":
         client = get_local_client()
@@ -445,8 +490,16 @@ async def _stream_model_inner(
             temperature=temperature,  # ← 追加
         )
         async for chunk in stream:
-            if chunk.choices and chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
+            if chunk.choices:
+                content = getattr(chunk.choices[0].delta, "content", None)
+                if content:
+                    yield content
+                finish_reason = getattr(chunk.choices[0], "finish_reason", None)
+                if finish_reason:
+                    logger.info(f"📡 Local finish_reason={finish_reason}")
+                if finish_reason == "length":
+                    logger.warning("⚠️ Local LLM応答がトークン上限で途切れました")
+                    yield _escalate_for_truncation("Local length")
                 
     else:
         client = get_anthropic_client()
@@ -460,6 +513,17 @@ async def _stream_model_inner(
         ) as stream:
             async for text in stream.text_stream:
                 yield text
+            # Anthropic: ストリーム終了後に最終メッセージの stop_reason を確認
+            try:
+                final_message = await stream.get_final_message()
+                stop_reason = getattr(final_message, "stop_reason", None)
+                if stop_reason:
+                    logger.info(f"📡 Anthropic stop_reason={stop_reason}")
+                if stop_reason == "max_tokens":
+                    logger.warning("⚠️ Anthropic応答がトークン上限で途切れました")
+                    yield _escalate_for_truncation("Anthropic max_tokens")
+            except Exception as e:
+                logger.debug(f"Anthropic stop_reason取得スキップ: {e}")
 
 def _estimate_tokens(text: str) -> int:
     try:
@@ -497,7 +561,8 @@ async def stream_model(
     max_tokens: int = 16384,
     provider: str | None = None,
     temperature: float = 0.7,
-):
+) -> AsyncGenerator[str, None]:
+    """予算チェック後、ストリーム生成を実行するラッパー。例外発生時は自動リトライ用のエスカレーションタグを返す。"""
     if not check_budget():
         yield "【エラー】本日のAPI利用上限に達しました。明日またお試しください。"
         return
@@ -506,9 +571,14 @@ async def stream_model(
     prompt_tokens = _estimate_tokens(prompt_text)
     
     completion_text = ""
-    async for chunk in _stream_model_inner(system_instruction, messages, model_name, max_tokens, provider, temperature):
-        completion_text += chunk
-        yield chunk
+    try:
+        async for chunk in _stream_model_inner(system_instruction, messages, model_name, max_tokens, provider, temperature):
+            completion_text += chunk
+            yield chunk
+    except Exception as e:
+        logger.error(f"Stream interrupted: {e}")
+        # 例外が発生した場合、auto_execution_loop にリトライさせるためのエスカレーションタグを出力
+        yield f"\n\n<escalate>API接続エラーにより応答が途切れました。前の回答を生成し直してください。({e})</escalate>"
         
     completion_tokens = _estimate_tokens(completion_text)
     actual_model = model_name or "default-model"

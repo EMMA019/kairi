@@ -12,7 +12,7 @@
 import json
 import asyncio
 import re
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from app.models.chat import ChatRequest
@@ -38,6 +38,75 @@ router = APIRouter()
 # メモリリーク防止: 最大200セッション分のみ保持
 _MAX_FOLLOWUP_SESSIONS = 200
 _followup_histories: dict[str, list[bool]] = {}
+
+# 直近ターンの検索結果をセッション単位で保持（フォローアップのハルシネーション防止）
+_MAX_SEARCH_CARRY_SESSIONS = 200
+_last_search_by_session: dict[str, dict] = {}
+
+
+def _store_search_carryover(session_id: str, search_results_text: str | None, search_queries: list, user_input: str):
+    """検索成功時にセッションへ結果を保存する。"""
+    if not search_results_text or not search_results_text.strip():
+        return
+    if len(_last_search_by_session) >= _MAX_SEARCH_CARRY_SESSIONS and session_id not in _last_search_by_session:
+        oldest_key = next(iter(_last_search_by_session))
+        del _last_search_by_session[oldest_key]
+    _last_search_by_session[session_id] = {
+        "text": search_results_text,
+        "queries": list(search_queries or []),
+        "user_input": user_input,
+    }
+
+
+def _maybe_carry_search_results(
+    session_id: str,
+    user_input: str,
+    history_messages: list,
+    search_needed: bool,
+    search_results_text: str | None,
+) -> str | None:
+    """
+    今ターン検索なしでも、直前ターンが検索済みかつ同一トピックなら結果を再注入する。
+
+    判定方針:
+    - 前ターンのトピック語（前ユーザー入力・検索クエリ）が、
+      現入力または直近履歴に残っている → 同一トピックのフォローアップとみなす
+    - これにより「カルパナ…」の直後に「でも直前まで13倍…」のように
+      固有名詞を繰り返さない感想でもソースを引き継げる
+    """
+    if search_needed or search_results_text:
+        return search_results_text
+    prev = _last_search_by_session.get(session_id)
+    if not prev or not prev.get("text"):
+        return search_results_text
+
+    stop = {
+        "それ", "これ", "あれ", "どう", "そう", "けど", "だけど", "って", "感じ",
+        "思う", "教えて", "ください", "です", "ます", "した", "いる", "ある",
+        "だった", "よね", "なに", "何が", "the", "and", "was", "for", "about",
+    }
+
+    def _tokens(text: str) -> set[str]:
+        found = set(re.findall(r"[一-龥ァ-ヶー]{2,}|[A-Za-z][A-Za-z0-9_\-]{2,}", text or ""))
+        return {t for t in found if t.lower() not in stop and t not in stop}
+
+    topic_tokens = _tokens(prev.get("user_input", ""))
+    for q in prev.get("queries") or []:
+        topic_tokens |= _tokens(str(q))
+    if not topic_tokens:
+        return search_results_text
+
+    # 現入力 + 直近履歴（ユーザー/アシスタント）を照合先にする
+    context_parts = [user_input or ""]
+    for m in (history_messages or [])[-4:]:
+        context_parts.append(str(m.get("content", ""))[:500])
+    context = "\n".join(context_parts)
+
+    overlap = [t for t in topic_tokens if t in context]
+    if len(overlap) >= 1:
+        logger.info(f"🔁 フォローアップへ前ターン検索結果を再注入 (overlap={overlap[:5]})")
+        return prev["text"]
+    return search_results_text
 
 
 def _clip_search_results(text: str, max_bytes: int = 100_000) -> str:
@@ -166,6 +235,12 @@ async def chat(request: ChatRequest):
             response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
             response_text = re.sub(r'<think>(?:(?!</think>).)*$', '', response_text, flags=re.DOTALL)
             response_text = response_text.strip()
+            try:
+                from app.core.fact_filter import trim_incomplete_trailing_sentence, strip_dangling_tool_promises
+                response_text = strip_dangling_tool_promises(response_text)
+                response_text = trim_incomplete_trailing_sentence(response_text)
+            except Exception:
+                pass
             
             if is_hyper_gal and response_text:
                 response_text = to_hyper_gal_v3(response_text)
@@ -220,6 +295,12 @@ async def chat(request: ChatRequest):
             response_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
             response_text = re.sub(r'<think>(?:(?!</think>).)*$', '', response_text, flags=re.DOTALL)
             response_text = response_text.strip()
+            try:
+                from app.core.fact_filter import trim_incomplete_trailing_sentence, strip_dangling_tool_promises
+                response_text = strip_dangling_tool_promises(response_text)
+                response_text = trim_incomplete_trailing_sentence(response_text)
+            except Exception:
+                pass
             
             if is_hyper_gal and response_text:
                 response_text = to_hyper_gal_v3(response_text)
@@ -455,6 +536,15 @@ async def chat(request: ChatRequest):
             search_results_text = _clip_search_results(existing_text + "\n\n" + "\n\n".join(direct_url_texts))
             logger.info("ユーザー指定URLのスクレイピング本文をコンテキストに統合完了")
 
+        # 検索成功時はセッションへ保存（フォローアップ引き継ぎ用）
+        if search_results_text:
+            _store_search_carryover(session_id, search_results_text, search_queries, user_input)
+        else:
+            # 検索なしフォローアップ: 同一トピックなら前ターン結果を再注入
+            search_results_text = _maybe_carry_search_results(
+                session_id, user_input, messages, search_needed, search_results_text
+            )
+
         max_supervisor_loops = 2
         supervisor_loop_count = 0
         escalation_history = []
@@ -674,7 +764,10 @@ async def chat(request: ChatRequest):
             else:
                 instruction = str(instruction_dict)
             memory_to_inject = filtered_kv_text if supervisor_json.get("memory_inject") else None
-            search_to_inject = search_results_text if supervisor_json.get("search_used") else None
+            # 検索結果が存在するなら常に注入（Supervisorの search_used 自己申告で捨てない）
+            search_to_inject = search_results_text
+            if search_results_text and not supervisor_json.get("search_used"):
+                logger.info("📎 search_used=false だが検索結果が存在するため Executor へ注入します")
         
             # auto_execution_loop を使用した自律ループ
             from app.core.auto_execution_loop import auto_execute_with_retry

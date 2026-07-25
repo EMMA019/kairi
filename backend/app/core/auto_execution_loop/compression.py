@@ -1,16 +1,7 @@
-import json
-import re
-import asyncio
-import uuid
-import time
-from typing import AsyncGenerator, Optional
-from datetime import datetime
-from pathlib import Path
 from app.utils.logger import get_logger
+from .heuristics import _detect_error
 
 logger = get_logger(__name__)
-from app.core.llm_client import call_model
-from app.routers.settings import get_settings
 
 async def _smart_compress_loop_history(loop_history: list[dict], max_total_chars: int = 30000) -> list[dict]:
     """ツール結果の重要度に基づいた賢い圧縮（Claude Code準拠）"""

@@ -152,6 +152,139 @@ def strip_unrequested_yahoo_finance(
 
 
 
+_TERMINAL_CHARS = set("。．！？!?…‼⁉」』）)]\"'”’")
+_TOOL_PROMISE_PATTERN = re.compile(
+    r"(?:"
+    r"(?:まず[、,]?)?(?:残りの)?(?:主要)?(?:指数|データ|情報|記事|詳細)を(?:取得|検索|確認|調べ)(?:し(?:ます|て(?:き|まい)|ますね)|する(?:わ|ね|よ)?)"
+    r"|(?:検索|スクレイピング|データ取得)(?:して|しに)(?:き|まい)(?:ます|る)(?:ね|よ|わ)?"
+    r"|(?:少々|少し)?お待ちください"
+    r")[。．！!…]*\s*$"
+)
+
+
+def _is_protected_trailing_line(line: str) -> bool:
+    """コードブロック・表・箇条書き・見出しは文末トリム対象外。"""
+    stripped = line.strip()
+    if not stripped:
+        return True
+    if stripped.startswith("```") or stripped.startswith("|"):
+        return True
+    if re.match(r"^#{1,6}\s+", stripped):
+        return True
+    if re.match(r"^[-*+]\s+", stripped) or re.match(r"^\d+[.)]\s+", stripped):
+        return True
+    return False
+
+
+def _ends_with_valid_terminal(text: str) -> bool:
+    """正当な終端文字・絵文字・コードブロック閉じで終わっているか。"""
+    s = text.rstrip()
+    if not s:
+        return True
+    if s.endswith("```"):
+        return True
+    last = s[-1]
+    if last in _TERMINAL_CHARS:
+        return True
+    # 末尾が絵文字（簡易: サロゲートペア / 一般的な絵文字範囲）
+    if ord(last) >= 0x1F300 or (0x2600 <= ord(last) <= 0x27BF):
+        return True
+    # 結合絵文字の最終コードポイント
+    if len(s) >= 2 and 0xFE0F == ord(last):
+        return True
+    return False
+
+
+def trim_incomplete_trailing_sentence(text: str) -> str:
+    """
+    句読点・！？等で終わらない不完全な末尾文をシステマチックに刈り取る。
+    コードブロック・表・箇条書き・見出しは保護。切り戻しが全文の50%超なら適用しない。
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    original = text
+    text = text.rstrip()
+    if not text or _ends_with_valid_terminal(text):
+        return original.rstrip() if original.endswith(("\n", " ")) else text
+
+    # コードブロック内で終わっている場合は保護（奇数個の ```）
+    if text.count("```") % 2 == 1:
+        return text
+
+    lines = text.splitlines()
+    if not lines:
+        return text
+
+    last_line = lines[-1]
+    if _is_protected_trailing_line(last_line):
+        return text
+
+    # 末尾行内で最後の正当終端位置を探す
+    cut_pos = -1
+    for i in range(len(text) - 1, -1, -1):
+        if text[i] in _TERMINAL_CHARS:
+            # その位置以降が未保護の不完全文か確認
+            remainder = text[i + 1 :].strip()
+            if remainder and not _is_protected_trailing_line(remainder.splitlines()[0] if remainder.splitlines() else ""):
+                cut_pos = i + 1
+                break
+            # 終端そのもので終わっているなら完結
+            if not remainder:
+                return text
+
+    if cut_pos <= 0:
+        # 終端文字が一切ない → 末尾行全体を落とす（複数行ある場合のみ）
+        if len(lines) >= 2:
+            trimmed = "\n".join(lines[:-1]).rstrip()
+            if trimmed and len(trimmed) >= len(text) * 0.5:
+                logger.info(f"✂️ 不完全末尾行を除去: {last_line[:40]!r}")
+                return trimmed
+        return text
+
+    trimmed = text[:cut_pos].rstrip()
+    if not trimmed:
+        return text
+    if len(trimmed) < len(text) * 0.5:
+        logger.info("✂️ 文末トリムを安全弁によりスキップ（50%超の削除）")
+        return text
+
+    removed = text[cut_pos:].strip()
+    if removed:
+        logger.info(f"✂️ 不完全末尾文を刈り取り: {removed[:60]!r}")
+    return trimmed
+
+
+def strip_dangling_tool_promises(text: str) -> str:
+    """
+    ツール実行予告で終わり、その後に結果が続かない末尾段落を除去する。
+    例: 「まず、残りの主要指数データを取得します。」
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    paragraphs = re.split(r"(\n\s*\n)", text)
+    if not paragraphs:
+        return text
+
+    # 末尾の空段落をスキップして最後の実質段落を探す
+    idx = len(paragraphs) - 1
+    while idx >= 0 and not paragraphs[idx].strip():
+        idx -= 1
+    if idx < 0:
+        return text
+
+    last = paragraphs[idx].strip()
+    if _TOOL_PROMISE_PATTERN.search(last) and len(last) < 120:
+        logger.info(f"✂️ ツール実行予告の宙ぶらりん段落を除去: {last[:50]!r}")
+        del paragraphs[idx]
+        # 直前の区切りも除去
+        if idx > 0 and not paragraphs[idx - 1].strip():
+            del paragraphs[idx - 1]
+        return "".join(paragraphs).rstrip()
+    return text
+
+
 def strip_excuse_hallucinations(text: str) -> str:
     """
     自己正当化・言い訳ハルシネーション除去フィルター（動詞ベース包括版）：

@@ -10,6 +10,27 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+# エラーパターン検出用の正規表現
+ERROR_PATTERNS = [
+    re.compile(r'(Error|Exception|Traceback|Failed|SyntaxError|ImportError|ModuleNotFoundError)', re.IGNORECASE),
+    re.compile(r'(errno|exit code [1-9]|non-zero|returned 1)', re.IGNORECASE),
+    re.compile(r'(not found|No such|does not exist|cannot find|unable to resolve)', re.IGNORECASE),
+    re.compile(r'(permission denied|access denied|EACCES|EACCESS)', re.IGNORECASE),
+    re.compile(r'(timeout|timed out|connection refused|connection reset)', re.IGNORECASE),
+]
+
+# 誤検出（偽陽性）を除外するためのパターン
+IGNORE_ERROR_PATTERNS = [
+    re.compile(r'(npm warn|npm notice|deprecation|deprecated|SKIPPING|skipped|nothing to commit|0 vulnerabilities|no such file or directory, open \'.*package-lock\.json\')', re.IGNORECASE),
+    re.compile(r'(\b0 failed\b)', re.IGNORECASE),
+]
+
+# 成功パターン（明示的に成功を示す）
+SUCCESS_PATTERNS = [
+    re.compile(r'(success|completed|installed|created|updated|deleted)', re.IGNORECASE),
+    re.compile(r'(\b[1-9]\d*\s+passed\b|100%|all good|build success)', re.IGNORECASE),
+]
+
 def _detect_test_failure(tool_result: str) -> Optional[dict]:
     """テスト結果を構造化して解析（pytest, jest, go test, npm test等対応）"""
     if not tool_result:

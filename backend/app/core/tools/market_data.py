@@ -16,13 +16,20 @@ def get_stock_quote(ticker: str) -> str:
     try:
         t = yf.Ticker(ticker)
         info = t.info
+        history = t.history(period="5d")
         
-        # Determine the current price
-        current_price = info.get("currentPrice")
-        if not current_price:
-            current_price = info.get("regularMarketPrice")
-        if not current_price:
-            current_price = info.get("previousClose")
+        current_price = None
+        previous_close = None
+        if not history.empty:
+            current_price = float(history['Close'].iloc[-1])
+            if len(history) > 1:
+                previous_close = float(history['Close'].iloc[-2])
+                
+        # Determine the current price fallback if history fails
+        if current_price is None:
+            current_price = info.get("currentPrice") or info.get("regularMarketPrice") or info.get("previousClose")
+        if previous_close is None:
+            previous_close = info.get("previousClose")
 
         # Determine dividend yield
         dividend_yield = info.get("dividendYield")
@@ -39,7 +46,7 @@ def get_stock_quote(ticker: str) -> str:
             "ticker": ticker,
             "name": info.get("shortName", ticker),
             "current_price": current_price,
-            "previous_close": info.get("previousClose"),
+            "previous_close": previous_close,
             "open": info.get("open"),
             "day_low": info.get("dayLow"),
             "day_high": info.get("dayHigh"),

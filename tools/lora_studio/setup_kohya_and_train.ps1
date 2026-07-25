@@ -21,7 +21,7 @@ if (-not (Test-Path $BaseModelDir)) { New-Item -ItemType Directory -Force -Path 
 $SourceImgDir = Join-Path $ProjectRoot "img"
 if (Test-Path $SourceImgDir) {
     Write-Host "  -> Syncing high-precision WD14 images and tags to dataset directory..." -ForegroundColor Green
-    Copy-Item "$SourceImgDir\*" -Destination $DatasetDir -Force
+    Copy-Item "$SourceImgDir\Gemini_Generated_Image_*" -Destination $DatasetDir -Force
 }
 
 Write-Host "`n[2/5] Checking training engine (sd-scripts)..." -ForegroundColor Yellow
@@ -77,7 +77,7 @@ Write-Host " - Dataset: 25 high-precision WD14 tagged images (15 repeats x 25 = 
 Write-Host " - GPU: RTX 2060 (12GB VRAM optimized: fp16, 8-bit AdamW, memory efficient attention)" -ForegroundColor Gray
 Write-Host "------------------------------------------------------------------" -ForegroundColor Cyan
 Write-Host "`nPress Enter to begin automated LoRA training right now (or Ctrl+C to exit)..." -ForegroundColor Yellow
-Read-Host
+# Read-Host
 
 Write-Host "`n🚀 Launching training process right now..." -ForegroundColor Green
 $TrainScript = Join-Path $SdScriptsDir "sdxl_train_network.py"

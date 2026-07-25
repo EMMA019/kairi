@@ -13,6 +13,20 @@ def get_stock_quote(ticker: str) -> str:
     Ticker examples: HDV, AAPL, 7203.T.
     """
     logger.info(f"Fetching stock quote for {ticker}")
+    
+    # 指数の名前揺れを吸収するマッピング
+    ticker_upper = ticker.upper().strip()
+    if ticker_upper in ["S&P 500", "S&P500", "SPX"]:
+        ticker = "^GSPC"
+    elif ticker_upper in ["DOW", "DOW JONES", "DJI", "NY DOW"]:
+        ticker = "^DJI"
+    elif ticker_upper in ["NASDAQ", "COMP"]:
+        ticker = "^IXIC"
+    elif ticker_upper in ["NIKKEI", "NIKKEI 225", "NIKKEI225", "N225"]:
+        ticker = "^N225"
+    elif ticker_upper in ["SOX", "PHLX"]:
+        ticker = "^SOX"
+
     try:
         t = yf.Ticker(ticker)
         info = t.info

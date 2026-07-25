@@ -159,7 +159,7 @@ Docker Compose の操作が必要な場合は、以下の curl コマンドで�
         messages=messages,
         model_name=model_name,
         provider=provider,
-        max_tokens=16384 if mode == "task" else 4096,
+        max_tokens=16384,
     )
     
     async for chunk in stream:

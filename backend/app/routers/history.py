@@ -94,6 +94,7 @@ async def get_history(session_id: str):
 async def delete_session(session_id: str):
     """セッションと関連メッセージを削除"""
     async with get_db() as db:
+        await db.execute("DELETE FROM integrity_stats WHERE session_id = ?", (session_id,))
         await db.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
         await db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
         await db.commit()

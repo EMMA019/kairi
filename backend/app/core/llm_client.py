@@ -414,6 +414,10 @@ async def _stream_model_inner(
                     yield "\n</think>\n\n"
                 yield content
 
+        # ストリーム終了時にまだ</think>を出力していなければ出力する
+        if is_thinking and not has_finished_thinking:
+            yield "\n</think>\n\n"
+
     elif effective_provider == "openai":
         client = get_openai_client()
         model = model_name or "gpt-5.5"

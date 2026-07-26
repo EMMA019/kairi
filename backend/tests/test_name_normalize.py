@@ -33,6 +33,21 @@ def test_citation_softens_unknown_jockey():
     assert "ゼブラトン" not in out
 
 
+def test_citation_does_not_destroy_common_katakana():
+    src = "[1] AMD doubled in 2026. Mortgage rates rose."
+    raw = (
+        "ミニSaaSはAPIサービスです。ユーザーがキーワードを登録し、"
+        "クレジットをプリペイドで購入します。"
+    )
+    out = verify_citations(raw, src)
+    assert "API" in out
+    assert "ユーザー" in out
+    assert "キーワード" in out
+    assert "クレジット" in out
+    assert "ソース未記載" not in out
+    assert out.count("（要確認）") <= 3
+
+
 def test_search_effectively_empty_on_irrelevant():
     assert is_search_effectively_empty(
         "カルパナの騎手は誰",

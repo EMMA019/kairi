@@ -3,7 +3,7 @@
  * テキストエリアの自動リサイズ、Enter送信、Shift+Enter改行対応。
  */
 import { useState, useRef, useCallback, useEffect, type KeyboardEvent } from "react";
-import { getApiUrl } from "../utils/api";
+import { apiFetch } from "../utils/api";
 import { FileUploadButton } from "./FileUploadButton";
 
 interface InputAreaProps {
@@ -67,7 +67,7 @@ export function InputArea({ onSend, onStop, status }: InputAreaProps) {
       const formData = new FormData();
       formData.append("file", file);
       
-      const response = await fetch(getApiUrl("/api/upload"), {
+      const response = await apiFetch("/api/upload", {
         method: "POST",
         body: formData,
       });

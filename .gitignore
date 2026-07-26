@@ -50,5 +50,4 @@ backend/split_*.py
 backend/extract_prompt.py
 backend/read_db.py
 
-img/
 *.safetensors

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getApiUrl } from "../utils/api";
+import { apiFetch } from "../utils/api";
 import type { SessionInfo } from "../types";
 
 interface ProjectInfo {
@@ -39,7 +39,7 @@ export function Sidebar({
   const fetchSessions = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch(getApiUrl("/api/history"));
+      const res = await apiFetch("/api/history");
       if (res.ok) {
         const data = await res.json();
         setSessions(data.sessions || []);
@@ -55,7 +55,7 @@ export function Sidebar({
   // プロジェクト一覧をAPIから取得
   const fetchProjects = async () => {
     try {
-      const res = await fetch(getApiUrl("/api/project"));
+      const res = await apiFetch("/api/project");
       if (res.ok) {
         const data = await res.json();
         setProjects(data.projects || []);
@@ -69,7 +69,7 @@ export function Sidebar({
 
   const handleSwitchProject = async (projectId: string) => {
     try {
-      const res = await fetch(getApiUrl("/api/project/switch"), {
+      const res = await apiFetch("/api/project/switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ project_id: projectId }),
@@ -87,7 +87,7 @@ export function Sidebar({
     const name = prompt("Enter project name:");
     if (!name || !name.trim()) return;
     try {
-      const res = await fetch(getApiUrl("/api/project"), {
+      const res = await apiFetch("/api/project", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim() }),

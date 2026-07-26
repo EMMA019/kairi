@@ -10,8 +10,18 @@ API_URL = "http://127.0.0.1:7860/sdapi/v1/txt2img"
 OUTPUT_DIR = r"D:\program\chat\img\stock"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-BASE_TAGS = "<lora:kairi_v1:1.0>, kairi, 1girl, masterpiece, best quality, ultra-detailed"
-NEG_PROMPT = "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, two-tone hair"
+# 髪・瞳を明示してバッチ間のドリフトを抑える（夕焼けで瞳がアンバー化する等を軽減）
+BASE_TAGS = (
+    "<lora:kairi_v1:1.0>, kairi, 1girl, "
+    "short magenta bob hair, pink eyes, earrings, "
+    "masterpiece, best quality, ultra-detailed"
+)
+NEG_PROMPT = (
+    "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, "
+    "fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, "
+    "signature, watermark, username, blurry, two-tone hair, "
+    "blonde hair, brown hair, black hair, blue eyes, green eyes, amber eyes, yellow eyes"
+)
 
 # シチュエーションごとのグループ化（TPOをわきまえる）
 scenarios = [

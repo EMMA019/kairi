@@ -16,7 +16,8 @@ import { ActivityBar } from "./components/ActivityBar";
 import { IDEView } from "./components/IDEView";
 import { ToolPanel } from "./components/ToolPanel";
 import type { CodeBlock } from "./components/CodePanel";
-import { getApiUrl } from "./utils/api";
+import { apiFetch, AUTH_REQUIRED_EVENT } from "./utils/api";
+import { getCharBackgroundStyle } from "./utils/charBackground";
 import "./index.css";
 
 // コードブロック抽出（閉じタグ ``` が確認できたもののみ、および <file> タグ）
@@ -77,6 +78,23 @@ function App() {
   const [isCodePanelOpen, setIsCodePanelOpen] = useState(false);
   const [isToolPanelOpen, setIsToolPanelOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [charBackground, setCharBackground] = useState("");
+
+  const fetchCharBackground = useCallback(async () => {
+    try {
+      const res = await apiFetch("/api/settings");
+      if (res.ok) {
+        const data = await res.json();
+        setCharBackground(data.char_background || "");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCharBackground();
+  }, [fetchCharBackground]);
 
   useEffect(() => {
     if (window.innerWidth >= 768) {
@@ -86,14 +104,21 @@ function App() {
     // Wake up backend ping
     const wakeBackend = async () => {
       try {
-        await fetch(getApiUrl("/api/ping"));
+        await apiFetch("/api/ping");
       } catch (e) {
         console.error(e)
       }
     };
     wakeBackend();
     const interval = setInterval(wakeBackend, 10000);
-    return () => clearInterval(interval);
+
+    const onAuthRequired = () => setIsAuthOpen(true);
+    window.addEventListener(AUTH_REQUIRED_EVENT, onAuthRequired);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener(AUTH_REQUIRED_EVENT, onAuthRequired);
+    };
   }, []);
 
   const {
@@ -176,7 +201,7 @@ function App() {
 
   const handleNewSession = async () => {
     try {
-      const res = await fetch(getApiUrl("/api/history"), { 
+      const res = await apiFetch("/api/history", { 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -200,7 +225,7 @@ function App() {
 
   const handleDeleteSession = async (id: string) => {
     try {
-      const res = await fetch(getApiUrl(`/api/history/${id}`), { method: "DELETE" });
+      const res = await apiFetch(`/api/history/${id}`, { method: "DELETE" });
       if (res.ok) {
         setHistoryRefreshTrigger(prev => prev + 1);
         if (id === sessionId) {
@@ -340,7 +365,10 @@ function App() {
               onCloseIDE={() => setMode("chat")}
             />
           ) : (
-            <div className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0 min-h-0">
+            <div
+              className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0 min-h-0 transition-[background-image] duration-500"
+              style={mode === "char" ? getCharBackgroundStyle(charBackground) : undefined}
+            >
 
               <div className="flex-1 overflow-hidden flex flex-col relative min-h-0">
                 <ChatArea
@@ -385,7 +413,10 @@ function App() {
           {/* 設定モーダル */}
           <SettingsModal
             isOpen={isSettingsOpen}
-            onClose={() => setIsSettingsOpen(false)}
+            onClose={() => {
+              setIsSettingsOpen(false);
+              fetchCharBackground();
+            }}
           />
 
           {/* 認証・セキュリティモーダル */}

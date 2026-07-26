@@ -3,7 +3,7 @@ import { ChatArea } from "./ChatArea";
 import { InputArea } from "./InputArea";
 import type { ChatMessage } from "../types";
 import { CodePanel } from "./CodePanel";
-import { getApiUrl } from "../utils/api";
+import { apiFetch } from "../utils/api";
 import { FileExplorer } from "./FileExplorer";
 import type { CodeBlock } from "./CodePanel";
 
@@ -50,7 +50,7 @@ export const IDEView = memo(({
 
   const handleFileSelect = async (path: string) => {
     try {
-      const res = await fetch(getApiUrl(`/api/workspace/file?path=${encodeURIComponent(path)}`));
+      const res = await apiFetch(`/api/workspace/file?path=${encodeURIComponent(path)}`);
       const data = await res.json();
       const ext = path.split(".").pop() || "text";
       const newFile: CodeBlock = {

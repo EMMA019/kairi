@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { getApiUrl } from "../utils/api";
+import { apiFetch } from "../utils/api";
 import type { ViolationType } from "../types";
 
 export function useViolation() {
@@ -15,7 +15,7 @@ export function useViolation() {
     ) => {
       setIsSubmitting(true);
       try {
-        const response = await fetch(getApiUrl("/api/log/violation"), {
+        const response = await apiFetch("/api/log/violation", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

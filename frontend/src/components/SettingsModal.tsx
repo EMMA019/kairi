@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { getApiUrl } from "../utils/api";
+import { apiFetch } from "../utils/api";
+import { CHAR_BG_PRESETS, isCharBgUrl } from "../utils/charBackground";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ interface Settings {
   persona_style?: string;
   char_profile?: string;
   visual_anchor?: string;
+  char_background?: string;
   image_engine?: string;
   cf_account_id?: string;
   cf_api_token?: string;
@@ -48,9 +50,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     if (isOpen) {
       setLoading(true);
       Promise.all([
-        fetch(getApiUrl("/api/settings")).then(res => res.json()),
-        fetch(getApiUrl("/api/usage")).then(res => res.json()).catch(() => null),
-        fetch(getApiUrl("/api/stats")).then(res => res.json()).catch(() => null)
+        apiFetch("/api/settings").then(res => res.json()),
+        apiFetch("/api/usage").then(res => res.json()).catch(() => null),
+        apiFetch("/api/stats").then(res => res.json()).catch(() => null)
       ]).then(([settingsData, usageData, cacheData]) => {
         setSettings(settingsData);
         if (usageData) setUsageStats(usageData);
@@ -69,7 +71,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     if (!settings) return;
     setSaving(true);
     try {
-      await fetch(getApiUrl("/api/settings"), {
+      await apiFetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -84,8 +86,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           persona_style: settings.persona_style || "standard",
           char_profile: settings.char_profile || "",
           visual_anchor: settings.visual_anchor || "",
-          image_engine: settings.image_engine || "pollinations",
-          cf_account_id: settings.cf_account_id || "8b2e7549807032bdd0e92885d6349fa9",
+          char_background: settings.char_background || "",
+          image_engine: settings.image_engine || "gallery",
+          cf_account_id: settings.cf_account_id || "",
           cf_api_token: settings.cf_api_token || "",
           locale: settings.locale || "en",
           gemini_api_key: settings.gemini_api_key || "",
@@ -287,12 +290,64 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <textarea
                       value={settings.visual_anchor || ""}
                       onChange={(e) => setSettings({ ...settings, visual_anchor: e.target.value })}
-                      placeholder="例: 1girl, anime style, kairi, 19yo japanese cute girl, long caramel brown twintails, amber eyes, high quality, masterpiece"
+                      placeholder="例: 1girl, anime style, kairi, 19yo japanese cute girl, short magenta bob hair, pink eyes, earrings, high quality, masterpiece"
                       rows={3}
                       className="w-full min-h-[76px] bg-[#0b0e14] border border-[#2d3139] rounded-lg p-3 text-xs text-gray-200 focus:border-blue-500 focus:outline-none leading-relaxed resize-y overflow-y-auto"
                     />
                     <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
-                      💡 自撮りやイラストを無料生成 (`Pollinations.ai`) する際、毎回ブレずに同じキャラクターの外見（髪色・瞳・服装等）をキープするための英語プロンプトです。
+                      💡 自撮り画像は LoRA ストック（gallery）を優先し、クラウド生成時はこの外見トークンで髪・瞳を固定します。
+                    </p>
+                  </div>
+
+                  <div className="bg-[#161a25] p-4 rounded-xl border border-[#2d3139]">
+                    <h3 className="text-sm font-semibold text-gray-200 mb-3 flex items-center gap-2 leading-normal">
+                      🖼️ Char Mode Background (charモード専用チャット背景)
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-3">
+                      {CHAR_BG_PRESETS.map((p) => {
+                        const current = settings.char_background || "";
+                        const isSelected = current === p.id;
+                        return (
+                          <button
+                            key={p.id || "none"}
+                            type="button"
+                            onClick={() => setSettings({ ...settings, char_background: p.id })}
+                            className={`rounded-lg border text-left overflow-hidden transition-all ${
+                              isSelected
+                                ? "border-pink-500 shadow-lg shadow-pink-500/10"
+                                : "border-[#2d3139] hover:border-gray-500"
+                            }`}
+                          >
+                            <div
+                              className="h-10 w-full"
+                              style={
+                                p.gradient
+                                  ? { backgroundImage: p.gradient }
+                                  : { background: "#0b0e14" }
+                              }
+                            />
+                            <div className="p-2 bg-[#0b0e14]">
+                              <div className={`text-[11px] font-semibold leading-normal ${isSelected ? "text-pink-300" : "text-gray-200"}`}>
+                                {p.name}
+                              </div>
+                              <div className="text-[10px] text-gray-500 leading-normal mt-0.5">{p.desc}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <label className="block text-xs text-gray-300 font-semibold mb-1">
+                      カスタム画像URL（任意）
+                    </label>
+                    <input
+                      type="text"
+                      value={isCharBgUrl(settings.char_background || "") ? settings.char_background : ""}
+                      onChange={(e) => setSettings({ ...settings, char_background: e.target.value })}
+                      placeholder="例: /api/image/generate?prompt=bedroom または https://..."
+                      className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3.5 py-2 text-xs text-gray-200 font-mono focus:border-pink-500 focus:outline-none"
+                    />
+                    <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
+                      💡 🎭 Charモードのチャット画面にだけ適用されます。URLを入れるとプリセットより優先され、暗めのオーバーレイ付きで表示されます。
                     </p>
                   </div>
 
@@ -308,7 +363,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         { id: "cf-sdxl", name: "⚡ Cloudflare SDXL", desc: "SDXL Lightning による高品質＆高速生成" },
                         { id: "pollinations", name: "🌟 Pollinations.ai", desc: "無料・APIキー不要の標準画像生成エンジン" },
                       ].map((item) => {
-                        const isSelected = (settings.image_engine || "pollinations") === item.id;
+                        const isSelected = (settings.image_engine || "gallery") === item.id;
                         return (
                           <button
                             key={item.id}
@@ -340,7 +395,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                             type="text"
                             value={settings.cf_account_id || ""}
                             onChange={(e) => setSettings({ ...settings, cf_account_id: e.target.value })}
-                            placeholder="例: 8b2e7549807032bdd0e92885d6349fa9"
+                            placeholder="Cloudflare Account ID"
                             className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3.5 py-2 text-xs text-gray-200 font-mono focus:border-blue-500 focus:outline-none"
                           />
                         </div>
@@ -501,7 +556,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           type="text"
                           value={settings.cf_account_id || ""}
                           onChange={(e) => setSettings({ ...settings, cf_account_id: e.target.value })}
-                          placeholder="8b2e7549807032bdd0e92885d6349fa9"
+                          placeholder="Cloudflare Account ID"
                           className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3.5 py-2 text-xs text-gray-200 font-mono focus:border-blue-500 focus:outline-none"
                         />
                       </div>

@@ -3,7 +3,7 @@
  * fetch + ReadableStream で SSE イベントを処理。
  */
 import { useCallback, useRef } from "react";
-import { getApiUrl } from "../utils/api";
+import { apiFetch } from "../utils/api";
 import type { SSEEvent } from "../types";
 
 interface UseStreamingOptions {
@@ -22,7 +22,7 @@ export function useStreaming({ onEvent, onError }: UseStreamingOptions) {
       abortRef.current = controller;
 
       try {
-        const response = await fetch(getApiUrl("/api/chat"), {
+        const response = await apiFetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),

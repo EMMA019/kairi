@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getApiUrl } from "../utils/api";
+import { apiFetch } from "../utils/api";
 import {
   ChevronRight,
   ChevronDown,
@@ -98,7 +98,7 @@ export function FileExplorer({ onFileSelect, onToggle, refreshTrigger }: FileExp
   const fetchTree = async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     try {
-      const res = await fetch(getApiUrl("/api/workspace/tree"));
+      const res = await apiFetch("/api/workspace/tree");
       const data = await res.json();
       setTree(data);
     } catch (e) {

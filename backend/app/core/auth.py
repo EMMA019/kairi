@@ -17,6 +17,7 @@ logger = get_logger(__name__)
 _PUBLIC_PREFIXES = (
     "/api/ping",
     "/ping",
+    "/api/image/generate",  # <img src> は Authorization を送れない
     "/docs",
     "/openapi.json",
     "/redoc",

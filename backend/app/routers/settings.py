@@ -61,8 +61,9 @@ _DEFAULT_SETTINGS = {
     "user_location": "",
     "persona_style": "standard",
     "char_profile": "あなたはフレンドリーで親密なキャラクター相棒「Kairi」です。敬語や堅い業務説明は避け、自然で感情豊かな会話をテンポよく楽しんでください。",
-    "visual_anchor": "1girl, anime style, kairi, 19yo japanese cute girl, long caramel brown twintails, amber eyes, high quality, masterpiece",
-    "image_engine": "pollinations",
+    "visual_anchor": "1girl, anime style, kairi, 19yo japanese cute girl, short magenta bob hair, pink eyes, earrings, high quality, masterpiece",
+    "char_background": "",
+    "image_engine": "gallery",
     "cf_account_id": "",
     "cf_api_token": "",
     "locale": "ja",
@@ -188,6 +189,7 @@ class SettingsUpdate(BaseModel):
     persona_style: Optional[str] = None
     char_profile: Optional[str] = None
     visual_anchor: Optional[str] = None
+    char_background: Optional[str] = None
     image_engine: Optional[str] = None
     cf_account_id: Optional[str] = None
     cf_api_token: Optional[str] = None
@@ -203,6 +205,8 @@ class SettingsUpdate(BaseModel):
     is_licensed: Optional[bool] = None
     license_key: Optional[str] = None
     app_pin: Optional[str] = None
+    api_token: Optional[str] = None
+    planner_model: Optional[str] = None
 
 
 @router.get("/settings")

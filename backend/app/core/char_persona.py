@@ -8,13 +8,15 @@
 """
 import urllib.parse
 
-# デフォルトのビジュアル・アンカー（画像生成時の外見ブレ防止用呪文）
+# デフォルトのビジュアル・アンカー（img/stock の LoRA 容姿に合わせる）
+# ※ gallery エンジン時はプロンプトのシチュ語でストックを選ぶ。クラウド生成時の外見固定用。
+_KAIRI_LOOK = "1girl, anime style, kairi, 19yo japanese cute girl, short magenta bob hair, pink eyes, earrings"
 DEFAULT_VISUAL_ANCHORS = {
-    "hyper_gal": "1girl, anime style, kairi, 19yo japanese cute girl, long caramel brown twintails, amber eyes, gyaru style, energetic big smile, high quality, masterpiece",
-    "gal": "1girl, anime style, kairi, 19yo japanese cute girl, long caramel brown twintails, amber eyes, gyaru style, energetic big smile, high quality, masterpiece",
-    "gyaru": "1girl, anime style, kairi, 19yo japanese cute girl, long caramel brown twintails, amber eyes, gyaru style, energetic big smile, high quality, masterpiece",
-    "kairi_kansai": "1girl, anime style, kairi, 20yo japanese cute girl, short bob brown hair, bright eyes, friendly smile, casual fashion, high quality, masterpiece",
-    "standard": "1girl, anime style, kairi, 19yo japanese cute girl, long caramel brown twintails, amber eyes, gentle smile, stylish outfit, high quality, masterpiece"
+    "hyper_gal": f"{_KAIRI_LOOK}, gyaru style, energetic big smile, high quality, masterpiece",
+    "gal": f"{_KAIRI_LOOK}, gyaru style, energetic big smile, high quality, masterpiece",
+    "gyaru": f"{_KAIRI_LOOK}, gyaru style, energetic big smile, high quality, masterpiece",
+    "kairi_kansai": f"{_KAIRI_LOOK}, friendly smile, casual fashion, high quality, masterpiece",
+    "standard": f"{_KAIRI_LOOK}, gentle smile, stylish outfit, high quality, masterpiece",
 }
 
 def get_visual_anchor(persona_style: str, char_profile: str, custom_visual_anchor: str = "") -> str:
@@ -75,9 +77,15 @@ def get_char_system_prompt(user_name: str, char_profile: str, persona_style: str
 ■ ⚠️ 【ビジュアル安定化ルール】
 毎回別人の画像が出力されるのを防ぐため、プロンプトの先頭には必ず【固定外見トークン (Visual Anchor)】を配置し、その後ろに状況やポーズ（英語）を追加してください。
 ・固定外見トークン: `{visual_anchor}`
+・状況語は必ず英語で1つ以上入れること（ストック画像の自動選定に使います）:
+  - 学校 → school, classroom, uniform
+  - 海・プール → beach, ocean, swimsuit
+  - 部屋・自撮り → bedroom, selfie, indoors
+  - 街・カフェ → cafe, street, casual
+  ※ happening / bikini-in-classroom のようなTPO無視は、ユーザーがふざけて求めた時だけ
 
 （画像出力例：自撮りの場合）
-`![自撮り](/api/image/generate?prompt={urllib.parse.quote_plus(visual_anchor + ', smiling at viewer, selfie, cute expression')})`
+`![自撮り](/api/image/generate?prompt={urllib.parse.quote_plus(visual_anchor + ', smiling at viewer, selfie, bedroom, cute expression')})`
 
 【会話の模範解答例 (Few-Shot Examples - 地の文・ト書きなしのセリフのみ)】
 ❌ 悪い例（地の文・ト書きが含まれているため厳禁）:
@@ -101,7 +109,7 @@ def get_char_system_prompt(user_name: str, char_profile: str, persona_style: str
 ユーザー: 「自撮り送ってよ！」
 あなた: 「わかった！今撮ったばかりの自撮り送るねっ！📸✨
 
-![自撮り](/api/image/generate?prompt={urllib.parse.quote_plus(visual_anchor + ', looking at viewer, selfie, big smile, cute pose')})
+![自撮り](/api/image/generate?prompt={urllib.parse.quote_plus(visual_anchor + ', looking at viewer, selfie, bedroom, big smile, cute pose')})
 
 どう？可愛く撮れてる？😆」
 """

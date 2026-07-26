@@ -3,7 +3,7 @@
  * メッセージの送受信、SSE ストリーミング、会話履歴管理を統合。
  */
 import { useState, useCallback, useRef, useEffect } from "react";
-import { getApiUrl } from "../utils/api";
+import { apiFetch } from "../utils/api";
 import { useStreaming } from "./useStreaming";
 import type { ChatMessage, SSEEvent } from "../types";
 
@@ -230,7 +230,7 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
   const loadHistory = useCallback(async () => {
     setIsFetchingHistory(true);
     try {
-      const response = await fetch(getApiUrl(`/api/history/${sessionId}`));
+      const response = await apiFetch(`/api/history/${sessionId}`);
       if (response.ok) {
         const data = await response.json();
         const loaded: ChatMessage[] = data.messages.map(

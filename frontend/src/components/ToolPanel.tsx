@@ -2,7 +2,7 @@
  * ToolPanel — 生きたアクティビティログ・セキュリティ制御・ツール管理センター
  */
 import { useState, useEffect, useMemo } from "react";
-import { getApiUrl } from "../utils/api";
+import { apiFetch } from "../utils/api";
 
 interface CacheInfo { total: number; recent_30min: number; }
 interface MCPServer { name: string; command: string; args: string[]; description: string; type: string; }
@@ -54,9 +54,9 @@ export function ToolPanel({ isOpen, onClose, messages = [] }: ToolPanelProps) {
 
   useEffect(() => {
     if (!isOpen) return;
-    fetch(getApiUrl("/api/tools")).then(r => r.json()).then(d => setTools(d.tools || [])).catch(() => {});
-    fetch(getApiUrl("/api/cache/status")).then(r => r.json()).then(d => setCacheStatus(d.status || null)).catch(() => {});
-    fetch(getApiUrl("/api/mcp/servers")).then(r => r.json()).then(d => setMcpServers(d.servers || [])).catch(() => {});
+    apiFetch("/api/tools").then(r => r.json()).then(d => setTools(d.tools || [])).catch(() => {});
+    apiFetch("/api/cache/status").then(r => r.json()).then(d => setCacheStatus(d.status || null)).catch(() => {});
+    apiFetch("/api/mcp/servers").then(r => r.json()).then(d => setMcpServers(d.servers || [])).catch(() => {});
   }, [isOpen]);
 
   const toggleHitl = () => {
@@ -130,7 +130,7 @@ export function ToolPanel({ isOpen, onClose, messages = [] }: ToolPanelProps) {
     if (!selectedTool) return;
     try {
       const params = JSON.parse(paramInput || "{}");
-      const res = await fetch(getApiUrl("/api/tools/execute"), {
+      const res = await apiFetch("/api/tools/execute", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: selectedTool, params }),
       });
@@ -141,7 +141,7 @@ export function ToolPanel({ isOpen, onClose, messages = [] }: ToolPanelProps) {
   const handleAddMCPServer = async () => {
     if (!newServerName || !newServerArgs) return;
     try {
-      const res = await fetch(getApiUrl("/api/mcp/servers"), {
+      const res = await apiFetch("/api/mcp/servers", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newServerName, command: newServerCmd,
@@ -151,20 +151,20 @@ export function ToolPanel({ isOpen, onClose, messages = [] }: ToolPanelProps) {
       });
       if (res.ok) {
         setNewServerName(""); setNewServerArgs(""); setNewServerDesc("");
-        fetch(getApiUrl("/api/mcp/servers")).then(r => r.json()).then(d => setMcpServers(d.servers || []));
+        apiFetch("/api/mcp/servers").then(r => r.json()).then(d => setMcpServers(d.servers || []));
       }
     } catch (e: any) { console.error(e); }
   };
 
   const handleDeleteMCPServer = async (name: string) => {
-    await fetch(getApiUrl(`/api/mcp/servers/${name}`), { method: "DELETE" });
-    fetch(getApiUrl("/api/mcp/servers")).then(r => r.json()).then(d => setMcpServers(d.servers || []));
+    await apiFetch(`/api/mcp/servers/${name}`, { method: "DELETE" });
+    apiFetch("/api/mcp/servers").then(r => r.json()).then(d => setMcpServers(d.servers || []));
   };
 
   const handleFetchMCPTools = async (serverName: string) => {
     if (mcpToolList[serverName]) { setMcpToolList({}); return; }
     try {
-      const res = await fetch(getApiUrl(`/api/mcp/servers/${serverName}/tools`));
+      const res = await apiFetch(`/api/mcp/servers/${serverName}/tools`);
       const data = await res.json();
       setMcpToolList(prev => ({ ...prev, [serverName]: data.tools || [] }));
     } catch (e: any) { setMcpToolList(prev => ({ ...prev, [serverName]: [] })); }
@@ -175,7 +175,7 @@ export function ToolPanel({ isOpen, onClose, messages = [] }: ToolPanelProps) {
     setMcpResult("Running...");
     try {
       const args = JSON.parse(mcpToolArgs || "{}");
-      const res = await fetch(getApiUrl(`/api/mcp/servers/${mcpSelectedServer}/call`), {
+      const res = await apiFetch(`/api/mcp/servers/${mcpSelectedServer}/call`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tool: mcpSelectedTool, arguments: args }),
       });

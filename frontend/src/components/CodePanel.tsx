@@ -8,7 +8,7 @@ import Editor from "@monaco-editor/react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import mermaid from "mermaid";
-import { getApiUrl } from "../utils/api";
+import { apiFetch } from "../utils/api";
 
 export interface CodeBlock {
   language: string;
@@ -153,7 +153,7 @@ export function CodePanel({ codeBlocks, isOpen, onClose }: CodePanelProps) {
     if (current.path) {
       setIsSaving(true);
       try {
-        const res = await fetch(getApiUrl("/api/workspace/save"), {
+        const res = await apiFetch("/api/workspace/save", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -187,8 +187,23 @@ export function CodePanel({ codeBlocks, isOpen, onClose }: CodePanelProps) {
     }
   };
 
-  const handleDownloadWorkspace = () => {
-    window.location.href = getApiUrl("/api/workspace/download");
+  const handleDownloadWorkspace = async () => {
+    try {
+      const res = await apiFetch("/api/workspace/download");
+      if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "workspace.zip";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to download workspace");
+    }
   };
 
   return (

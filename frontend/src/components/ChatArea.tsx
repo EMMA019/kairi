@@ -3,7 +3,7 @@
  * ユーザー（右寄せ）/ AI（左寄せ）のメッセージ一覧を表示。
  * ストリーミング中のリアルタイム文字追加表示 + 安全なスクロール制御。
  */
-import { useEffect, useRef, memo } from "react";
+import { useEffect, useRef, memo, useState } from "react";
 import { TypingIndicator } from "./TypingIndicator";
 import { PipelineIndicator } from "./PipelineIndicator";
 import { DataChart } from "./DataChart";
@@ -14,6 +14,41 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { getApiUrl } from "../utils/api";
 
+function StockImage({ src, alt, ...props }: { src?: string; alt?: string; [key: string]: any }) {
+  const [failed, setFailed] = useState(false);
+  if (failed || !src) {
+    return (
+      <div className="my-3 max-w-sm rounded-xl overflow-hidden border border-[#3c4043] bg-[#1a1b1e] shadow-lg">
+        <div className="px-4 py-8 text-center text-xs text-gray-400">
+          画像を読み込めませんでした
+        </div>
+        {alt && (
+          <div className="px-3 py-1.5 text-xs text-gray-500 truncate bg-[#1e1f20] border-t border-[#3c4043]">
+            {alt}
+          </div>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="my-3 max-w-sm rounded-xl overflow-hidden border border-[#3c4043] bg-[#1a1b1e] shadow-lg">
+      <img
+        src={src}
+        alt={alt || "image"}
+        className="w-full h-auto object-contain"
+        onError={() => setFailed(true)}
+        {...props}
+      />
+      {alt && (
+        <div className="px-3 py-1.5 text-xs text-gray-400 truncate bg-[#1e1f20] border-t border-[#3c4043] font-medium flex items-center gap-1.5">
+          <span>📸</span>
+          <span className="truncate">{alt}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const markdownComponents: any = {
   img: ({ node, src, alt, ...props }: any) => {
     let resolvedSrc = src;
@@ -21,15 +56,7 @@ const markdownComponents: any = {
       resolvedSrc = getApiUrl(src);
     }
     return (
-      <div className="my-3 max-w-sm rounded-xl overflow-hidden border border-[#3c4043] bg-[#1a1b1e] shadow-lg">
-        <img src={resolvedSrc} alt={alt || "image"} className="w-full h-auto object-contain" {...props} />
-        {alt && (
-          <div className="px-3 py-1.5 text-xs text-gray-400 truncate bg-[#1e1f20] border-t border-[#3c4043] font-medium flex items-center gap-1.5">
-            <span>📸</span>
-            <span className="truncate">{alt}</span>
-          </div>
-        )}
-      </div>
+      <StockImage src={resolvedSrc} alt={alt || "image"} {...props} />
     );
   },
   a: ({ node, href, children, ...props }: any) => (

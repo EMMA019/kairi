@@ -20,7 +20,7 @@ from app.core.kv_store import kv_store
 from app.core.mood import get_mood
 from app.utils.logger import get_logger
 from app.routers.settings import app_settings
-from app.core.cache_manager import get_llm_cache, set_llm_cache
+from app.core.cache_manager import get_llm_cache, set_llm_cache, should_bypass_llm_cache
 from app.core.gyaru import to_hyper_gal_v3
 from app.core import chat_search
 from app.core.chat_search import (
@@ -284,9 +284,16 @@ async def chat(request: ChatRequest):
             _provider = _settings.get("supervisor_provider", "deepseek")
             _model = _settings.get("supervisor_model", "deepseek-v4-flash")
             
-            # ディープ調査・論文リサーチ・市場相場クエリ時は古いLLMキャッシュをバイパスして最新エンジンで実処理
-            is_deep_query = any(kw in user_input for kw in ["論文", "成功率", "数値", "報告", "教え", "詳細", "攻撃", "防御", "パッチ", "スクレイピング", "記事", "読んで", "株", "相場", "半導体", "インテル", "AVGO", "最高値", "暴落", "市場", "経済"])
-            if not is_deep_query:
+            # 鮮度必須（検索必須・時事/市場）のみ LLM キャッシュを bypass。「教えて」等の口語では飛ばさない
+            bypass_cache, bypass_reason = should_bypass_llm_cache(
+                search_needed=search_needed,
+                category=chat_category,
+                user_input=user_input,
+            )
+            if bypass_cache:
+                cached_response = None
+                logger.info(f"⏭️ Supervisorキャッシュbypass: {bypass_reason} ({user_input[:30]}...)")
+            else:
                 cached_response = await get_llm_cache(
                     user_input=current_user_input_with_context,
                     system_prompt=supervisor_sys_prompt,
@@ -295,8 +302,6 @@ async def chat(request: ChatRequest):
                     provider=_provider,
                     max_age_seconds=1800,
                 )
-            else:
-                cached_response = None
             
             if cached_response:
                 logger.info(f"⚡ Supervisorキャッシュヒット: {user_input[:30]}...")
@@ -313,18 +318,19 @@ async def chat(request: ChatRequest):
                         system_instruction=supervisor_sys_prompt,
                         category=chat_category,
                     )
-                    # キャッシュに保存
-                    await set_llm_cache(
-                        user_input=current_user_input_with_context,
-                        system_prompt=supervisor_sys_prompt,
-                        mode=mode,
-                        model=_model,
-                        provider=_provider,
-                        response=json.dumps(supervisor_json, ensure_ascii=False),
-                        reasoning=reasoning,
-                        supervisor_json=supervisor_json,
-                        ttl_seconds=1800,
-                    )
+                    # bypass 時は SET しない（LRU 汚染・見かけの hit rate 低下を防ぐ）
+                    if not bypass_cache:
+                        await set_llm_cache(
+                            user_input=current_user_input_with_context,
+                            system_prompt=supervisor_sys_prompt,
+                            mode=mode,
+                            model=_model,
+                            provider=_provider,
+                            response=json.dumps(supervisor_json, ensure_ascii=False),
+                            reasoning=reasoning,
+                            supervisor_json=supervisor_json,
+                            ttl_seconds=1800,
+                        )
                 except Exception as e:
                     logger.error(f"Supervisor error: {e}")
                     yield _sse_event({"type": "error", "message": "システムエラーが発生しました。処理を完了できませんでした。", "detail": str(e)})

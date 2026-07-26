@@ -84,6 +84,46 @@ _JA_TO_EN = {
 }
 
 
+# 日本語はスペース分割できないため、長いフレーズから先に除去する
+_STOP_PHRASES = sorted(
+    (w for w in _STOP_WORDS if len(w) >= 2 and not w.isascii()),
+    key=len,
+    reverse=True,
+)
+
+# LLM キャッシュを飛ばす時事・市場カテゴリ（search planner の category）
+_FRESHNESS_CATEGORIES = frozenset({"finance", "news", "market"})
+
+# 短い「株」単体は使わず、時事鮮度が必要な語に限定
+_FRESHNESS_KEYWORDS = (
+    "株価", "相場", "半導体", "AVGO", "インテル", "SOX", "SOXX",
+    "暴落", "最高値", "利下げ", "利上げ", "インフレ", "為替",
+    "論文", "スクレイピング",
+)
+
+
+def should_bypass_llm_cache(
+    *,
+    search_needed: bool = False,
+    category: str = "general",
+    user_input: str = "",
+) -> tuple[bool, str]:
+    """
+    Supervisor LLM キャッシュを bypass すべきか。
+    Returns: (bypass, reason)
+    """
+    if search_needed:
+        return True, "search_needed"
+    cat = (category or "general").lower().strip()
+    if cat in _FRESHNESS_CATEGORIES:
+        return True, f"category:{cat}"
+    text = user_input or ""
+    for kw in _FRESHNESS_KEYWORDS:
+        if kw in text:
+            return True, f"keyword:{kw}"
+    return False, ""
+
+
 def _normalize_query(text: str) -> str:
     """
     クエリ正規化: 大文字小文字・全半角・句読点・ストップワード除去・英訳
@@ -107,10 +147,15 @@ def _normalize_query(text: str) -> str:
     # 句読点や記号をスペースに変換（単語分割の準備）
     text = re.sub(r'[,.\?!:;()\[\]{}<>「」『』【】""''（）［］｛｝]', ' ', text)
     
+    # --- 第0段階: 日本語ストップフレーズ除去（無スペース入力向け）---
+    for phrase in _STOP_PHRASES:
+        if phrase in text:
+            text = text.replace(phrase, " ")
+    
     # 連続する空白を1つに
     text = re.sub(r'\s+', ' ', text).strip()
     
-    # --- 第1段階: ストップワード除去 ---
+    # --- 第1段階: ストップワード除去（スペース分割語）---
     words = text.split()
     filtered_words = []
     for w in words:

@@ -7,9 +7,13 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 from app.utils.logger import get_logger
+from app.core.fact_filters.name_normalize import (
+    extract_katakana_tokens,
+    extract_latin_tokens,
+    source_mentions_name,
+)
 
 logger = get_logger(__name__)
 
@@ -46,19 +50,62 @@ _ASSERTION_TRIGGERS = re.compile(
     r"氏|さんが|が発表|と報じ|によると)"
 )
 
-# よくあるハルシネーション固有名（ソース照合用の追加チェック）
+# 役職・役割サフィックス付き固有名（ソース未支持なら落とす）
+_ROLE_NAME_RE = re.compile(
+    r"([ァ-ヶーA-Za-z][ァ-ヶーA-Za-z·・\.\-]{1,40}?)"
+    r"(騎手|議長|CEO|監督|首相|大統領|選手|氏)"
+)
+
+# レガシー: よくあるハルシネーション固有名（ソース空でも最低限ケア）
 _KNOWN_RISKY_NAMES = [
     "ムーア", "Moore", "パウエル", "Powell", "イエレン", "Yellen",
 ]
 
 
 def _source_has(name: str, source_text: str) -> bool:
-    if not source_text:
-        return False
-    if name in source_text:
-        return True
-    # 簡易正規化
-    return name.lower() in source_text.lower()
+    return source_mentions_name(name, source_text or "")
+
+
+def _soften_name_in_text(text: str, name: str) -> str:
+    pattern = re.compile(
+        rf"([^。．！？\n]*{re.escape(name)}[^。．！？\n]*[。．！？]?)"
+    )
+
+    def _soften(m: re.Match) -> str:
+        s = m.group(1)
+        # 当該固有名が残っている限り置換（文中に他の要確認があっても落とす）
+        if name not in s:
+            return s
+        replaced = s.replace(name, "（氏名はソース未記載）")
+        if not replaced.rstrip().endswith(("。", "！", "？", "!", "?")):
+            replaced = replaced.rstrip() + "。"
+        if "要確認" not in replaced and "未確認" not in replaced:
+            replaced = replaced.rstrip("。") + "（要確認）。"
+        return replaced
+
+    return pattern.sub(_soften, text)
+
+
+def _collect_proper_noun_candidates(text: str) -> list[str]:
+    """回答中の固有名候補（カタカナ・Latin・役職付き）。"""
+    found: list[str] = []
+    for m in _ROLE_NAME_RE.finditer(text or ""):
+        found.append(m.group(1))
+    found.extend(extract_katakana_tokens(text or ""))
+    for tok in extract_latin_tokens(text or ""):
+        # 短すぎる・全小文字の一般語は除外
+        if len(tok) >= 3 and (tok[0].isupper() or tok.isupper()):
+            found.append(tok)
+    # 長い順でユニーク（部分重複の先に長い方を処理）
+    uniq = []
+    seen = set()
+    for n in sorted(found, key=len, reverse=True):
+        key = n.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        uniq.append(n)
+    return uniq
 
 
 def verify_citations(
@@ -69,7 +116,7 @@ def verify_citations(
 ) -> str:
     """
     引用契約の検証。
-    - ソースにない既知リスク固有名を除去/不確実化
+    - ソースにない固有名（表記ゆれ吸収後）を除去/不確実化
     - 時事断定文に [n] が無い場合は文末に「（要確認）」を付与
     """
     global _last_metrics
@@ -78,31 +125,40 @@ def verify_citations(
 
     metrics = CitationMetrics()
     metrics.citations_found = len(_CITATION_RE.findall(text))
+    src = source_text or ""
+    src_stripped = src.strip()
 
-    # 1) ソースにない既知リスク固有名
-    for name in _KNOWN_RISKY_NAMES:
-        if name in text and not _source_has(name, source_text or ""):
-            metrics.uncited_assertions += 1
-            if soften_uncited:
-                # 当該固有名を含む短文を不確実化
-                pattern = re.compile(
-                    rf"([^。．！？\n]*{re.escape(name)}[^。．！？\n]*[。．！？]?)"
-                )
+    # 1) 固有名: ソースがあるときはドメイン非依存照合、無いときはレガシー危険名＋役職付き
+    names_to_check: list[str] = []
+    if src_stripped:
+        names_to_check = _collect_proper_noun_candidates(text)
+        # 既知危険名も併用（段階的移行）
+        for n in _KNOWN_RISKY_NAMES:
+            if n in text and n not in names_to_check:
+                names_to_check.append(n)
+    else:
+        names_to_check = list(_KNOWN_RISKY_NAMES)
+        # 空ソースでも役職付き固有名は埋めさせない
+        for m in _ROLE_NAME_RE.finditer(text):
+            names_to_check.append(m.group(1))
 
-                def _soften(m: re.Match) -> str:
-                    s = m.group(1)
-                    if "要確認" in s or "未確認" in s:
-                        return s
-                    # 固有名を役職・一般表現へ置換できる場合は落とす
-                    replaced = s.replace(name, "（氏名はソース未記載）")
-                    if not replaced.rstrip().endswith(("。", "！", "？", "!", "?")):
-                        replaced = replaced.rstrip() + "。"
-                    if "要確認" not in replaced:
-                        replaced = replaced.rstrip("。") + "（要確認）。"
-                    return replaced
-
-                text = pattern.sub(_soften, text)
-                logger.info(f"📎 ソース未記載の固有名を不確実化: {name}")
+    for name in names_to_check:
+        if not name or len(name) < 2:
+            continue
+        if name not in text and not re.search(re.escape(name), text, flags=re.IGNORECASE):
+            continue
+        if _source_has(name, src):
+            continue
+        metrics.uncited_assertions += 1
+        if soften_uncited:
+            # 実際に出現している表記で置換
+            variants = {name}
+            for m in re.finditer(re.escape(name), text, flags=re.IGNORECASE):
+                variants.add(m.group(0))
+            for variant in variants:
+                if variant in text:
+                    text = _soften_name_in_text(text, variant)
+            logger.info(f"📎 ソース未記載の固有名を不確実化: {name}")
 
     # 2) ソースにない絶対数値（終値ポイント等）→ 末尾免責
     if source_text is not None:
@@ -110,7 +166,7 @@ def verify_citations(
         unverified_abs = []
         for num in abs_nums:
             digits = num.replace(",", "")
-            if num in (source_text or "") or digits in (source_text or ""):
+            if num in src or digits in src:
                 continue
             unverified_abs.append(num)
         if unverified_abs:
@@ -124,7 +180,7 @@ def verify_citations(
                 logger.info(f"📎 ソース未記載の絶対数値を検知し免責を付与: {unverified_abs[:5]}")
 
     # 3) 時事断定トリガ文に引用が無い場合
-    if soften_uncited and (source_text or "").strip():
+    if soften_uncited and src_stripped:
         parts = _SENTENCE_SPLIT.split(text)
         new_parts = []
         for part in parts:

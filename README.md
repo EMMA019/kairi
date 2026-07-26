@@ -19,6 +19,17 @@ Kairiは「チャット」と「開発（IDE）」に特化したAIエージェ�
 
 **株式機能は削除済み**。チャットと開発機能に100%集中しています。
 
+### 本命 / 実験 / 運用
+
+| 区分 | 内容 |
+|------|------|
+| **本命** | 検索で裏取りする回答、task 実装ループ、**明示時のみ** KV 記憶 |
+| **実験** | char 画像ギャラリー、radar、ギャル文字、integrity 装飾 UI |
+| **運用** | `KAIRI_API_TOKEN`、`python -m evals.run_evals`、`POST /api/kv/purge-junk` |
+
+未知の事実への対策は「検索 → 出典強制 → 未ヒットなら埋めない」が基本です（RL再学習・複数モデル交差は対象外）。  
+リポジトリ分割の詳細は [docs/REPO_SEPARATION.md](docs/REPO_SEPARATION.md) を参照。
+
 ---
 
 ## ✨ 主要機能

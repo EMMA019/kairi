@@ -10,122 +10,51 @@
 6. 完了後、会話履歴を SQLite に保存 + KV 書き込み
 """
 import json
-import asyncio
 import re
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from app.models.chat import ChatRequest
-from app.core.llm_client import call_model
-from app.core.prompt_builder import build_system_instruction, build_search_retry_instruction
+from app.core.prompt_builder import build_system_instruction
 from app.core.kv_store import kv_store
-from app.core.memory import extract_and_save_memory
-from app.core.search import web_search
-from app.core.database import get_db
 from app.core.mood import get_mood
-from app.utils.parser import parse_response
 from app.utils.logger import get_logger
 from app.routers.settings import app_settings
-from app.core.cache_manager import get_search_cache, set_search_cache, check_greeting_short_circuit, get_llm_cache, set_llm_cache
-from app.core.context_compressor import compress_messages_stage2
+from app.core.cache_manager import get_llm_cache, set_llm_cache
 from app.core.gyaru import to_hyper_gal_v3
+from app.core import chat_search
+from app.core.chat_search import (
+    store_search_carryover as _store_search_carryover,
+    maybe_carry_search_results as _maybe_carry_search_results,
+    clip_search_results as _clip_search_results,
+    extract_smart_snippet as _extract_smart_snippet,
+    sanitize_conversational_query,
+    balance_search_queries,
+    run_web_search,
+    finalize_search_context,
+)
+from app.core.chat_persist import (
+    get_conversation_messages as _get_conversation_messages,
+    save_messages as _save_messages,
+)
+from app.core.chat_modes import try_greeting_mode, try_char_mode
+from app.core.chat_orchestrator import (
+    build_executor_instruction,
+    apply_omakase_hearing_ban,
+    resolve_memory_inject,
+    note_search_inject,
+)
 
 logger = get_logger(__name__)
 
 router = APIRouter()
 
 # セッションごとのフォローアップ履歴（インメモリ、サーバー再起動でリセット）
-# メモリリーク防止: 最大200セッション分のみ保持
 _MAX_FOLLOWUP_SESSIONS = 200
 _followup_histories: dict[str, list[bool]] = {}
 
-# 直近ターンの検索結果をセッション単位で保持（フォローアップのハルシネーション防止）
-_MAX_SEARCH_CARRY_SESSIONS = 200
-_last_search_by_session: dict[str, dict] = {}
-
-
-def _store_search_carryover(session_id: str, search_results_text: str | None, search_queries: list, user_input: str):
-    """検索成功時にセッションへ結果を保存する。"""
-    if not search_results_text or not search_results_text.strip():
-        return
-    if len(_last_search_by_session) >= _MAX_SEARCH_CARRY_SESSIONS and session_id not in _last_search_by_session:
-        oldest_key = next(iter(_last_search_by_session))
-        del _last_search_by_session[oldest_key]
-    _last_search_by_session[session_id] = {
-        "text": search_results_text,
-        "queries": list(search_queries or []),
-        "user_input": user_input,
-    }
-
-
-def _maybe_carry_search_results(
-    session_id: str,
-    user_input: str,
-    history_messages: list,
-    search_needed: bool,
-    search_results_text: str | None,
-) -> str | None:
-    """
-    今ターン検索なしでも、直前ターンが検索済みかつ同一トピックなら結果を再注入する。
-
-    判定方針:
-    - 前ターンのトピック語（前ユーザー入力・検索クエリ）が、
-      現入力または直近履歴に残っている → 同一トピックのフォローアップとみなす
-    - これにより「カルパナ…」の直後に「でも直前まで13倍…」のように
-      固有名詞を繰り返さない感想でもソースを引き継げる
-    """
-    if search_needed or search_results_text:
-        return search_results_text
-    prev = _last_search_by_session.get(session_id)
-    if not prev or not prev.get("text"):
-        return search_results_text
-
-    stop = {
-        "それ", "これ", "あれ", "どう", "そう", "けど", "だけど", "って", "感じ",
-        "思う", "教えて", "ください", "です", "ます", "した", "いる", "ある",
-        "だった", "よね", "なに", "何が", "the", "and", "was", "for", "about",
-    }
-
-    def _tokens(text: str) -> set[str]:
-        found = set(re.findall(r"[一-龥ァ-ヶー]{2,}|[A-Za-z][A-Za-z0-9_\-]{2,}", text or ""))
-        return {t for t in found if t.lower() not in stop and t not in stop}
-
-    topic_tokens = _tokens(prev.get("user_input", ""))
-    for q in prev.get("queries") or []:
-        topic_tokens |= _tokens(str(q))
-    if not topic_tokens:
-        return search_results_text
-
-    # 現入力 + 直近履歴（ユーザー/アシスタント）を照合先にする
-    context_parts = [user_input or ""]
-    for m in (history_messages or [])[-4:]:
-        context_parts.append(str(m.get("content", ""))[:500])
-    context = "\n".join(context_parts)
-
-    overlap = [t for t in topic_tokens if t in context]
-    if len(overlap) >= 1:
-        logger.info(f"🔁 フォローアップへ前ターン検索結果を再注入 (overlap={overlap[:5]})")
-        return prev["text"]
-    return search_results_text
-
-
-def _clip_search_results(text: str, max_bytes: int = 100_000) -> str:
-    """検索結果を最大サイズにクリップ（57MB爆発防止）。全3箇所の代入で共通利用"""
-    if not text or len(text) <= max_bytes:
-        return text
-    logger.warning(f"⚠️ 検索結果が大きすぎます ({len(text):,} bytes) → {max_bytes:,} bytesにクリップ")
-    half = max_bytes // 2
-    return text[:half] + f"\n\n[...検索結果が長すぎるため途中でカット ({len(text) - max_bytes} bytes削減)...]\n\n" + text[-half:]
-
-
-def _extract_smart_snippet(text: str, max_chars: int = 15000) -> str:
-    """論文や長文記事の冒頭（背景/アブスト）と後半（実験結果/Defense/結論）を両方保持するスマート抽出（トークン爆発防止仕様）"""
-    if not text or len(text) <= max_chars:
-        return text
-    head = max_chars * 2 // 5  # 前半約6,000文字（アブスト・序論）
-    tail = max_chars * 3 // 5  # 後半約9,000文字（実験結果・Defense Mechanism・結論）
-    return text[:head] + "\n\n[...中間セクション省略（トークン節約）...]\n\n" + text[-tail:]
-
+# evals 互換: carryover ストアへの参照
+_last_search_by_session = chat_search._last_search_by_session
 
 
 def _sse_event(data: dict) -> str:
@@ -180,75 +109,34 @@ async def chat(request: ChatRequest):
         from app.core.supervisor import run_supervisor
         from app.core.executor import run_executor
         
-        # --- 🔴 Greeting Short-Circuit ---
-        from app.core.chat_pipeline import (
-            stream_simple_executor,
-            build_greeting_system_prompt,
-            build_facts_instruction,
-        )
-        greeting_json = check_greeting_short_circuit(user_input)
-        if greeting_json and mode == "chat" and not request.force_search:
-            yield _sse_event({"type": "mode_switch", "mode": "chat"})
-            settings_dict = app_settings.get()
-            persona_style = settings_dict.get("persona_style", "standard")
-            greeting_sys = build_greeting_system_prompt(persona_style)
-            greeting_instruction = build_facts_instruction(greeting_json.get("instruction") or {})
-            async for ev, payload in stream_simple_executor(
-                user_input=user_input,
-                instruction=greeting_instruction,
-                system_instruction=greeting_sys,
-                history_messages=messages,
-                memory_text=filtered_kv_text if greeting_json.get("memory_inject") else None,
-                mode="chat",
-                is_hyper_gal=is_hyper_gal,
-            ):
-                if ev == "chunk":
-                    yield _sse_event({"type": "chunk", "content": payload})
-                elif ev == "done":
-                    await _save_messages(
-                        session_id, user_input, payload,
-                        json.dumps(greeting_json, ensure_ascii=False),
-                        greeting_json, None, []
-                    )
-                    yield _sse_event({"type": "done", "content": payload})
-            return
-        
-        # --- 🔴 P0: Char Mode (1-Pass Direct Fast Roleplay) ---
-        if mode == "char" or user_input.strip().startswith("/char") or user_input.strip().startswith("/roleplay"):
-            if user_input.strip().startswith("/char") or user_input.strip().startswith("/roleplay"):
-                user_input = re.sub(r"^/(char|roleplay)\s*", "", user_input).strip()
-                if not user_input:
-                    user_input = "よろしくね！"
-            yield _sse_event({"type": "mode_switch", "mode": "char"})
-            
-            from app.core.char_persona import get_char_system_prompt
-            settings_dict = app_settings.get()
-            persona_style = settings_dict.get("persona_style", "standard")
-            char_profile = settings_dict.get("char_profile", "")
-            visual_anchor = settings_dict.get("visual_anchor", "")
-            user_name = settings_dict.get("user_name", "ご主人様")
-            char_sys = get_char_system_prompt(user_name, char_profile, persona_style, visual_anchor)
-            async for ev, payload in stream_simple_executor(
-                user_input=user_input,
-                instruction="キャラクターになりきって、ユーザーとの会話を自然かつテンポよく楽しく盛り上げてください。",
-                system_instruction=char_sys,
-                history_messages=messages,
-                # char でも無断注入しない（キーワード一致 or 明示許可時のみ）
-                memory_text=filtered_kv_text or None,
-                mode="char",
-                is_hyper_gal=is_hyper_gal,
-            ):
-                if ev == "chunk":
-                    yield _sse_event({"type": "chunk", "content": payload})
-                elif ev == "done":
-                    await _save_messages(
-                        session_id, user_input, payload,
-                        json.dumps({"mode": "char", "status": "char_fast_response"}, ensure_ascii=False),
-                        {"mode": "char", "fast": True}, None, []
-                    )
-                    yield _sse_event({"type": "done", "content": payload})
-            return
-        
+        # --- Greeting / Char short-circuit ---
+        async for ev in try_greeting_mode(
+            user_input=user_input,
+            mode=mode,
+            force_search=request.force_search,
+            messages=messages,
+            filtered_kv_text=filtered_kv_text,
+            is_hyper_gal=is_hyper_gal,
+            session_id=session_id,
+        ):
+            if ev.get("type") == "_handled":
+                return
+            yield _sse_event(ev)
+
+        async for ev, updated_input in try_char_mode(
+            user_input=user_input,
+            mode=mode,
+            messages=messages,
+            filtered_kv_text=filtered_kv_text,
+            is_hyper_gal=is_hyper_gal,
+            session_id=session_id,
+        ):
+            if updated_input is not None:
+                user_input = updated_input
+            if ev.get("type") == "_handled":
+                return
+            yield _sse_event(ev)
+
         # --- 🔴 P0: Plan承認検出（前回のプランを「はい」で承認→即実装） ---
         if mode in ["chat", "task"]:
             try:
@@ -297,51 +185,17 @@ async def chat(request: ChatRequest):
         search_queries = search_plan.get("search_queries", [])
         chat_category = search_plan.get("category", "general")
         search_providers = search_plan.get("providers", ["brave"])
-        def _sanitize_conversational_query(q_text: str) -> str:
-            if not q_text or len(q_text) <= 20:
-                return q_text
-            # 特定の市場・ポートフォリオ相談の会話文の場合は確実にヒットするクローズド/高ヒット率クエリへ変換
-            if any(k in q_text for k in ["半導体", "SOX", "200A", "2243", "AVGO"]) and any(k in q_text for k in ["銘柄", "組み込", "リバランス", "思惑", "狙い"]):
-                return "半導体株 ETF 注目銘柄 リバウンド 見通し 2026"
-            if any(k in q_text for k in ["ポートフォリオ", "比率", "リバランス"]) and any(k in q_text for k in ["銘柄", "組み込", "おすすめ", "何がいい", "かな"]):
-                return "米国株 日本株 分散 高配当 ETF おすすめ 銘柄 2026"
-            # 一般的な口語表現や不要な助詞・語尾・感嘆符を除去しキーワードのみ抽出
-            cleaned = re.sub(r'[ｗw！!？?。、,（）()]', ' ', q_text)
-            cleaned = re.sub(r'(?:だったんだ|なんだけど|だけど|思惑外れてる|外れてる|見ての通り|なので|から|ってこと|って|どう思う|いいと思う|いいかな|教えて|したい|しようと思ってます|思いますか|なんだよね|よね|だよね)', ' ', cleaned)
-            tokens = [t for t in re.split(r'\s+', cleaned) if len(t) >= 2 and t not in ["今は", "けど", "なら", "なので"]]
-            return " ".join(tokens[:5]) if tokens else q_text[:30]
 
         if not search_queries:
-            search_queries = [_sanitize_conversational_query(user_input)]
+            search_queries = [sanitize_conversational_query(user_input)]
         else:
-            search_queries = [_sanitize_conversational_query(q) if len(q) > 25 and ("ｗ" in q or "思う" in q or "なんだ" in q) else q for q in search_queries]
-        
-        # --- 🔴 P0: 全検索領域における両面バランス検索セーフティネット（一方向・悲観・批判バイアスの防止） ---
-        market_keywords = ["暴落", "下落", "懸念", "株", "相場", "半導体", "インテル", "AVGO", "ブロードコム", "急落", "調整", "バブル", "SOX", "組み込", "リバランス", "銘柄", "ポートフォリオ", "ETF"]
-        negative_keywords = ["失敗", "問題", "危険", "批判", "欠点", "リスク", "悪化", "衰退", "デメリット", "バグ", "被害"]
-        from datetime import datetime as _dt
-        _cur_month = _dt.now().strftime("%B %Y")
-        
-        if any(kw in user_input for kw in market_keywords):
-            search_needed = True
-            # 会話文がそのままクエリになっている場合はクリーンなセクターキーワードに置き換え
-            if len(search_queries) == 1 and (len(search_queries[0]) > 30 or any(p in search_queries[0] for p in ["思惑", "短期", "見ての通り", "比率"])):
-                if any(k in user_input for k in ["半導体", "SOX", "SOXX", "インテル", "AVGO", "200A", "2243"]):
-                    search_queries[0] = "半導体株 ETF 見通し 動向 注目銘柄 2026"
-                elif any(k in user_input for k in ["リバランス", "組み込", "ポートフォリオ", "高配当"]):
-                    search_queries[0] = "米国株 日本株 高配当 ETF おすすめ 注目銘柄 2026"
-
-            has_rebound_query = any(w in q.lower() for q in search_queries for w in ["rebound", "recovery", "high", "反発", "回復", "見通し", "outlook"])
-            if not has_rebound_query and len(search_queries) < 2:
-                if any(k in user_input for k in ["半導体", "SOX", "SOXX", "インテル", "AVGO", "200A", "2243"]):
-                    search_queries.append("semiconductor ETF stock market outlook 2026")
-                else:
-                    search_queries.append("US Japan stock dividend ETF market outlook 2026")
-                logger.info(f"📈 市場調査クエリにバランス反発・見通し検索クエリを自動追加しました: {search_queries[-1]}")
-        elif search_needed and any(kw in user_input for kw in negative_keywords) and len(search_queries) < 2:
-            # 市場以外のネガティブ単一問いに対して、改善・解決・最新フォローアップクエリを自動ペア補完
-            search_queries.append(f"{search_queries[0]} solutions improvements latest update 2026")
-            logger.info(f"⚖️ リサーチクエリに多角的バランス補完クエリを追加しました: {search_queries[-1]}")
+            search_queries = [
+                sanitize_conversational_query(q)
+                if len(q) > 25 and ("ｗ" in q or "思う" in q or "なんだ" in q)
+                else q
+                for q in search_queries
+            ]
+        search_needed, search_queries = balance_search_queries(user_input, search_needed, search_queries)
 
         # --- Intent Routing (Auto Mode Switching) ---
         recommended_mode = search_plan.get("recommended_mode")
@@ -385,101 +239,28 @@ async def chat(request: ChatRequest):
         
         search_results_text = None
         search_sources = []
-        
+
         if search_needed:
-            tasks = []
-            max_queries = 2 # 検索API制限とコスト削減のため最大2クエリまでに制限（ユーザー指示）
-            for q in search_queries[:max_queries]:
-                yield _sse_event({"type": "status", "status": "searching", "query": q})
-                yield _sse_event({"type": "pipeline", "stage": "search", "detail": f"情報収集中: {q}"})
-                tasks.append(web_search(q, providers=search_providers))
-                logger.info(f"検索実行: '{q}' (Providers: {search_providers}) (Original: '{user_input}')")
-            
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            all_raw_sources = []
-            direct_url_fallback_texts = []
-            for i, res in enumerate(results):
-                q = search_queries[i]
-                if isinstance(res, Exception):
-                    logger.error(f"検索実行エラー '{q}': {res}")
+            async for ev in run_web_search(
+                user_input=user_input,
+                search_queries=search_queries,
+                search_providers=search_providers,
+            ):
+                if ev.get("type") == "_result":
+                    search_results_text = ev.get("text")
+                    search_sources = ev.get("sources") or []
                 else:
-                    text, sources = res
-                    if "URL (" in text and "の内容:" in text: # URL直指定フェッチの場合はそのまま保持
-                        direct_url_fallback_texts.append(text)
-                    all_raw_sources.extend(sources)
-            
-            # --- 🔴 P0: 全クエリの検索結果を統合し、グローバルで関連度トップ20件にリランキング＆重複排除 ---
-            combined_texts = direct_url_fallback_texts
-            if all_raw_sources:
-                from app.core.search.reranker import rerank
-                from app.core.search.formatter import format_for_prompt
-                from app.core.source_evaluator import evaluate_source_authority
-                
-                # ユーザーの元の質問をベースに、全体からトップ20件を厳選して重複排除
-                global_top_sources = rerank(user_input, all_raw_sources, top_k=20)
-                
-                # --- 🚀 Tier 1 の記事を最大1つ取得 (ディープフェッチ) 釣りタイトル対策 ---
-                deep_fetched_text = ""
-                from app.core.search.router import fetch_url
-                for src in global_top_sources:
-                    url = src.get("url", "")
-                    title = src.get("title", "")
-                    source_label = src.get("source", "")
-                    eval_res = evaluate_source_authority(url, title, source_label)
-                    
-                    if eval_res["tier"] == 1 and url:
-                        logger.info(f"🚀 Tier 1 記事の本文取得(ディープフェッチ)実行: {url} (Title: {title})")
-                        yield _sse_event({"type": "status", "status": "scraping_promotion", "url": url})
-                        try:
-                            scraped_content = await fetch_url(url)
-                            if scraped_content and not scraped_content.startswith("❌") and len(scraped_content.strip()) > 50:
-                                # 論文後半のDefense/結論セクションまで含めて最大15000字抽出（スマート抽出）
-                                content_snippet = _extract_smart_snippet(scraped_content, 15000)
-                                deep_fetched_text = f"【Tier 1記事 本文抽出: {title} ({url})】\n{content_snippet}\n\n"
-                                break # 最大1件で終了
-                        except Exception as e:
-                            logger.warning(f"Tier 1記事の本文取得失敗 {url}: {e}")
-                
-                # 厳選されたトップ20件のテキストをフォーマット
-                global_text = format_for_prompt(global_top_sources, user_input)
-                combined_texts.append(f"【統合検索結果（関連度トップ20件）】\n{global_text}")
-                if deep_fetched_text:
-                    combined_texts.append(deep_fetched_text)
-                
-                search_sources = global_top_sources
+                    yield _sse_event(ev)
 
-            # 最終的な検索結果テキストの結合とサイズクリップ
-            if combined_texts:
-                search_results_text = _clip_search_results("\n\n".join(combined_texts))
-
-            if search_sources:
-                # URLで重複排除
-                unique_sources = []
-                seen_urls = set()
-                for s in search_sources:
-                    if s["url"] not in seen_urls:
-                        seen_urls.add(s["url"])
-                        unique_sources.append(s)
-                search_sources = unique_sources
-                yield _sse_event({"type": "sources", "data": search_sources})
-                
-            # 自動スクレイピング（ディープサーチ）機能は、完全許可制ルールの導入に伴い無効化しました。
-            # AIが明示的に許可を得て <read_url> を実行した場合のみスクレイピングが行われます。
-
-        if direct_url_texts:
-            existing_text = search_results_text or ""
-            search_results_text = _clip_search_results(existing_text + "\n\n" + "\n\n".join(direct_url_texts))
-            logger.info("ユーザー指定URLのスクレイピング本文をコンテキストに統合完了")
-
-        # 検索成功時はセッションへ保存（フォローアップ引き継ぎ用）
-        if search_results_text:
-            _store_search_carryover(session_id, search_results_text, search_queries, user_input)
-        else:
-            # 検索なしフォローアップ: 同一トピックなら前ターン結果を再注入
-            search_results_text = _maybe_carry_search_results(
-                session_id, user_input, messages, search_needed, search_results_text
-            )
+        search_results_text, search_unsupported = finalize_search_context(
+            session_id=session_id,
+            user_input=user_input,
+            messages=messages,
+            search_needed=search_needed,
+            search_queries=search_queries,
+            search_results_text=search_results_text,
+            direct_url_texts=direct_url_texts,
+        )
 
         max_supervisor_loops = 2
         supervisor_loop_count = 0
@@ -606,26 +387,7 @@ async def chat(request: ChatRequest):
             if supervisor_json.get("mode"):
                 mode = supervisor_json["mode"]
 
-            # おまかせ開発依頼では hearing（スキル質問）への逃避をコード側で阻止
-            from app.core.omakase_policy import is_omakase_dev_request
-            if is_omakase_dev_request(user_input) and mode == "hearing":
-                logger.warning("おまかせ開発依頼なのに mode=hearing → chat+plan に強制転換")
-                mode = "chat"
-                supervisor_json["mode"] = "chat"
-                supervisor_json["hearing_state"] = None
-                # plan が空なら Executor に決断プラン生成を指示
-                if not supervisor_json.get("plan"):
-                    inst = supervisor_json.get("instruction") or {}
-                    if isinstance(inst, dict):
-                        facts = inst.get("logical_order") or []
-                        if isinstance(facts, list):
-                            facts = [
-                                "おまかせ開発依頼のためヒアリングせず、最良案を1つ決断して具体プランを提示すよ",
-                                "予算内訳・成果物・7日手順・人間必須作業・成功指標を必ず含めること",
-                                "コーディング可否・趣味・作業時間は質問しない。確認は方針のYes/Noのみ",
-                            ] + list(facts)
-                            inst["logical_order"] = facts
-                        supervisor_json["instruction"] = inst
+            mode, supervisor_json = apply_omakase_hearing_ban(user_input, mode, supervisor_json)
 
             if supervisor_json.get("mode"):
                 yield _sse_event({"type": "mode_switch", "mode": mode})
@@ -718,36 +480,16 @@ async def chat(request: ChatRequest):
                 return
 
             # 3. 自律実行ループ（Auto Execution Loop）
-            instruction_dict = supervisor_json.get("instruction", {})
-            if isinstance(instruction_dict, dict):
-                facts = instruction_dict.get("facts_to_present", [])
-                order = instruction_dict.get("logical_order", [])
-            
-                instruction = ""
-                if facts:
-                    instruction += "【必ず含めるべき事実】\n"
-                    for f in facts:
-                        instruction += f"- {f}\n"
-                if order:
-                    instruction += "\n【回答の構成（順序）】\n"
-                    for o in order:
-                        instruction += f"- {o}\n"
-            else:
-                instruction = str(instruction_dict)
-            # 記憶がスコープ外（空）なら inject を強制オフ。
-            # キーワード一致分だけある場合は inject 可。明示許可なしでの「全記憶ダンプ」は
-            # filter_by_scope 側で既に阻止済み。
-            if not filtered_kv_text:
-                if supervisor_json.get("memory_inject"):
-                    logger.warning("memory_inject=true を拒否（スコープ内の記憶なし）")
-                supervisor_json["memory_inject"] = False
-            memory_to_inject = filtered_kv_text if supervisor_json.get("memory_inject") and filtered_kv_text else None
-            # 検索結果が存在するなら常に注入（Supervisorの search_used 自己申告で捨てない）
-            search_to_inject = search_results_text
-            if search_results_text and not supervisor_json.get("search_used"):
-                logger.info("📎 search_used=false だが検索結果が存在するため Executor へ注入します")
-        
+            instruction = build_executor_instruction(
+                supervisor_json, search_unsupported=search_unsupported
+            )
+            supervisor_json, memory_to_inject = resolve_memory_inject(
+                supervisor_json, filtered_kv_text
+            )
+            search_to_inject = note_search_inject(search_results_text, supervisor_json)
+
             # auto_execution_loop を使用した自律ループ
+            import asyncio
             from app.core.auto_execution_loop import auto_execute_with_retry
             
             sse_queue = asyncio.Queue()
@@ -847,177 +589,3 @@ async def chat(request: ChatRequest):
         },
     )
 
-
-def _trim_history_content(content: str) -> str:
-    if not content:
-        return content
-
-    content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
-    content = re.sub(r'<think>(?:(?!</think>).)*$', '', content, flags=re.DOTALL)
-    content = re.sub(r'(?m)^(?:まず、ユーザーの発言を分析します[^\n]*\n+|Output format:[^\n]*\n+|user_intent_analysis:[^\n]*\n+)+', '', content)
-    content = re.sub(r'【一般検索結果:.*?】\s*(?:\[brave\s*\[Tier.*?\]\].*?\n?)+', '', content, flags=re.DOTALL).strip()
-
-    if len(content) < 4000:
-        return content
-    
-    def replace_code_block(match):
-        block = match.group(0)
-        if len(block) > 800:
-            lang = match.group(1) or ""
-            return f"```{lang}\n(※過去の長大なコード/ログ出力一部省略)\n```"
-        return block
-    
-    # あらゆる言語のコードブロック（```lang ... ```）にマッチさせる
-    content = re.sub(r'```([a-zA-Z0-9_-]*)\s*[\s\S]*?```', replace_code_block, content)
-    
-    # さらに全体が4000文字を超える場合は冒頭と末尾を残して中間を圧縮
-    if len(content) > 4000:
-        content = content[:2000] + "\n\n(※過去の対話ログ一部省略)\n\n" + content[-2000:]
-        
-    return content
-
-
-async def _get_conversation_messages(session_id: str) -> list[dict]:
-    """DB からセッションの会話履歴を取得（トークン大量消費を防ぐため長大ブロックを自動トリミング）"""
-    try:
-        async with get_db() as db:
-            cursor = await db.execute(
-                "SELECT role, content, reasoning, search_sources, thinking_json FROM messages WHERE session_id = ? ORDER BY created_at",
-                (session_id,),
-            )
-            rows = await cursor.fetchall()
-            messages = []
-            for row in rows:
-                msg = {
-                    "role": row[0],
-                    "content": _trim_history_content(row[1]),
-                    "reasoning": row[2] if len(row) > 2 else None,
-                }
-                # sources が巨大な場合は None（57MB爆発防止）
-                raw_sources = row[3] if len(row) > 3 and row[3] else None
-                if raw_sources and len(str(raw_sources)) > 5000:
-                    msg["sources"] = None
-                else:
-                    msg["sources"] = json.loads(raw_sources) if raw_sources else None
-                # thinking_json が巨大な場合は None
-                raw_thinking = row[4] if len(row) > 4 else None
-                if raw_thinking and len(str(raw_thinking)) > 10000:
-                    msg["thinking_json"] = None
-                else:
-                    msg["thinking_json"] = raw_thinking
-                messages.append(msg)
-            # 第2段階圧縮: 古いターンを圧縮（最新3ターン保持）
-            return await compress_messages_stage2(messages, max_keep=3)
-    except Exception as e:
-        logger.error(f"履歴取得エラー: {e}")
-        return []
-
-
-def _trim_for_db(content: str, max_len: int = 30000) -> str:
-    """DB保存用にコンテンツをトリミング（会話履歴の肥大化防止）"""
-    if not content or len(content) <= max_len:
-        return content
-    half = max_len // 2
-    return content[:half] + "\n\n(※システム保護のため一部省略)\n\n" + content[-half:]
-
-
-async def _save_messages(
-    session_id: str,
-    user_message: str,
-    ai_response: str,
-    raw_response: str,
-    json_data: dict | None,
-    reasoning: str | None = None,
-    search_sources: list[dict] | None = None,
-):
-    """ユーザーメッセージとAI応答をDBに保存（コンテンツは自動トリミング）"""
-    try:
-        async with get_db() as db:
-            # DB保存前にトリミング（次回読み込み時の57MB爆発防止）
-            trimmed_user = _trim_for_db(user_message)
-            trimmed_ai = _trim_for_db(ai_response)
-            trimmed_raw = _trim_for_db(raw_response, max_len=5000)
-            # セッションが存在しない場合は作成（最初のメッセージからタイトルを生成）
-            title = user_message[:30] + "..." if len(user_message) > 30 else user_message
-            await db.execute(
-                "INSERT OR IGNORE INTO sessions (id, title) VALUES (?, ?)",
-                (session_id, title),
-            )
-
-            # セッションのタイトルがnullの場合（新規作成API経由など）は更新する
-            await db.execute(
-                "UPDATE sessions SET title = ? WHERE id = ? AND title IS NULL",
-                (title, session_id),
-            )
-
-            # ユーザーメッセージ（トリミング済み）
-            await db.execute(
-                "INSERT INTO messages (session_id, role, content) VALUES (?, 'user', ?)",
-                (session_id, trimmed_user),
-            )
-
-            # AI応答（トリミング済み）
-            await db.execute(
-                "INSERT INTO messages (session_id, role, content, raw_response, thinking_json, reasoning, search_sources) "
-                "VALUES (?, 'assistant', ?, ?, ?, ?, ?)",
-                (
-                    session_id,
-                    trimmed_ai,
-                    trimmed_raw,
-                    json.dumps(json_data, ensure_ascii=False) if json_data else None,
-                    reasoning,
-                    json.dumps(search_sources, ensure_ascii=False) if search_sources else None
-                ),
-            )
-
-            # 誠実さダッシュボード用データの計算と保存
-            if json_data:
-                instruction = json_data.get("instruction", {})
-                verified_facts = 0
-                unverified_facts = 0
-                if isinstance(instruction, dict):
-                    v_facts = instruction.get("verified_facts")
-                    u_facts = instruction.get("unverified_facts")
-                    if isinstance(v_facts, list):
-                        verified_facts = len(v_facts)
-                    if isinstance(u_facts, list):
-                        unverified_facts = len(u_facts)
-                
-                citations = len(search_sources) if search_sources else 0
-                excluded_sources = 0 # 暫定
-                truncation_detected = 0
-                trim_applied = 0
-                uncited_assertions = 0
-                try:
-                    from app.core.fact_filters.citation import get_last_citation_metrics
-                    m = get_last_citation_metrics()
-                    truncation_detected = int(getattr(m, "truncation_detected", 0) or 0)
-                    trim_applied = int(getattr(m, "trim_applied", 0) or 0)
-                    uncited_assertions = int(getattr(m, "uncited_assertions", 0) or 0)
-                    # 本文中の [n] 引用数も加算可能なら上書き
-                    if getattr(m, "citations_found", 0):
-                        citations = max(citations, int(m.citations_found))
-                except Exception:
-                    pass
-                
-                await db.execute(
-                    "INSERT INTO integrity_stats ("
-                    "session_id, verified_facts, unverified_facts, excluded_sources, citations, "
-                    "truncation_detected, trim_applied, uncited_assertions"
-                    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        session_id, verified_facts, unverified_facts, excluded_sources, citations,
-                        truncation_detected, trim_applied, uncited_assertions,
-                    )
-                )
-
-            # セッションの updated_at を更新
-            await db.execute(
-                "UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                (session_id,),
-            )
-
-            await db.commit()
-            # Supervisorによって判断されたKVアクションはすでに適用済みのため、ここでの無条件な全件抽出は廃止（ハルシネーション・過剰記憶の防止）
-    except Exception as e:
-        logger.error(f"メッセージ保存エラー: {e}")

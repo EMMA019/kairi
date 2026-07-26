@@ -76,6 +76,24 @@ def test_junk_detects_image_and_transfer_noise():
         "quote": "猫を2匹飼ってる",  # demo seed
         "summary": {"target": "猫", "stance": "好き"},
     })
+    # 「非保有者」に含まれる「保有」で誤って残さない
+    assert is_junk_memory({
+        "category": "profile",
+        "quote": "マルチプロバイダ利用",
+        "summary": {
+            "target": "マルチプロバイダ利用",
+            "note": "GPU非保有者に推奨",
+        },
+    })
+    # 明示保存の保有銘柄は残す
+    assert not is_junk_memory({
+        "category": "profile",
+        "quote": "今GOOGLを保有していることを記憶しておいてください！",
+        "summary": {
+            "target": "GOOGL保有状況",
+            "note": "2株保有。取得価格約350ドル。",
+        },
+    })
 
 
 def test_entry_match_keyword_only():

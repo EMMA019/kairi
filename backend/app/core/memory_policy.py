@@ -68,14 +68,16 @@ _FORGET_PATTERNS = [
 # 会話メタ・ニュース・AI自己紹介など「ユーザーの長期特徴」ではないゴミ
 _JUNK_TARGET_RE = re.compile(
     r"("
-    r"画像|写真|selfie|selfie|リクエスト|エラー|API|"
+    r"画像|写真|selfie|リクエスト|エラー|API|"
     r"移籍|サッカー|プレミア|トッテナム|チェルシー|リバプール|"
+    r"マンチェスター|日本人選手|カルパナ|キングジョージ|競馬|"
     r"アシスタント|キャラクター|カイリ|かいり|応答|会話の流れ|"
     r"ソース|出典|検索結果|ニュース|ディール|"
     r"本日の|今日の食事|夕飯|カレーの写真|海の写真|学校の写真|"
     r"過去の話題|ユーザーの反応|動作背景|運用状況|"
-    r"Morph|DeepSeek|MiniMAX|GLM-|Gemini|OpenRouter|"
-    r"開発依頼|方向性|現状|参考ソース|収益化|意図変更"
+    r"Morph|DeepSeek|MiniMAX|GLM-|Gemini|OpenRouter|Kimi|マルチプロバイダ|"
+    r"開発依頼|方向性|現状|参考ソース|収益化|意図変更|投資手段|"
+    r"ジタン|ゴロワーズ|Gitanes|アルファベット株"
     r")",
     re.IGNORECASE,
 )
@@ -140,9 +142,9 @@ def is_demo_seed_memory(entry: dict) -> bool:
 
 
 def is_junk_memory(entry: dict) -> bool:
+    """ニュース・会話メタ・AI自己説明など長期記憶に不適切なエントリか。"""
     if is_demo_seed_memory(entry):
         return True
-    """ニュース・会話メタ・AI自己説明など長期記憶に不適切なエントリか。"""
     summary = entry.get("summary") or {}
     target = str(summary.get("target") or "")
     note = str(summary.get("note") or "")
@@ -154,10 +156,18 @@ def is_junk_memory(entry: dict) -> bool:
         return False
 
     # ユーザー本人の嗜好・保有・予定はニュース語を含んでも許容
+    # ただし「GOOGL保有」のように明示保有のみ。単なる話題名の profile は落とす。
+    # 「非保有者」などに含まれる「保有」は除外
+    user_owned = bool(
+        re.search(r"(?<!非)保有|持ってる|飼って|住んで|勤め|勤務", f"{note}{quote}{target}")
+    )
+    explicit_save_quote = bool(
+        re.search(r"覚えておいて|記憶しておいて|記憶して|メモして", quote)
+    )
     if category in ("preference", "schedule") and stance in ("好き", "苦手", "条件付き", "予定", "約束"):
         return False
-    if re.search(r"(保有|持ってる|飼って|住んで|勤め|勤務|好き|苦手|嫌い)", f"{note}{quote}{stance}"):
-        if not re.search(r"(移籍金|画像リクエスト|APIエラー|キャラクター設定)", f"{target}{note}"):
+    if user_owned and category == "profile" and explicit_save_quote:
+        if not re.search(r"(移籍金|画像リクエスト|APIエラー|キャラクター設定|移籍市場)", f"{target}{note}"):
             return False
 
     blob = f"{target}\n{note}\n{quote}"
@@ -170,6 +180,13 @@ def is_junk_memory(entry: dict) -> bool:
     # quote が短すぎ／ターゲット名だけのものは会話断片
     if len(quote.strip()) < 4 and category == "profile":
         return True
+
+    # 「話題の固有名詞をそのまま記憶」パターン（明示保存の引用がない）
+    if category == "profile" and not explicit_save_quote:
+        qn = re.sub(r"[\s　]+", "", quote)
+        tn = re.sub(r"[\s　]+", "", target)
+        if qn and tn and (qn == tn or qn in tn or tn in qn):
+            return True
 
     return False
 

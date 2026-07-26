@@ -42,7 +42,10 @@ tools/lora_studio/sd-scripts/
 tools/lora_studio/sd-webui-forge/
 tools/lora_studio/output/
 tools/lora_studio/dataset/
-img/
+# PNG 原盤など img 配下は無視。本番用 WebP ストックだけ追跡する
+img/*
+!img/stock_web/
+!img/stock_web/**
 
 # One-off patch / split scripts (do not re-add)
 backend/patch*.py

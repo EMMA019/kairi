@@ -2,7 +2,7 @@
 画像生成エンドポイント。
 
 優先順位:
-1. gallery / gallery-hybrid → ローカル LoRA ストック (img/stock)
+1. gallery / gallery-hybrid → ローカル LoRA ストック (img/stock_web → img/stock)
 2. Cloudflare Workers AI (cf-sdxl / cf-flux)
 3. Pollinations.ai へのリダイレクト（フォールバック）
 """
@@ -61,13 +61,23 @@ def _repo_root() -> Path:
 
 
 def _stock_dirs() -> list[Path]:
+    """本番は WebP 圧縮済み stock_web を優先。無ければローカル PNG stock にフォールバック。"""
     root = _repo_root()
-    return [
-        root / "img" / "stock",
-        root / "img",
-        root / "frontend" / "public" / "gallery",
-        root / "backend" / "static" / "gallery",
-    ]
+    stock_web = root / "img" / "stock_web"
+    stock_png = root / "img" / "stock"
+    dirs: list[Path] = []
+    # stock_web に1枚でもあれば PNG 側は読まない（同名stemの二重登録を防ぐ）
+    if stock_web.exists() and any(stock_web.glob("*.webp")):
+        dirs.append(stock_web)
+    elif stock_png.exists():
+        dirs.append(stock_png)
+    dirs.extend(
+        [
+            root / "frontend" / "public" / "gallery",
+            root / "backend" / "static" / "gallery",
+        ]
+    )
+    return dirs
 
 
 def _list_stock_images() -> list[Path]:

@@ -30,6 +30,9 @@ def test_detect_theme_keywords():
 def test_theme_of_file():
     assert _theme_of_file(Path("kairi_school_1785020315_2.png")) == "school"
     assert _theme_of_file(Path("kairi_happening_x.png")) == "happening"
+    # WebP 圧縮後も stem ベースでテーマ判定できること
+    assert _theme_of_file(Path("kairi_beach_123.webp")) == "beach"
+    assert _theme_of_file(Path("kairi_room_selfie_1.webp")) == "room"
 
 
 def test_select_matches_theme_and_is_deterministic():

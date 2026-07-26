@@ -73,25 +73,33 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setSaving(true);
     setStatusMsg("");
     try {
-      await apiFetch("/api/settings", {
+      // 鶏と卵回避: POST 前に localStorage へ保存し、このリクエスト自体に Token を付ける
+      setStoredApiToken(inputPin);
+      setInputApiToken(inputPin);
+      setApiToken(inputPin);
+      const res = await apiFetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           app_pin: inputPin,
         }),
       });
+      if (res.status === 401) {
+        setStatusMsg("PINをローカル保存しましたが、サーバー認証に失敗しました。値の一致を確認してください。");
+        return;
+      }
+      if (!res.ok) {
+        setStatusMsg(`PIN設定保存エラーが発生しました。（HTTP ${res.status}）`);
+        return;
+      }
       setAppPin(inputPin);
-      // バックエンドは app_pin を API トークンとしても要求するため、localStorage に同期
-      setStoredApiToken(inputPin);
-      setInputApiToken(inputPin);
-      setApiToken(inputPin);
       setStatusMsg(
         inputPin
           ? "PINセキュリティロックを設定し、クライアント認証も同期しました。"
           : "PINセキュリティロックを解除しました。"
       );
     } catch (e) {
-      setStatusMsg("PIN設定保存エラーが発生しました。");
+      setStatusMsg("PINをローカル保存しましたが、サーバーへ届きませんでした。接続を確認してください。");
     } finally {
       setSaving(false);
     }
@@ -102,22 +110,33 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setStatusMsg("");
     try {
       const token = inputApiToken.trim();
-      await apiFetch("/api/settings", {
+      // 鶏と卵回避: POST 前に localStorage へ保存（この POST にも X-API-Token が付く）
+      setStoredApiToken(token);
+      setApiToken(token);
+      const res = await apiFetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           api_token: token,
         }),
       });
-      setStoredApiToken(token);
-      setApiToken(token);
+      if (res.status === 401) {
+        setStatusMsg(
+          "Tokenをローカル保存しましたが、サーバー認証に失敗しました。RenderのKAIRI_API_TOKENと同じ値か確認してください。"
+        );
+        return;
+      }
+      if (!res.ok) {
+        setStatusMsg(`API Token 保存エラーが発生しました。（HTTP ${res.status}）`);
+        return;
+      }
       setStatusMsg(
         token
           ? "API Token を保存しました。以降の API 呼び出しに自動付与されます。"
           : "API Token をクリアしました（開発モード）。"
       );
     } catch (e) {
-      setStatusMsg("API Token 保存エラーが発生しました。");
+      setStatusMsg("Tokenをローカル保存しましたが、サーバーへ届きませんでした。接続を確認してください。");
     } finally {
       setSaving(false);
     }

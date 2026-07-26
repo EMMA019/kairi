@@ -75,11 +75,11 @@ if os.environ.get("ALLOW_OPEN_CORS", "").strip() in ("1", "true", "TRUE", "yes")
 else:
     _main_logger.info("CORS: 許可オリジンをローカル開発リストに制限しています（広域は ALLOW_OPEN_CORS=1）")
 
-app.add_middleware(CORSMiddleware, **_cors_kwargs)
-
-# API トークン認証（api_token / KAIRI_API_TOKEN 未設定時は開発モードでスキップ）
+# 認証を先に追加し、CORS を後から追加する（後に追加したものが最外殻）。
+# 401 レスポンスにも Access-Control-Allow-Origin が付き、ブラウザがエラーを読める。
 from app.core.auth import APITokenMiddleware
 app.add_middleware(APITokenMiddleware)
+app.add_middleware(CORSMiddleware, **_cors_kwargs)
 
 # ルーター登録
 app.include_router(chat.router, prefix="/api", tags=["chat"])

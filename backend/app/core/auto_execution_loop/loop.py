@@ -154,7 +154,7 @@ async def auto_execute_with_retry(
         buffer = ""
         in_xml_block = False
         _TOOL_TAG_NAMES = (
-            r'file|replace|run_command|read_url|read_file|list_dir|search|search_news|'
+            r'file|replace|edit|run_command|read_url|read_file|list_dir|search|search_news|'
             r'search_codebase|grep_search|view_file|mcp_call|escalate'
         )
         tool_tag_start_pattern = re.compile(

@@ -159,7 +159,11 @@ class ToolHandler:
         
         # 1. ワークスペースの変更検知と自動スナップショット
         if self.mode in ["task", "research"]:
-            has_file_modifications = "<file path=" in current_response or "<replace path=" in current_response
+            has_file_modifications = (
+                "<file path=" in current_response
+                or "<replace path=" in current_response
+                or "<edit path=" in current_response
+            )
             if has_file_modifications:
                 if self.mode == "research":
                     error_msg = "Researchモードではファイルの書き換えは許可されていません。ファイル操作をキャンセルしました。"
@@ -168,7 +172,7 @@ class ToolHandler:
                     current_response += f"\n\n*[⚠️ {error_msg}]*\n\n"
                 else:
                     git_snapshot(str(BASE_WORKSPACE_DIR), "Auto-snapshot before AI modification")
-                    mod_paths = re.findall(r'<(?:file|replace)\s+path=(["\'])(.*?)\1', current_response)
+                    mod_paths = re.findall(r'<(?:file|replace|edit)\s+path=(["\'])(.*?)\1', current_response)
                     
                     # 🔴 事前探索・認知精度強制チェック (Reconnaissance Enforcement)
                     has_reconnaissance = any(tag in current_response for tag in ["<list_dir", "<read_file", "<view_file", "<grep_search", "<search_codebase", "<run_command"])
@@ -177,6 +181,7 @@ class ToolHandler:
                         self.tool_results.append("⚠️ 【事前探索・認知チェック警告】 事前に <list_dir> や <read_file>、<search_codebase> 等でディレクトリ構造や既存コードを確認せずに変更しようとしています。見当違いのパスや初期テンプレートを触る認知エラーを防ぐため、必ずターゲットファイルの中身と構造を確認してから実装してください。")
 
                     current_response = self._handle_file_creations(current_response)
+                    current_response = await self._handle_file_edits(current_response)
                     current_response = self._handle_file_replacements(current_response)
                     
                     # 🔴 自律テスト・自動ビルド検証エンジンの完全結合
@@ -348,6 +353,82 @@ class ToolHandler:
                 self.tool_results.append(err_msg)
                 
         current_response = re.sub(r'<file\s+path=(["\'])(.*?)\1>\n?[\s\S]*?<\/file>', r'\n\n*[📝 ファイル `\2` を作成・保存しました]*\n\n', current_response)
+        return current_response
+
+    async def _handle_file_edits(self, current_response: str) -> str:
+        """<edit path="..."> タグを Fast Apply（マージ専用LLM）で処理する。
+
+        Executor は変更行だけを「// ... existing code ...」マーカー付きで出力し、
+        apply モデルが元ファイルとマージする。検証失敗時は書き込まず、
+        Executor に <replace> / <file> へのフォールバックを促す。
+        """
+        edit_pattern = re.compile(
+            r'<edit\s+path=(["\'])(?P<path>.*?)\1'
+            r'(?:\s+instruction=(["\'])(?P<instruction>.*?)\3)?\s*>'
+            r'\n?(?P<snippet>[\s\S]*?)<\/edit>'
+        )
+        if not edit_pattern.search(current_response):
+            return current_response
+
+        from app.core.fast_apply import apply_edit
+
+        for match in edit_pattern.finditer(current_response):
+            path_str = match.group("path")
+            instruction = match.group("instruction") or ""
+            snippet = match.group("snippet")
+
+            mock_error = self.check_mocks(snippet)
+            if mock_error:
+                logger.error(f"モック検出 ({path_str}): {mock_error}")
+                self.tool_results.append(mock_error)
+                continue
+
+            try:
+                clean_snippet = self.clean_markdown_block(snippet)
+                safe_path = normalize_safe_path(str(BASE_WORKSPACE_DIR), path_str)
+                target_path = BASE_WORKSPACE_DIR / safe_path
+
+                if not target_path.exists():
+                    err_msg = f"Fast Apply編集エラー: ファイルが存在しません ({path_str})。新規作成する場合は <file path=\"{path_str}\"> を使用してください。"
+                    logger.warning(err_msg)
+                    self.tool_results.append(err_msg)
+                    current_response += f"\n\n*[⚠️ {err_msg}]*\n\n"
+                    continue
+
+                with open(target_path, "r", encoding="utf-8") as f:
+                    original_content = f.read()
+
+                success, result = await apply_edit(original_content, clean_snippet, instruction)
+                if not success:
+                    err_msg = (
+                        f"Fast Apply編集失敗 ({path_str}): {result}\n"
+                        "ファイルは変更されていません。<replace> タグ（<search>/<replace_with>）で"
+                        "ピンポイント置換するか、対象箇所を <read_file> で再確認してください。"
+                    )
+                    logger.warning(err_msg)
+                    self.tool_results.append(err_msg)
+                    current_response += f"\n\n*[⚠️ {err_msg}]*\n\n"
+                    continue
+
+                with open(target_path, "w", encoding="utf-8") as f:
+                    f.write(result)
+
+                lint_error = self.run_linter(target_path, is_new_file=False, original_content=original_content)
+                if lint_error:
+                    logger.error(lint_error)
+                    self.tool_results.append(lint_error)
+                    current_response += f"\n\n*[⚠️ {lint_error}]*\n\n"
+                    continue
+
+                success_msg = f"ファイル {safe_path} にFast Apply編集を適用しました。次のステップに進んでください。"
+                self.tool_results.append(success_msg)
+                logger.info(f"Fast Apply編集を適用しました: {target_path}")
+            except Exception as e:
+                err_msg = f"Fast Apply編集エラー ({path_str}): {e}"
+                logger.error(err_msg)
+                self.tool_results.append(err_msg)
+
+        current_response = edit_pattern.sub(r'\n\n*[📝 ファイル `\g<path>` にFast Apply編集を適用しました]*\n\n', current_response)
         return current_response
 
     def _handle_file_replacements(self, current_response: str) -> str:

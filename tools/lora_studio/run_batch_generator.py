@@ -61,7 +61,7 @@ expressions = ["energetic big smile", "gentle smile", "winking", "blush, smile",
 poses_details = ["peace sign", "selfie pose", "from side", "hand up", "looking at viewer", "braid", "long sleeves", "earrings"]
 
 print("[Kairi Stock Generator v3] Starting massive stock generation...")
-TOTAL_IMAGES = 60
+TOTAL_IMAGES = 150
 
 for idx in range(TOTAL_IMAGES):
     # テーマを重み付けでランダム選択

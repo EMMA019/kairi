@@ -39,8 +39,17 @@ MEMORY_SYSTEM_PROMPT = """あなたは会話からユーザーに関する記憶
 
 async def extract_and_save_memory(session_id: str, user_input: str, ai_response: str):
     """
-    非同期で会話内容からメモリを抽出し、KVストアを更新する
+    非同期で会話内容からメモリを抽出し、KVストアを更新する。
+
+    ※ 現行チャット経路は Supervisor の kv_action + memory_policy ゲートを正とする。
+      本関数はレガシー互換用。明示保存指示がない場合は LLM を呼ばず即 return。
     """
+    from app.core.memory_policy import should_accept_kv_action, user_requests_memory_save
+
+    if not user_requests_memory_save(user_input):
+        logger.debug("extract_and_save_memory: 明示保存指示なしのためスキップ")
+        return
+
     # すでに保存されている全メモリ一覧を渡し、重複や上書きを防ぐ
     current_memory = await kv_store.format_summary()
     
@@ -69,6 +78,10 @@ async def extract_and_save_memory(session_id: str, user_input: str, ai_response:
             
             for action_data in actions:
                 action = action_data.get("action")
+                ok, reason = should_accept_kv_action(user_input, action_data)
+                if not ok:
+                    logger.warning(f"自動メモリ抽出を拒否 ({reason}): {action_data.get('summary', {}).get('target')}")
+                    continue
                 if action == "add":
                     await kv_store.add(action_data)
                     logger.info(f"自動メモリ抽出: 追加 - {action_data.get('summary', {}).get('target')}")

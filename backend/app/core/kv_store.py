@@ -31,7 +31,13 @@ class KVStore:
         pass
 
     async def _init_defaults_if_empty(self):
-        """データベースが空の場合、デフォルトデータを挿入する"""
+        """空DBでもデモ記憶は自動挿入しない（猫・登山などの偽プロフィール汚染を防ぐ）。
+
+        旧 demo データが必要な場合のみ環境変数 KAIRI_SEED_DEMO_KV=1 で有効化。
+        """
+        import os
+        if os.environ.get("KAIRI_SEED_DEMO_KV", "").strip() != "1":
+            return
         async with get_db() as db:
             result = await db.execute("SELECT COUNT(id) FROM kv_memories")
             row = await result.fetchone()
@@ -125,10 +131,17 @@ class KVStore:
             return None
 
     async def add(self, entry: dict) -> dict:
-        """新規KVエントリを追加"""
+        """新規KVエントリを追加（近い target があれば update にフォールバックして重複増殖を防ぐ）"""
         await self._init_defaults_if_empty()
+        summary = entry.get("summary", {}) or {}
+        target = summary.get("target") or ""
+        similar = await self.find_similar_target(target)
+        if similar and similar.get("id") is not None:
+            logger.info(f"KV重複抑制: '{target}' → 既存 id={similar['id']} を更新")
+            updated = await self.update(similar["id"], entry)
+            return updated or similar
+
         async with get_db() as db:
-            summary = entry.get("summary", {})
             tags = summary.get("tags", [])
             await db.execute(
                 """
@@ -222,38 +235,50 @@ class KVStore:
 
     async def filter_by_scope(self, user_input: str, top_k: int = 25) -> list[dict]:
         """
-        重要カテゴリー（project / profile / rule / preference / schedule）は常にコンテキストに常駐させる。
-        その他のエントリもキーワード検索で合致すれば追加する。
+        記憶参照ポリシー（オプトイン）:
+        - 明示的な「記憶を使って」等がある場合のみ、関連記憶を広く返す
+        - それ以外は、今回の発話とキーワード一致したエントリだけを返す
+        - profile/preference の常時全注入はしない（記憶参照違反の主因だった）
         """
+        from app.core.memory_policy import (
+            entry_matches_user_input,
+            user_allows_memory_use,
+        )
+
         all_memories = await self.get_all()
         candidates = [e for e in all_memories if e.get("category") != "exclusion"]
-        
         if not candidates:
             return []
 
-        always_inject = []
-        keyword_matched = []
-        user_lower = user_input.lower()
+        # 明示許可時: キーワード一致を優先し、足りなければ profile/preference を補完
+        if user_allows_memory_use(user_input):
+            matched = [e for e in candidates if entry_matches_user_input(e, user_input)]
+            if matched:
+                return matched[:top_k]
+            # 「記憶を使って」だけでテーマ未指定なら preference/profile/schedule を返す
+            broad = [
+                e for e in candidates
+                if e.get("category") in ("project", "profile", "rule", "preference", "schedule", "agreement")
+            ]
+            return broad[:top_k]
 
-        for entry in candidates:
-            cat = entry.get("category", "")
-            if cat in ("project", "profile", "rule", "preference", "schedule"):
-                always_inject.append(entry)
+        # デフォルト: キーワード一致のみ（一致なしなら空＝沈黙義務）
+        matched = [e for e in candidates if entry_matches_user_input(e, user_input)]
+        return matched[:top_k]
+
+    async def find_similar_target(self, target: str) -> Optional[dict]:
+        """正規化 target が近い既存エントリを返す（重複追加防止）。"""
+        from app.core.memory_policy import normalize_target_key
+        key = normalize_target_key(target)
+        if not key:
+            return None
+        for entry in await self.get_all():
+            existing = normalize_target_key((entry.get("summary") or {}).get("target") or "")
+            if not existing:
                 continue
-
-            target = entry.get("summary", {}).get("target", "")
-            tags = entry.get("summary", {}).get("tags", [])
-            
-            if (
-                target in user_input
-                or any(tag in user_lower for tag in tags if len(tag) >= 2)
-                or any(tok in user_input for tok in target.split() if len(tok) >= 2)
-                or any(kw in user_input for kw in ["アプリ", "プロジェクト", "作る", "覚えて", "約束", "タスク", "好き", "予定", "旅行"])
-            ):
-                keyword_matched.append(entry)
-
-        combined = always_inject + [e for e in keyword_matched if e not in always_inject]
-        return combined[:top_k]
+            if existing == key or key in existing or existing in key:
+                return entry
+        return None
 
     def format_for_prompt(self, kv_list: list[dict]) -> str:
         """KVリストをプロンプト注入用テキストに整形"""

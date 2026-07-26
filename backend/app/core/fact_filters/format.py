@@ -75,6 +75,42 @@ DEFAULT_MEMORY_PROJECT_KEYWORDS = [
     "写真保護アプリ",
 ]
 
+# 「Naoさんの趣味（競馬、サッカー、猫など）」のような無断パーソナライズ文
+_HOBBY_PERSONALIZATION_RE = re.compile(
+    r"(趣味|好み|嗜好|好きなもの)[（(][^）)]{2,40}[）)]"
+    r"|(?:競馬|サッカー|猫).{0,12}(?:趣味|好き)"
+    r"|(?:趣味|好き).{0,12}(?:競馬|サッカー|猫)"
+)
+
+
+def strip_omakase_skill_questions(
+    text: str,
+    user_input: Optional[str] = None,
+) -> str:
+    """おまかせ開発依頼なのにスキル確認を聞き返す文を除去する。"""
+    if not text or not isinstance(text, str):
+        return text
+    try:
+        from app.core.omakase_policy import (
+            contains_forbidden_skill_question,
+            is_omakase_dev_request,
+        )
+    except Exception:
+        return text
+    if not is_omakase_dev_request(user_input or ""):
+        return text
+    if not contains_forbidden_skill_question(text):
+        return text
+
+    sentences = re.split(r'(?<=[。！？\n])', text)
+    kept = []
+    for s in sentences:
+        if contains_forbidden_skill_question(s):
+            logger.warning(f"おまかせ後のスキル確認質問を自動削除: {s[:60]}...")
+            continue
+        kept.append(s)
+    cleaned = "".join(kept).strip()
+    return cleaned if cleaned else text
 
 
 def strip_unrequested_memory_mentions(
@@ -84,25 +120,52 @@ def strip_unrequested_memory_mentions(
 ) -> str:
     """
     記憶参照違反・過去プロジェクト無断適用の自動クリーニング：
-    ユーザーの直近の質問・指示（user_input）に含まれていない過去プロジェクト（顔写真保護アプリ等）を
-    AIが結語等で引き合いに出した場合、その不自然・無関係な言及行／パラグラフを自動除去する。
+    ユーザーの直近の質問・指示（user_input）に含まれていない過去プロジェクトや
+    趣味パーソナライズ（競馬・サッカー・猫等）を AI が引き合いに出した場合に除去する。
     """
     if not text or not isinstance(text, str):
         return text
 
-    keywords = memory_keywords or DEFAULT_MEMORY_PROJECT_KEYWORDS
-
+    keywords = list(memory_keywords or DEFAULT_MEMORY_PROJECT_KEYWORDS)
     user_text = str(user_input or "")
-    if any(kw in user_text for kw in keywords):
+
+    # 明示的な記憶利用許可があるときは趣味パーソナライズ除去をスキップ
+    try:
+        from app.core.memory_policy import user_allows_memory_use
+        memory_allowed = user_allows_memory_use(user_text)
+    except Exception:
+        memory_allowed = False
+
+    if any(kw in user_text for kw in keywords) and memory_allowed:
         return text
+
+    active_keywords = [kw for kw in keywords if kw not in user_text]
 
     paragraphs = re.split(r'(\r?\n\r?\n)', text)
     cleaned_paragraphs = []
 
     for p in paragraphs:
-        if any(kw in p for kw in keywords):
+        if active_keywords and any(kw in p for kw in active_keywords):
             logger.debug(f"記憶参照違反（無関係な過去プロジェクト言及）を自動削除: {p[:50]}...")
             continue
+        if not memory_allowed and _HOBBY_PERSONALIZATION_RE.search(p):
+            hobby_terms = [t for t in ("競馬", "サッカー", "猫") if t in p and t not in user_text]
+            if hobby_terms or "趣味（" in p or "趣味(" in p:
+                # 段落全体ではなく、違反文だけを除去して有用な文は残す
+                sentences = re.split(r'(?<=[。！？\n])', p)
+                kept = []
+                for s in sentences:
+                    if _HOBBY_PERSONALIZATION_RE.search(s) and (
+                        any(t in s and t not in user_text for t in ("競馬", "サッカー", "猫"))
+                        or "趣味（" in s
+                        or "趣味(" in s
+                    ):
+                        logger.warning(f"記憶参照違反（無断趣味パーソナライズ）を自動削除: {s[:60]}...")
+                        continue
+                    kept.append(s)
+                p = "".join(kept).strip()
+                if not p:
+                    continue
         cleaned_paragraphs.append(p)
 
     cleaned_text = "".join(cleaned_paragraphs).strip()

@@ -154,9 +154,12 @@ async def chat(request: ChatRequest):
     followup_cooldown = len(history) >= 2 and all(history[-2:])
 
     # KV フィルタリング + KV一覧 + プロンプト構築
+    # ※ filter_by_scope はオプトイン（明示許可 or キーワード一致のみ）。空なら注入しない。
+    from app.core.memory_policy import user_allows_memory_use
     relevant_kv = await kv_store.filter_by_scope(user_input)
-    filtered_kv_text = kv_store.format_for_prompt(relevant_kv)
-    kv_summary = await kv_store.format_summary()
+    filtered_kv_text = kv_store.format_for_prompt(relevant_kv) if relevant_kv else ""
+    # 全件一覧は「記憶を使って/覚えてる？」等の明示時のみ Supervisor に渡す（漏洩防止）
+    kv_summary = await kv_store.format_summary() if user_allows_memory_use(user_input) else ""
     mood = get_mood()
 
     # --- ギャルモード (Lv3 Hyper Gal / omous Engine) 判定 ---
@@ -230,7 +233,8 @@ async def chat(request: ChatRequest):
                 instruction="キャラクターになりきって、ユーザーとの会話を自然かつテンポよく楽しく盛り上げてください。",
                 system_instruction=char_sys,
                 history_messages=messages,
-                memory_text=filtered_kv_text,
+                # char でも無断注入しない（キーワード一致 or 明示許可時のみ）
+                memory_text=filtered_kv_text or None,
                 mode="char",
                 is_hyper_gal=is_hyper_gal,
             ):
@@ -548,47 +552,82 @@ async def chat(request: ChatRequest):
             if reasoning:
                 yield _sse_event({"type": "reasoning", "content": reasoning})
 
-            # バックグラウンド処理: メモリ抽出 (Supervisorの判断を使用・Executor前に行う)
+            # バックグラウンド処理: メモリ抽出 (Supervisor判断 + コード側ゲートで拒否)
             kv_action = supervisor_json.get("kv_action")
             if kv_action and isinstance(kv_action, dict) and kv_action.get("action") in ["add", "update", "delete"]:
-                try:
-                    action = kv_action.get("action")
-                    if action == "add":
-                        await kv_store.add(kv_action)
-                        logger.info(f"Supervisor指示によるメモリ追加: {kv_action.get('summary', {}).get('target')}")
-                    elif action == "update" and kv_action.get("target_id"):
-                        target_id = int(kv_action["target_id"])
-                        await kv_store.update(target_id, kv_action)
-                        logger.info(f"Supervisor指示によるメモリ更新: ID {target_id}")
-                    elif action == "delete" and kv_action.get("target_id"):
-                        target_id = int(kv_action["target_id"])
-                        await kv_store.delete(target_id)
-                        logger.info(f"Supervisor指示によるメモリ削除: ID {target_id}")
-                
-                    # KVメモリが更新されたので、プロンプト用のテキストを再生成する
-                    relevant_kv = await kv_store.filter_by_scope(user_input)
-                    filtered_kv_text = kv_store.format_for_prompt(relevant_kv)
-                    if any(k in user_input for k in ["メモリ", "記憶", "覚えて", "KV", "プロフィール"]):
-                        filtered_kv_text = "（ユーザーの記憶やプロフィールを確認する場合は <internal_kv_state> を参照してください）"
-                    kv_summary = await kv_store.format_summary()
-                
-                    # Supervisor向けにプロンプトを再構築 (エスカレーション再試行用)
-                    retry_static, retry_dynamic = build_system_instruction(
-                        user_input=user_input,
-                        mode=mode,
-                        mood=mood,
-                        filtered_kv_text=filtered_kv_text,
-                        followup_cooldown=followup_cooldown,
-                        kv_summary=kv_summary,
+                from app.core.memory_policy import should_accept_kv_action
+                accepted, reason = should_accept_kv_action(user_input, kv_action)
+                if not accepted:
+                    logger.warning(
+                        f"KV保存を拒否 (reason={reason}): "
+                        f"action={kv_action.get('action')} target={kv_action.get('summary', {}).get('target')}"
                     )
-                    supervisor_sys_prompt = retry_static
-                    supervisor_dynamic_sys = retry_dynamic
-                except Exception as e:
-                    logger.error(f"SupervisorからのKV保存に失敗しました: {e}")
+                    supervisor_json["kv_action"] = {"action": "none", "rejected_reason": reason}
+                else:
+                    try:
+                        action = kv_action.get("action")
+                        if action == "add":
+                            await kv_store.add(kv_action)
+                            logger.info(
+                                f"Supervisor指示によるメモリ追加: "
+                                f"{kv_action.get('summary', {}).get('target')} ({reason})"
+                            )
+                        elif action == "update" and kv_action.get("target_id"):
+                            target_id = int(kv_action["target_id"])
+                            await kv_store.update(target_id, kv_action)
+                            logger.info(f"Supervisor指示によるメモリ更新: ID {target_id}")
+                        elif action == "delete" and kv_action.get("target_id"):
+                            target_id = int(kv_action["target_id"])
+                            await kv_store.delete(target_id)
+                            logger.info(f"Supervisor指示によるメモリ削除: ID {target_id}")
+
+                        # KVメモリが更新されたので、プロンプト用のテキストを再生成する
+                        relevant_kv = await kv_store.filter_by_scope(user_input)
+                        filtered_kv_text = kv_store.format_for_prompt(relevant_kv)
+                        if any(k in user_input for k in ["メモリ", "記憶", "覚えて", "KV", "プロフィール"]):
+                            filtered_kv_text = "（ユーザーの記憶やプロフィールを確認する場合は <internal_kv_state> を参照してください）"
+                        kv_summary = await kv_store.format_summary()
+
+                        # Supervisor向けにプロンプトを再構築 (エスカレーション再試行用)
+                        retry_static, retry_dynamic = build_system_instruction(
+                            user_input=user_input,
+                            mode=mode,
+                            mood=mood,
+                            filtered_kv_text=filtered_kv_text,
+                            followup_cooldown=followup_cooldown,
+                            kv_summary=kv_summary,
+                        )
+                        supervisor_sys_prompt = retry_static
+                        supervisor_dynamic_sys = retry_dynamic
+                    except Exception as e:
+                        logger.error(f"SupervisorからのKV保存に失敗しました: {e}")
 
             # モードの強制上書き
             if supervisor_json.get("mode"):
                 mode = supervisor_json["mode"]
+
+            # おまかせ開発依頼では hearing（スキル質問）への逃避をコード側で阻止
+            from app.core.omakase_policy import is_omakase_dev_request
+            if is_omakase_dev_request(user_input) and mode == "hearing":
+                logger.warning("おまかせ開発依頼なのに mode=hearing → chat+plan に強制転換")
+                mode = "chat"
+                supervisor_json["mode"] = "chat"
+                supervisor_json["hearing_state"] = None
+                # plan が空なら Executor に決断プラン生成を指示
+                if not supervisor_json.get("plan"):
+                    inst = supervisor_json.get("instruction") or {}
+                    if isinstance(inst, dict):
+                        facts = inst.get("logical_order") or []
+                        if isinstance(facts, list):
+                            facts = [
+                                "おまかせ開発依頼のためヒアリングせず、最良案を1つ決断して具体プランを提示すよ",
+                                "予算内訳・成果物・7日手順・人間必須作業・成功指標を必ず含めること",
+                                "コーディング可否・趣味・作業時間は質問しない。確認は方針のYes/Noのみ",
+                            ] + list(facts)
+                            inst["logical_order"] = facts
+                        supervisor_json["instruction"] = inst
+
+            if supervisor_json.get("mode"):
                 yield _sse_event({"type": "mode_switch", "mode": mode})
             
             if supervisor_json.get("chart_data"):
@@ -695,7 +734,14 @@ async def chat(request: ChatRequest):
                         instruction += f"- {o}\n"
             else:
                 instruction = str(instruction_dict)
-            memory_to_inject = filtered_kv_text if supervisor_json.get("memory_inject") else None
+            # 記憶がスコープ外（空）なら inject を強制オフ。
+            # キーワード一致分だけある場合は inject 可。明示許可なしでの「全記憶ダンプ」は
+            # filter_by_scope 側で既に阻止済み。
+            if not filtered_kv_text:
+                if supervisor_json.get("memory_inject"):
+                    logger.warning("memory_inject=true を拒否（スコープ内の記憶なし）")
+                supervisor_json["memory_inject"] = False
+            memory_to_inject = filtered_kv_text if supervisor_json.get("memory_inject") and filtered_kv_text else None
             # 検索結果が存在するなら常に注入（Supervisorの search_used 自己申告で捨てない）
             search_to_inject = search_results_text
             if search_results_text and not supervisor_json.get("search_used"):

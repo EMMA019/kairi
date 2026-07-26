@@ -92,6 +92,8 @@ def enforce_persona_fact_separation(persona_text: str, verified_facts: list[str]
     source_context = " ".join(verified_facts) if verified_facts else None
     validated_text = strip_unverified_day_of_week(validated_text, source_text=source_context, strip_if_no_source=False)
     validated_text = strip_unrequested_memory_mentions(validated_text, user_input=user_input)
+    from .format import strip_omakase_skill_questions
+    validated_text = strip_omakase_skill_questions(validated_text, user_input=user_input)
     validated_text = strip_unrequested_yahoo_finance(validated_text, user_input=user_input)
     validated_text = strip_outdated_past_event_predictions(validated_text)
     validated_text = verify_action_modality_consistency(validated_text, source_text=source_context)

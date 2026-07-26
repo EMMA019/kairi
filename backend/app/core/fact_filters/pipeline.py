@@ -53,6 +53,7 @@ def apply_grounding_pipeline(
     from .format import (
         correct_common_typos,
         strip_unrequested_memory_mentions,
+        strip_omakase_skill_questions,
         strip_unrequested_yahoo_finance,
         clean_broken_markdown_tables,
         strip_excuse_hallucinations,
@@ -73,6 +74,7 @@ def apply_grounding_pipeline(
     text = enforce_variable_numerical_claims(text, source_text or "")
     text = correct_common_typos(text)
     text = strip_unrequested_memory_mentions(text, user_input=user_input)
+    text = strip_omakase_skill_questions(text, user_input=user_input)
     text = strip_unrequested_yahoo_finance(text, user_input=user_input)
     text = strip_outdated_past_event_predictions(text)
     text = deduplicate_spot_listings(text)

@@ -36,6 +36,7 @@ interface Settings {
   gemini_models: string[];
   deepseek_models: string[];
   openai_models: string[];
+  notify_on_complete?: boolean;
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
@@ -54,6 +55,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         apiFetch("/api/usage").then(res => res.json()).catch(() => null),
         apiFetch("/api/stats").then(res => res.json()).catch(() => null)
       ]).then(([settingsData, usageData, cacheData]) => {
+        const stored = localStorage.getItem("kairi_notify_on_complete");
+        settingsData.notify_on_complete = stored === null ? true : stored !== "false";
         setSettings(settingsData);
         if (usageData) setUsageStats(usageData);
         if (cacheData) setCacheStats(cacheData);
@@ -98,8 +101,18 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           brave_api_key: settings.brave_api_key || "",
           world_news_api_key: settings.world_news_api_key || "",
           newsdata_api_key: settings.newsdata_api_key || "",
+          notify_on_complete: settings.notify_on_complete !== false,
         })
       });
+      try {
+        const { setNotifyOnCompleteEnabled, ensureNotifyPermission } = await import("../utils/notifyComplete");
+        setNotifyOnCompleteEnabled(settings.notify_on_complete !== false);
+        if (settings.notify_on_complete !== false) {
+          await ensureNotifyPermission();
+        }
+      } catch {
+        /* ignore */
+      }
       onClose();
     } catch (e) {
       console.error(e);
@@ -229,6 +242,22 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   {renderSection("🧠 Supervisor Model", "supervisor_provider", "supervisor_model")}
                   {renderSection("🗣️ Executor Model", "executor_provider", "executor_model")}
                   {renderSection("🔍 Planner Model", "planner_provider", "planner_model")}
+                  <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+                    <label className="flex items-center gap-3 cursor-pointer text-sm text-zinc-200">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-emerald-500"
+                        checked={settings.notify_on_complete !== false}
+                        onChange={(e) =>
+                          setSettings({ ...settings, notify_on_complete: e.target.checked })
+                        }
+                      />
+                      <span>回答完了時に通知（スマホでバックグラウンド中）</span>
+                    </label>
+                    <p className="mt-2 text-xs text-zinc-500">
+                      タブやアプリが裏にあるとき、回答が届いたら通知します。完全なサーバPushではありません。
+                    </p>
+                  </div>
                 </div>
               )}
 

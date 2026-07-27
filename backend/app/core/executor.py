@@ -166,7 +166,7 @@ Docker Compose の操作が必要な場合は、以下の curl コマンドで�
     
     settings = app_settings.get()
     provider = settings.get("executor_provider", "deepseek")
-    model_name = settings.get("executor_model", "deepseek-chat")
+    model_name = settings.get("executor_model", "deepseek-v4-flash")
     
     stream = stream_model(
         system_instruction=system_prompt,

@@ -140,9 +140,9 @@ async def apply_edit(
         from app.routers.settings import app_settings
         settings = app_settings.get()
         provider = settings.get("fast_apply_provider") or settings.get("executor_provider", "deepseek")
-        model_name = settings.get("fast_apply_model") or settings.get("executor_model", "deepseek-chat")
+        model_name = settings.get("fast_apply_model") or settings.get("executor_model", "deepseek-v4-flash")
     except Exception:
-        provider, model_name = "deepseek", "deepseek-chat"
+        provider, model_name = "deepseek", "deepseek-v4-flash"
 
     try:
         raw = await call_model(

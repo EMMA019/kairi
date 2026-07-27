@@ -126,6 +126,11 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
         // 【修正ポイント1】最終コンテンツを確定
         // ============================================================
         const finalContent = event.content || streamingContentRef.current;
+
+        // バックグラウンド時は完了通知
+        import("../utils/notifyComplete")
+          .then(({ notifyChatComplete }) => notifyChatComplete(finalContent))
+          .catch(() => {});
         
         // ============================================================
         // 【修正ポイント2】二重表示防止：メッセージの重複チェック

@@ -52,14 +52,15 @@ OPENAI_MODELS = [
 
 _DEFAULT_SETTINGS = {
     "supervisor_provider": "deepseek",
-    "supervisor_model": "deepseek-v4-pro",
-    "executor_provider": "gemini",
-    "executor_model": "gemini-3.1-pro",
+    "supervisor_model": "deepseek-v4-flash",
+    "executor_provider": "deepseek",
+    "executor_model": "deepseek-v4-flash",
     "planner_provider": "deepseek",
     "planner_model": "deepseek-v4-flash",
     "user_name": "ご主人様",
     "user_location": "",
     "persona_style": "standard",
+    "notify_on_complete": True,
     "char_profile": "あなたはフレンドリーで親密なキャラクター相棒「Kairi」です。敬語や堅い業務説明は避け、自然で感情豊かな会話をテンポよく楽しんでください。",
     "visual_anchor": "1girl, anime style, kairi, 19yo japanese cute girl, short magenta bob hair, pink eyes, earrings, high quality, masterpiece",
     "char_background": "",
@@ -207,6 +208,7 @@ class SettingsUpdate(BaseModel):
     app_pin: Optional[str] = None
     api_token: Optional[str] = None
     planner_model: Optional[str] = None
+    notify_on_complete: Optional[bool] = None
 
 
 @router.get("/settings")

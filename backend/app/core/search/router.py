@@ -60,9 +60,14 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
                 combined_results.extend(formatted)
 
     # 3. ニュースクエリ (オンデマンド1次情報取得)
-    # 日付フィルタを自動付与（当日の結果が除外されないよう7日前を起点とする）
+    # 日付フィルタを自動付与（市場・今日系は2日前、通常は7日前）
     from datetime import datetime as _dt, timedelta as _td
-    _start_date = (_dt.now() - _td(days=7)).strftime("%Y-%m-%d")
+    _market_fresh = any(
+        kw in (query or "")
+        for kw in ("市場", "株", "市況", "終値", "大引け", "今日", "本日", "相場", "market", "today", "close", "Dow", "日経")
+    )
+    _lookback = 2 if _market_fresh else 7
+    _start_date = (_dt.now() - _td(days=_lookback)).strftime("%Y-%m-%d")
     _date_filtered_query = f"{query} after:{_start_date}" if query and "after:" not in query else query
     if "news" in providers:
         from app.core.news.fetcher import fetch_primary_news
@@ -126,7 +131,7 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
             if "duckduckgo" not in providers and "free" not in providers and "jina" not in providers:
                 _is_news = any(kw in _search_query for kw in ["市場", "株", "市況", "ニュース", "決算", "相場", "market", "news"])
                 if _is_news:
-                    results = await search_tavily(_search_query, topic="news", days=7)
+                    results = await search_tavily(_search_query, topic="news", days=2 if _market_fresh else 7)
                 else:
                     results = await search_tavily(_search_query)
 

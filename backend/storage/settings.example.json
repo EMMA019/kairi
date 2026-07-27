@@ -1,8 +1,8 @@
 {
   "supervisor_provider": "deepseek",
-  "supervisor_model": "deepseek-v4-pro",
-  "executor_provider": "gemini",
-  "executor_model": "gemini-3.1-pro",
+  "supervisor_model": "deepseek-v4-flash",
+  "executor_provider": "deepseek",
+  "executor_model": "deepseek-v4-flash",
   "planner_provider": "deepseek",
   "planner_model": "deepseek-v4-flash",
   "user_name": "ご主人様",
@@ -26,5 +26,6 @@
   "is_licensed": true,
   "license_key": "",
   "app_pin": "",
-  "api_token": ""
+  "api_token": "",
+  "notify_on_complete": true
 }

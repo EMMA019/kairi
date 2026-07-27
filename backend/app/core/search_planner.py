@@ -6,6 +6,52 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+
+def _market_today_shortcut(user_input: str, current_date: str, current_date_en: str) -> dict[str, Any] | None:
+    """
+    「今日の日本/米国市場」系は LLM planner を飛ばして固定クエリを返す。
+    """
+    text = user_input or ""
+    todayish = any(k in text for k in ("今日", "本日", "大引け", "終値", "today", "どうだった", "どう動"))
+    if not todayish:
+        return None
+
+    jp = any(k in text for k in ("日本市場", "日経", "東証", "TOPIX", "東京株式", "日本株"))
+    us = any(k in text for k in ("米国市場", "アメリカ市場", "NY", "ナスダック", "Nasdaq", "S&P", "ダウ", "Dow", "Wall Street"))
+    # 「市場」単独 + 今日系で日本寄り（locale既定）
+    if not jp and not us and ("市場" in text or "相場" in text or "market" in text.lower()):
+        if any(k in text for k in ("米国", "アメリカ", "US", "NY")):
+            us = True
+        else:
+            jp = True
+
+    if jp and not us:
+        return {
+            "needs_search": True,
+            "search_queries": [
+                f"日経平均 終値 {current_date}",
+                f"東京株式市場 市況 {current_date}",
+            ],
+            "providers": ["brave", "news"],
+            "needs_deep_search": False,
+            "recommended_mode": "chat",
+            "category": "finance",
+        }
+    if us and not jp:
+        return {
+            "needs_search": True,
+            "search_queries": [
+                f"US stock market {current_date_en}",
+                f"Dow S&P Nasdaq {current_date}",
+            ],
+            "providers": ["brave", "news"],
+            "needs_deep_search": False,
+            "recommended_mode": "chat",
+            "category": "finance",
+        }
+    return None
+
+
 PLANNER_SYSTEM_PROMPT = """あなたはユーザーの入力と文脈から、**外部Web検索（Brave Search API）** が必要かどうかを判断し、最高品質の検索クエリを構築する専門AIです。
 **絶対にJSON形式のみを出力してください。** それ以外のテキストは一切出力しないでください。
 
@@ -71,7 +117,16 @@ async def plan_search(user_input: str, history_messages: list[dict]) -> dict[str
 
     from datetime import datetime, timezone, timedelta
     JST = timezone(timedelta(hours=9))
-    current_date = datetime.now(JST).strftime("%Y-%m-%d")
+    now = datetime.now(JST)
+    current_date = now.strftime("%Y-%m-%d")
+    # 表示用: July 27, 2026
+    current_date_en = now.strftime("%B %d, %Y").replace(" 0", " ")
+
+    # --- 市場「今日/本日」ショートサーキット（planner LLM 1往復を省略）---
+    short = _market_today_shortcut(user_input or "", current_date, current_date_en)
+    if short:
+        logger.info(f"⚡ 市場今日系ショートサーキット: {short['search_queries']}")
+        return short
 
     context_text = f"【現在の日付: {current_date}】\n\n【直近の会話履歴】\n"
     if not recent_history:

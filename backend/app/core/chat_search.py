@@ -122,37 +122,82 @@ def sanitize_conversational_query(q_text: str) -> str:
 
 
 def balance_search_queries(user_input: str, search_needed: bool, search_queries: list) -> tuple[bool, list]:
-    """市場・ネガティブ問いに対するクエリバランス補完。"""
+    """市場・ネガティブ問いに対するクエリバランス補完（地域スコープ付き）。"""
+    from datetime import datetime, timezone, timedelta
+
+    JST = timezone(timedelta(hours=9))
+    today = datetime.now(JST).strftime("%Y-%m-%d")
+
     market_keywords = [
-        "暴落", "下落", "懸念", "株", "相場", "半導体", "インテル", "AVGO", "ブロードコム",
+        "暴落", "下落", "懸念", "株", "相場", "市場", "半導体", "インテル", "AVGO", "ブロードコム",
         "急落", "調整", "バブル", "SOX", "組み込", "リバランス", "銘柄", "ポートフォリオ", "ETF",
+        "日経", "ダウ", "ナスダック",
     ]
     negative_keywords = ["失敗", "問題", "危険", "批判", "欠点", "リスク", "悪化", "衰退", "デメリット", "バグ", "被害"]
 
-    if any(kw in user_input for kw in market_keywords):
+    jp_scope = any(
+        k in user_input
+        for k in ("日本市場", "日経", "東証", "TOPIX", "東京株式", "日本株", "国内市場")
+    )
+    us_scope = any(
+        k in user_input
+        for k in ("米国市場", "アメリカ市場", "NY", "ナスダック", "Nasdaq", "S&P", "ダウ", "Dow", "Wall Street", "米国株")
+    )
+    todayish = any(k in user_input for k in ("今日", "本日", "大引け", "終値", "today"))
+
+    if any(kw in user_input for kw in market_keywords) or jp_scope or us_scope:
         search_needed = True
+
+        # 今日系の日本/米国は先頭クエリを地域特化に正規化
+        if todayish and jp_scope and not us_scope:
+            search_queries = [f"日経平均 終値 {today}", f"東京株式市場 市況 {today}"]
+            logger.info(f"🇯🇵 日本市場今日系クエリに正規化: {search_queries}")
+            return search_needed, search_queries[:2]
+        if todayish and us_scope and not jp_scope:
+            search_queries = [f"US stock market {today}", f"Dow S&P Nasdaq close {today}"]
+            logger.info(f"🇺🇸 米国市場今日系クエリに正規化: {search_queries}")
+            return search_needed, search_queries[:2]
+
         if len(search_queries) == 1 and (
             len(search_queries[0]) > 30 or any(p in search_queries[0] for p in ["思惑", "短期", "見ての通り", "比率"])
         ):
             if any(k in user_input for k in ["半導体", "SOX", "SOXX", "インテル", "AVGO", "200A", "2243"]):
                 search_queries[0] = "半導体株 ETF 見通し 動向 注目銘柄 2026"
             elif any(k in user_input for k in ["リバランス", "組み込", "ポートフォリオ", "高配当"]):
-                search_queries[0] = "米国株 日本株 高配当 ETF おすすめ 注目銘柄 2026"
+                if jp_scope and not us_scope:
+                    search_queries[0] = "日本株 高配当 ETF おすすめ 注目銘柄 2026"
+                elif us_scope and not jp_scope:
+                    search_queries[0] = "US dividend ETF stock picks outlook 2026"
+                else:
+                    search_queries[0] = "米国株 日本株 高配当 ETF おすすめ 注目銘柄 2026"
 
         has_rebound_query = any(
-            w in q.lower() for q in search_queries for w in ["rebound", "recovery", "high", "反発", "回復", "見通し", "outlook"]
+            w in q.lower()
+            for q in search_queries
+            for w in ["rebound", "recovery", "high", "反発", "回復", "見通し", "outlook", "終値", "close"]
         )
         if not has_rebound_query and len(search_queries) < 2:
             if any(k in user_input for k in ["半導体", "SOX", "SOXX", "インテル", "AVGO", "200A", "2243"]):
                 search_queries.append("semiconductor ETF stock market outlook 2026")
+            elif jp_scope and not us_scope:
+                search_queries.append(f"日経平均 市況 見通し {today}")
+            elif us_scope and not jp_scope:
+                search_queries.append(f"US stock market outlook {today}")
             else:
+                # 地域不明の一般リバランス等のみ従来の両面補完
                 search_queries.append("US Japan stock dividend ETF market outlook 2026")
-            logger.info(f"📈 市場調査クエリにバランス反発・見通し検索クエリを自動追加しました: {search_queries[-1]}")
+            logger.info(f"📈 市場調査クエリに補完クエリを追加: {search_queries[-1]}")
     elif search_needed and any(kw in user_input for kw in negative_keywords) and len(search_queries) < 2:
         search_queries.append(f"{search_queries[0]} solutions improvements latest update 2026")
         logger.info(f"⚖️ リサーチクエリに多角的バランス補完クエリを追加しました: {search_queries[-1]}")
 
     return search_needed, search_queries
+
+
+def should_skip_deep_fetch(user_input: str) -> bool:
+    """終値・大引け・今日の市況はスニペットで足りるのでディープフェッチ省略。"""
+    text = user_input or ""
+    return any(k in text for k in ("終値", "大引け", "今日の日本市場", "今日の米国市場", "本日の市場", "市況"))
 
 
 async def run_web_search(
@@ -199,7 +244,12 @@ async def run_web_search(
         global_top_sources = rerank(user_input, all_raw_sources, top_k=20)
 
         deep_fetched_text = ""
+        skip_deep = should_skip_deep_fetch(user_input)
+        if skip_deep:
+            logger.info("⏩ 市場終値/今日系のため Tier1 ディープフェッチをスキップ")
         for src in global_top_sources:
+            if skip_deep:
+                break
             url = src.get("url", "")
             title = src.get("title", "")
             source_label = src.get("source", "")

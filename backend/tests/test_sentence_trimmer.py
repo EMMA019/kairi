@@ -37,11 +37,12 @@ def test_truncated_mid_sentence():
     assert not result.endswith("い")
 
 
-def test_code_block_protected():
+def test_code_block_unclosed_trims_incomplete_line():
     text = "例です。\n```python\ndef foo():\n    retur"
-    # 奇数個の ``` でコードブロック内 → 保護
     result = trim_incomplete_trailing_sentence(text)
+    assert "retur" not in result
     assert "```python" in result
+    assert result.count("```") % 2 == 0
 
 
 def test_bullet_list_protected():

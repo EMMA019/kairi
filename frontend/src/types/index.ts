@@ -51,6 +51,8 @@ export interface SSEEvent {
   detail?: string;
   data?: any;
   message?: string;
+  /** false = 空洞完了・失敗。完了通知を出さない */
+  ok?: boolean;
 }
 
 export interface SessionInfo {

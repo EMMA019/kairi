@@ -21,32 +21,33 @@ def load_prompt(filename: str) -> str:
         return f.read()
 
 def load_active_skills(user_input: str) -> str:
-    """ユーザー入力のキーワードに基づいて適切なスキルファイルを動的にロードする"""
+    """ユーザー入力のキーワードに基づいて適切なスキルファイルを動的にロードする。
+    各 SKILL.md の frontmatter keywords のみで判定し、汎用語での全スキル誤発火を防ぐ。
+    """
     skills_dir = BASE_DIR / "skills"
     if not skills_dir.exists():
         return ""
-    
+
+    from .skill_meta import parse_skill_frontmatter, skill_matches
+
     active_skills = []
-    lower_input = (user_input or "").lower()
-    
     for skill_folder in skills_dir.iterdir():
-        if skill_folder.is_dir():
-            skill_file = skill_folder / "SKILL.md"
-            if skill_file.exists():
-                try:
-                    content = skill_file.read_text(encoding="utf-8")
-                    # フォルダ名や主要開発キーワードとの一致を判定
-                    keywords = [
-                        skill_folder.name, "ui", "react", "python", "backend", "db",
-                        "開発", "バグ", "コード", "実装", "修正", "ゲーム", "game",
-                        "web", "モダン", "アプリ", "ホビー", "作れ", "作成", "ポーカー",
-                        "css", "デザイン", "プログラミング", "リファクタ", "ツール", "システム"
-                    ]
-                    if skill_folder.name in lower_input or any(kw in lower_input for kw in keywords):
-                        active_skills.append(f"### 【Active Skill: {skill_folder.name}】\n" + content)
-                except Exception as e:
-                    logger.warning(f"Failed to load skill {skill_folder.name}: {e}")
-                    
+        if not skill_folder.is_dir():
+            continue
+        skill_file = skill_folder / "SKILL.md"
+        if not skill_file.exists():
+            continue
+        try:
+            content = skill_file.read_text(encoding="utf-8")
+            meta, body = parse_skill_frontmatter(content)
+            keywords = meta.get("keywords") or []
+            if not skill_matches(user_input, skill_folder.name, keywords):
+                continue
+            display = meta.get("name") or skill_folder.name
+            active_skills.append(f"### 【Active Skill: {display}】\n" + (body or content))
+        except Exception as e:
+            logger.warning(f"Failed to load skill {skill_folder.name}: {e}")
+
     if not active_skills:
         return ""
     return "\n\n# 【アクティブなスキル（動的ロード専門能力）】\n" + "\n\n".join(active_skills)

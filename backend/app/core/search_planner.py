@@ -31,6 +31,8 @@ def _market_today_shortcut(user_input: str, current_date: str, current_date_en: 
             "search_queries": [
                 f"日経平均 終値 {current_date}",
                 f"東京株式市場 市況 {current_date}",
+                f"TOPIX 終値 {current_date}",
+                f"業種別騰落率 東証 {current_date}",
             ],
             "providers": ["brave", "news"],
             "needs_deep_search": False,

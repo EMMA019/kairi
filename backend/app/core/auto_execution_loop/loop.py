@@ -19,6 +19,35 @@ from .heuristics import _detect_test_failure, _detect_error, _detect_success
 from .compression import _smart_compress_loop_history
 from .supervisor import _analyze_with_supervisor
 
+
+def _snapshot_visible(text: str) -> str:
+    """ユーザーに見せられる本文だけを抽出して保持用に返す。"""
+    try:
+        from app.core.fact_filters.markup import clean_assistant_visible
+        return clean_assistant_visible(text or "")
+    except Exception:
+        return re.sub(r"<[^>]+>", "", text or "").strip()
+
+
+def _remember_good(current: str, candidate: str) -> str:
+    vis = _snapshot_visible(candidate)
+    if vis and len(vis) >= 8:
+        return vis
+    return current
+
+
+def _clear_ui_with_progress(yield_sse_func, detail: str) -> None:
+    """
+    clear_buffer で画面を空にしない。進捗を pipeline + chunk で残し、
+    「裏で動いてるのに応答空」の体感と無駄リトライを減らす。
+    """
+    if not yield_sse_func:
+        return
+    yield_sse_func({"type": "clear_buffer"})
+    yield_sse_func({"type": "pipeline", "stage": "working", "detail": detail})
+    yield_sse_func({"type": "status", "status": "responding"})
+    yield_sse_func({"type": "chunk", "content": f"⏳ {detail}\n"})
+
 async def auto_execute_with_retry(
     user_input: str,
     instruction: str,
@@ -44,6 +73,9 @@ async def auto_execute_with_retry(
     loop_count = 0
     loop_history = []
     final_accumulated_response = ""
+    last_good_user_visible = ""  # clear_buffer / 過剰掃除後の復元用
+    continuation_attempted = False
+    exec_history = history_messages
     escalation_history = []
     empty_result_retry_count = 0
     empty_output_retry_count = 0
@@ -172,93 +204,109 @@ async def auto_execute_with_retry(
         async def stream_with_newline(original_stream):
             tag_buf = ""
             in_tag = False
-            in_think_block = False  # <think>ブロック内かどうか
+            in_think_block = False
+            _tool_or_think_prefix = re.compile(
+                rf'^</?(?:think|{_TOOL_TAG_NAMES})',
+                re.IGNORECASE,
+            )
+            _partial_prefix = re.compile(
+                r'^</?(?:t(?:h(?:i(?:n(?:k)?)?)?)?|'
+                r'm(?:c(?:p(?:_(?:c(?:a(?:l(?:l)?)?)?)?)?)?)?|'
+                r'f(?:i(?:l(?:e)?)?)?|search|read_|run_|list_|view_|grep_|escalat)',
+                re.IGNORECASE,
+            )
+
+            def _emit_user(text: str):
+                if not text or in_think_block:
+                    return
+                if yield_sse_func:
+                    yield_sse_func({"type": "chunk", "content": text})
+
             async for c in original_stream:
                 if in_tag:
                     tag_buf += c
-                    if ">" in tag_buf or "\n" in tag_buf:
-                        match_think = re.search(r'<think\s*>', tag_buf)
-                        match_end_think = re.search(r'</think\s*>', tag_buf)
-                        
-                        # <think> 開始タグ検出
-                        if match_think:
-                            # <think> より前のテキストがあれば、フラグ設定前に出力
-                            before_think = tag_buf[:match_think.start()]
-                            if before_think and not in_think_block:
-                                if yield_sse_func:
-                                    yield_sse_func({"type": "chunk", "content": before_think})
-                                yield before_think
-                            in_think_block = True
-                            
-                            remainder = tag_buf[match_think.end():]
-                            tag_buf = remainder
-                            in_tag = "<" in tag_buf
-                            continue
-                            
-                        # </think> 閉じタグ検出
-                        elif match_end_think:
-                            in_think_block = False
-                            remainder = tag_buf[match_end_think.end():]
-                            tag_buf = remainder
-                            in_tag = "<" in tag_buf
-                            if remainder and not in_tag:
-                                if yield_sse_func:
-                                    yield_sse_func({"type": "chunk", "content": remainder})
-                                yield remainder
-                            continue
-                            
-                        elif not re.search(rf'<({_TOOL_TAG_NAMES})', tag_buf):
-                            if not in_think_block:
-                                if yield_sse_func:
-                                    yield_sse_func({"type": "chunk", "content": tag_buf})
-                                yield tag_buf
+                    # 判定できるまで（`>` or 十分な長さ + 非タグ確定）バッファ
+                    if ">" not in tag_buf and "\n" not in tag_buf and len(tag_buf) < 80:
+                        continue
+
+                    match_think = re.search(r'<think\b[^>]*>', tag_buf, re.IGNORECASE)
+                    match_end_think = re.search(r'</think\s*>', tag_buf, re.IGNORECASE)
+
+                    if match_think:
+                        before_think = tag_buf[:match_think.start()]
+                        if before_think and not in_think_block:
+                            _emit_user(before_think)
+                            yield before_think
+                        in_think_block = True
+                        tag_buf = tag_buf[match_think.end():]
+                        in_tag = "<" in tag_buf
+                        if not in_tag:
+                            tag_buf = ""
+                        continue
+
+                    if match_end_think:
+                        in_think_block = False
+                        tag_buf = tag_buf[match_end_think.end():]
+                        in_tag = "<" in tag_buf
+                        if tag_buf and not in_tag:
+                            _emit_user(tag_buf)
+                            yield tag_buf
+                            tag_buf = ""
+                        continue
+
+                    tool_match = re.search(rf'<({_TOOL_TAG_NAMES})\b', tag_buf, re.IGNORECASE)
+                    if tool_match:
+                        if tool_match.start() > 0 and not in_think_block:
+                            before_tool = tag_buf[:tool_match.start()]
+                            _emit_user(before_tool)
+                            yield before_tool
+                        # ツールタグ本体は SSE に出さず内部のみ
+                        yield tag_buf
+                        tag_buf = ""
+                        in_tag = False
+                        continue
+
+                    # 未完了だがツール/think の接頭に見える → まだ SSE に出さない
+                    if _tool_or_think_prefix.search(tag_buf) or _partial_prefix.search(tag_buf):
+                        if "\n" in tag_buf or len(tag_buf) >= 80:
+                            # 不完全ツールタグ: 内部へだけ渡してユーザーには出さない
+                            yield tag_buf
                             tag_buf = ""
                             in_tag = False
-                            continue
-                        else:
-                            # ツールタグを検出（SSEには流さず内部バッファへ）
-                            # もしツールタグの前にテキストがあればそれは流す
-                            tool_match = re.search(rf'<({_TOOL_TAG_NAMES})', tag_buf)
-                            if tool_match and tool_match.start() > 0:
-                                before_tool = tag_buf[:tool_match.start()]
-                                if not in_think_block:
-                                    if yield_sse_func:
-                                        yield_sse_func({"type": "chunk", "content": before_tool})
-                                    # yield before_tool  # yield it along with tag_buf below
-                            
-                            if not in_think_block:
-                                yield tag_buf
-                            tag_buf = ""
-                            in_tag = False
-                            continue
+                        continue
+
+                    # 通常の `<`（比較演算子や HTML 以外の断片）→ ユーザーへ
+                    if not in_think_block:
+                        _emit_user(tag_buf)
+                        yield tag_buf
+                    tag_buf = ""
+                    in_tag = False
+                    continue
                 else:
                     if "<" in c:
                         idx = c.find("<")
                         before_lt = c[:idx]
                         if before_lt and not in_think_block:
-                            if yield_sse_func:
-                                yield_sse_func({"type": "chunk", "content": before_lt})
+                            _emit_user(before_lt)
                             yield before_lt
                         in_tag = True
-                        tag_buf += c[idx:]
+                        tag_buf = c[idx:]
                         continue
-                    else:
-                        if not in_think_block:
-                            if yield_sse_func:
-                                yield_sse_func({"type": "chunk", "content": c})
-                            yield c
-                        continue
-                        
-            if tag_buf and not in_tag:
-                if not in_think_block:
-                    if yield_sse_func:
-                        yield_sse_func({"type": "chunk", "content": tag_buf})
-                    yield tag_buf
-            elif tag_buf and in_tag:
-                if not in_think_block:
-                    # ストリーム終了時、タグが未完了なら流す
-                    if yield_sse_func:
-                        yield_sse_func({"type": "chunk", "content": tag_buf})
+                    if not in_think_block:
+                        _emit_user(c)
+                        yield c
+                    continue
+
+            # ストリーム終了: 未完了のツール/think は SSE に出さない
+            if tag_buf:
+                if in_tag and (
+                    _tool_or_think_prefix.search(tag_buf)
+                    or _partial_prefix.search(tag_buf)
+                    or re.search(rf'<({_TOOL_TAG_NAMES})', tag_buf, re.IGNORECASE)
+                ):
+                    yield tag_buf  # 内部のみ（ツール検出用）
+                elif not in_think_block:
+                    _emit_user(tag_buf)
                     yield tag_buf
             yield '\n'
         
@@ -342,8 +390,7 @@ async def auto_execute_with_retry(
                         loop_history.append({"role": "assistant", "content": stream_response})
                         loop_history.append({"role": "user", "content": tool_results_msg})
                         instruction = new_instruction  # 修正指示で上書き
-                        if yield_sse_func:
-                            yield_sse_func({"type": "clear_buffer"})
+                        _clear_ui_with_progress(yield_sse_func, "テスト結果を反映して再実行中…")
                         final_accumulated_response = ""
                         continue  # 再実行
                 else:
@@ -383,8 +430,7 @@ async def auto_execute_with_retry(
                             )
                             if supervisor_result:
                                 instruction = supervisor_result
-                                if yield_sse_func:
-                                    yield_sse_func({"type": "clear_buffer"})
+                                _clear_ui_with_progress(yield_sse_func, "エラー修正のため再実行中…")
                                 final_accumulated_response = ""
                                 continue
                         else:
@@ -404,8 +450,37 @@ async def auto_execute_with_retry(
                     loop_history.append({"role": "assistant", "content": stream_response})
                     tool_msg = "【システムからのツール実行結果】\n" + "\n\n".join(tool_handler.tool_results)
                     loop_history.append({"role": "user", "content": tool_msg})
-                    if yield_sse_func:
-                        yield_sse_func({"type": "clear_buffer"})
+                    last_good_user_visible = _remember_good(last_good_user_visible, stream_response)
+
+                    from app.core.completion_status import wants_code_in_chat
+                    wrote_file = bool(re.search(r'<file\b', stream_response, re.IGNORECASE))
+                    if wrote_file and mode in ("task", "coding", "research"):
+                        if wants_code_in_chat(user_input):
+                            loop_history.append({
+                                "role": "user",
+                                "content": (
+                                    "【システム通知・最重要】ユーザーはコード本文をチャットで求めている。\n"
+                                    "「ファイル作成完了」だけのメタ報告は禁止。\n"
+                                    "1) 保存パスを1行\n"
+                                    "2) 変更点の要点を短く\n"
+                                    "3) 続けてコード全文を ```言語 フェンスでチャットに出力（省略禁止）\n"
+                                    "長すぎて切れそうなら先に <file> 済みの内容をそのままフェンスで貼ること。\n"
+                                    "可能なら <run_command>python -m py_compile 対象.py</run_command> で構文チェック。"
+                                ),
+                            })
+                        else:
+                            loop_history.append({
+                                "role": "user",
+                                "content": (
+                                    "【システム通知】ファイル保存済み。次ターンではパスと要点を短く伝え、"
+                                    "必要なら python -m py_compile で構文チェックしてください。"
+                                    "「作成完了」だけの空疎な一文で終わらないこと。"
+                                ),
+                            })
+                    _clear_ui_with_progress(
+                        yield_sse_func,
+                        "ファイル保存／ツール完了 → 回答を組み立て中…" if wrote_file else "ツール完了 → 回答を続けます…",
+                    )
                     final_accumulated_response = ""
                     continue
             else:
@@ -421,8 +496,7 @@ async def auto_execute_with_retry(
                         "もし環境に依存するコマンドを実行していた場合は、一度コマンド実行を省き、<file> や <replace> によるファイル操作のみで作業を進めてください。"
                     )
                     loop_history.append({"role": "user", "content": retry_msg})
-                    if yield_sse_func:
-                        yield_sse_func({"type": "clear_buffer"})
+                    _clear_ui_with_progress(yield_sse_func, "ツール結果が空だったため再試行中…")
                     final_accumulated_response = ""
                     continue
                 else:
@@ -444,12 +518,12 @@ async def auto_execute_with_retry(
                     logger.info("🔄 空出力を検出したため自動リトライします")
                     retry_msg = (
                         "【システム警告（自動差し戻し）】\n"
-                        "直前の応答が空（0文字）でした。指示やタスク内容を確認し、具体的なテキストやツールタグ（<file>, <read_file> 等）を出力して作業を進めてください。"
+                        "直前の応答が空（0文字）でした。空の再生成を繰り返さず、"
+                        "具体的なテキストかツールタグ（<file>, <read_file> 等）を必ず1つ以上出力してください。"
                     )
-                    loop_history.append({"role": "assistant", "content": ""})
+                    # 空 assistant を history に積まない（トークン浪費防止）
                     loop_history.append({"role": "user", "content": retry_msg})
-                    if yield_sse_func:
-                        yield_sse_func({"type": "clear_buffer"})
+                    _clear_ui_with_progress(yield_sse_func, "空応答だったため再生成中…")
                     final_accumulated_response = ""
                     continue
                 else:
@@ -460,7 +534,32 @@ async def auto_execute_with_retry(
             # ツールタグなし → 通常の回答として返す
             logger.warning(f"🔍 [DEBUG] LLMの生出力(ツールなし): {repr(stream_response)}")
             final_accumulated_response += stream_response + "\n"
-            
+            last_good_user_visible = _remember_good(last_good_user_visible, stream_response)
+
+            # 長文コードの chat 直書きを検知 → file 誘導（1回）
+            # ユーザーが本文要求でも、途切れ防止のため一旦 file に落としてから読み戻す
+            code_fences = len(re.findall(r"```", stream_response))
+            long_code_dump = (
+                mode in ("task", "coding", "research")
+                and code_fences >= 2
+                and len(stream_response) > 2500
+                and not re.search(r"<file\b", stream_response, re.IGNORECASE)
+                and loop_count < 2
+            )
+            if long_code_dump:
+                logger.info("📝 長文コードのチャット直書きを検知 → <file> 誘導")
+                loop_history.append({"role": "assistant", "content": stream_response})
+                loop_history.append({
+                    "role": "user",
+                    "content": (
+                        "【システム警告】長いコードがチャット直書きです（途切れ・トークン浪費の原因）。\n"
+                        "今すぐ `<file path=\"...\">全文</file>` で保存し、次ターンで"
+                        "パス＋要点＋コード全文フェンスを出力してください。メタ完了宣言のみは禁止。"
+                    ),
+                })
+                _clear_ui_with_progress(yield_sse_func, "長文をファイル保存してから本文へ載せ直します…")
+                continue
+
             # ハルシネーションチェック（ツール指示があるのにタグがない）
             tool_keywords = any(kw in instruction for kw in [
                 '<read_url', '<search',
@@ -492,22 +591,37 @@ async def auto_execute_with_retry(
         logger.warning(f"⚠️ 最大ツール実行ループ数 ({max_tool_loops}) に到達したためループを終了しました。")
         final_accumulated_response += f"\n\n*(⚠️ 最大実行ループ数 {max_tool_loops} に到達しました。作業が途中となっている場合は、「続きを作成して」と指示してください)*"
     
-    try:
-        from app.core.fact_filters.pipeline import apply_grounding_pipeline
-        final_accumulated_response = apply_grounding_pipeline(
-            final_accumulated_response,
-            str(search_results or ""),
-            user_input=user_input,
-        )
-    except Exception as e:
-        logger.warning(f"Fact filter validation warning in auto_execution_loop: {e}")
-
     tool_results_summary = "\n".join(tool_handler.tool_results) if tool_handler.tool_results else ""
+
+    # 空本文ガード: pipeline 前に last_good を優先復元
+    if not final_accumulated_response.strip():
+        if last_good_user_visible.strip():
+            logger.warning("⚠️ 最終応答が空のため last_good_user_visible を復元します")
+            final_accumulated_response = last_good_user_visible
+        else:
+            for msg in reversed(loop_history):
+                if msg.get("role") == "assistant" and msg.get("content"):
+                    clean_content = _snapshot_visible(msg["content"])
+                    if clean_content:
+                        final_accumulated_response = clean_content
+                        break
 
     if not final_accumulated_response.strip() and tool_results_summary:
         logger.info("⚠️ ツール実行後に最終回答が未生成だったため、ツール結果をもとに集約回答を生成します")
         try:
-            final_prompt_msg = "検索結果・ツール実行結果を踏まえて、ユーザーの質問に対する最終回答を自然な文章で作成してください。XMLタグや生ログ（【一般検索結果: ...】など）はそのまま出力せず、整理して回答してください。"
+            from app.core.completion_status import wants_code_in_chat
+            code_hint = ""
+            if wants_code_in_chat(user_input):
+                code_hint = (
+                    "ユーザーはコード全文をチャットで求めている。"
+                    "「作成完了」だけの報告は禁止。パス・要点のあとコード全文をフェンスで出せ。"
+                )
+            final_prompt_msg = (
+                "検索結果・ツール実行結果を踏まえて、ユーザーの質問に対する最終回答を自然な文章で作成してください。"
+                "XMLタグや生ログはそのまま出力せず、整理して回答してください。"
+                "ファイルを作成した場合はパスと要点を必ず含めてください。"
+                + code_hint
+            )
             s_stream = run_executor(
                 user_input=final_prompt_msg,
                 instruction=instruction,
@@ -515,7 +629,7 @@ async def auto_execute_with_retry(
                 memory_text=memory_text,
                 history_messages=exec_history,
                 mode=mode,
-                system_instruction=executor_sys_prompt + "\n\n【重要】XMLタグやツールタグは一切出力しないでください。結果を踏まえた最終的な回答のみを自然な対話で出力すること。",
+                system_instruction=executor_sys_prompt + "\n\n【重要】XMLタグやツールタグは一切出力しないでください。結果を踏まえた最終的な回答のみを自然な対話で出力すること。メタ完了宣言だけで終わらないこと。",
             )
             final_accumulated_response = ""
             async for chunk in s_stream:
@@ -525,20 +639,49 @@ async def auto_execute_with_retry(
         except Exception as e:
             logger.error(f"Final synthesis error: {e}")
 
-    if not final_accumulated_response.strip():
-        logger.warning("⚠️ final_accumulated_response が空のため、ここまでのアシスタント応答から最終回答を復帰します")
-        last_assist = ""
-        for msg in reversed(loop_history):
-            if msg.get("role") == "assistant" and msg.get("content"):
-                clean_content = re.sub(r'<[^>]+>.*?</[^>]+>|<[^>]+/>', '', msg["content"], flags=re.DOTALL).strip()
-                if clean_content:
-                    last_assist = clean_content
-                    break
-        final_accumulated_response = last_assist
+    # 空洞完了（「ファイル作成完了」だけ等）→ 1回だけ本体合成
+    try:
+        from app.core.completion_status import is_hollow_completion, wants_code_in_chat
+        if is_hollow_completion(final_accumulated_response, user_input) and tool_results_summary:
+            logger.warning("⚠️ 空洞完了を検知したため、本体回答を再合成します")
+            if yield_sse_func:
+                yield_sse_func({"type": "pipeline", "stage": "composing", "detail": "完成報告だけでなく本文を組み立て中…"})
+            hollow_prompt = (
+                "直前の応答は「作成完了」などのメタ報告だけで中身がありません。"
+                "ツール結果を使って、ユーザーが読める本番の回答を書いてください。"
+            )
+            if wants_code_in_chat(user_input):
+                hollow_prompt += "コード全文を ``` フェンスで含めてください。省略禁止。"
+            s_stream = run_executor(
+                user_input=hollow_prompt,
+                instruction=instruction,
+                search_results=search_results or tool_results_summary,
+                memory_text=memory_text,
+                history_messages=exec_history + [
+                    {"role": "assistant", "content": final_accumulated_response},
+                    {"role": "user", "content": hollow_prompt},
+                ],
+                mode=mode,
+                system_instruction=executor_sys_prompt + "\nメタ完了禁止。XMLツールタグ禁止。本文を書け。",
+            )
+            rebuilt = ""
+            async for chunk in s_stream:
+                rebuilt += chunk
+                if yield_sse_func:
+                    yield_sse_func({"type": "chunk", "content": chunk})
+            if rebuilt.strip() and not is_hollow_completion(rebuilt, user_input):
+                final_accumulated_response = rebuilt
+    except Exception as e:
+        logger.warning(f"Hollow completion rebuild failed: {e}")
 
     if not final_accumulated_response.strip():
-        if tool_results_summary:
-            final_accumulated_response = "ツールを実行し、結果をシステムに連携しました。"
+        if last_good_user_visible.strip():
+            final_accumulated_response = last_good_user_visible
+        elif tool_results_summary:
+            final_accumulated_response = (
+                "作業結果はツール側に反映されましたが、チャット本文の生成に失敗しました。"
+                "「続きを本文に書いて」と送るか、作成ファイルのパスを指定してください。"
+            )
         else:
             final_accumulated_response = "*(⚠️ 応答が生成されなかったか、システムによってフィルタリングされました。もう一度お試しください)*"
             logger.warning("⚠️ 最終応答が空になったため、フォールバックメッセージを挿入しました。")
@@ -548,27 +691,75 @@ async def auto_execute_with_retry(
         parts = final_accumulated_response.split("<<<FINAL_ANSWER>>>")
         final_accumulated_response = parts[-1].strip()
 
-    final_accumulated_response = re.sub(r'<think>.*?</think>', '', final_accumulated_response, flags=re.DOTALL)
-    # 閉じタグなしの <think> も除去（モデルが </think> を出力し忘れた場合）
-    final_accumulated_response = re.sub(r'<think>(?:(?!</think>).)*$', '', final_accumulated_response, flags=re.DOTALL)
-    # エスカレーションタグの最終文面への漏れを防止
-    final_accumulated_response = re.sub(r'<escalate>.*?</escalate>', '', final_accumulated_response, flags=re.DOTALL)
-    final_accumulated_response = re.sub(r'<escalate>(?:(?!</escalate>).)*$', '', final_accumulated_response, flags=re.DOTALL)
-    final_accumulated_response = re.sub(r'(?m)^(?:まず、ユーザーの発言を分析します[^\n]*\n+|Output format:[^\n]*\n+|user_intent_analysis:[^\n]*\n+)+', '', final_accumulated_response)
-    final_accumulated_response = re.sub(r'【一般検索結果:.*?】\s*(?:\[brave\s*\[Tier.*?\]\].*?\n?)+', '', final_accumulated_response, flags=re.DOTALL)
+    from app.core.fact_filters.markup import (
+        strip_internal_markup,
+        looks_incomplete_output,
+        sanitize_preserving_body,
+    )
+    final_accumulated_response = strip_internal_markup(final_accumulated_response)
+    # 進捗プレースホルダを最終本文から除去
+    final_accumulated_response = re.sub(r"(?m)^⏳[^\n]*\n?", "", final_accumulated_response)
+    final_accumulated_response = re.sub(
+        r"(?m)^(?:まず、ユーザーの発言を分析します[^\n]*\n+|Output format:[^\n]*\n+|user_intent_analysis:[^\n]*\n+)+",
+        "",
+        final_accumulated_response,
+    )
+    final_accumulated_response = re.sub(
+        r"【一般検索結果:.*?】\s*(?:\[brave\s*\[Tier.*?\]\].*?\n?)+",
+        "",
+        final_accumulated_response,
+        flags=re.DOTALL,
+    )
+
+    # 途切れ検知 → 1回だけ継続生成
+    if looks_incomplete_output(final_accumulated_response) and not continuation_attempted:
+        continuation_attempted = True
+        logger.info("🔄 不完全出力を検知したため継続生成を1回試みます")
+        try:
+            cont_prompt = (
+                "直前の回答が途中で切れています。続きの文章またはコードのみを出力してください。"
+                "前文の繰り返し・XMLツールタグ・thinkタグは禁止です。"
+            )
+            cont_history = exec_history + [
+                {"role": "assistant", "content": final_accumulated_response},
+                {"role": "user", "content": cont_prompt},
+            ]
+            cont_stream = run_executor(
+                user_input=cont_prompt,
+                instruction=instruction,
+                search_results=search_results,
+                memory_text=memory_text,
+                history_messages=cont_history,
+                mode=mode,
+                system_instruction=executor_sys_prompt + "\n続きのみ。ツールタグ禁止。",
+            )
+            continuation = ""
+            async for chunk in cont_stream:
+                continuation += chunk
+                if yield_sse_func:
+                    yield_sse_func({"type": "chunk", "content": chunk})
+            if continuation.strip():
+                final_accumulated_response = (
+                    final_accumulated_response.rstrip() + "\n" + strip_internal_markup(continuation)
+                )
+        except Exception as e:
+            logger.warning(f"Continuation generation failed: {e}")
+
+    pre_sanitize = final_accumulated_response
     try:
-        from app.core.fact_filter import (
-            filter_unknown_entity_listings,
-            sanitize_buffer_contamination,
-            trim_incomplete_trailing_sentence,
-            strip_dangling_tool_promises,
-        )
-        final_accumulated_response = filter_unknown_entity_listings(final_accumulated_response)
-        final_accumulated_response = sanitize_buffer_contamination(final_accumulated_response)
-        final_accumulated_response = strip_dangling_tool_promises(final_accumulated_response)
-        final_accumulated_response = trim_incomplete_trailing_sentence(final_accumulated_response)
+        from app.core.fact_filters.pipeline import apply_grounding_pipeline
+
+        def _run_pipeline(t: str) -> str:
+            return apply_grounding_pipeline(t, str(search_results or ""), user_input=user_input)
+
+        final_accumulated_response = sanitize_preserving_body(pre_sanitize, _run_pipeline)
     except Exception as e:
-        logger.warning(f"Final cleanup warning: {e}")
+        logger.warning(f"Fact filter validation warning in auto_execution_loop: {e}")
+        final_accumulated_response = strip_internal_markup(pre_sanitize)
+
+    if not final_accumulated_response.strip() and last_good_user_visible.strip():
+        logger.warning("⚠️ サニタイズ後も空のため last_good を最終復元")
+        final_accumulated_response = strip_internal_markup(last_good_user_visible)
 
     return final_accumulated_response.strip(), tool_results_summary, escalation_history
 

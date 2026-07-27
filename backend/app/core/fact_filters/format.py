@@ -272,19 +272,37 @@ def trim_incomplete_trailing_sentence(text: str) -> str:
 
     original = text
     text = text.rstrip()
-    if not text or _ends_with_valid_terminal(text):
+    if not text:
         return original.rstrip() if original.endswith(("\n", " ")) else text
 
-    # コードブロック内で終わっている場合は保護（奇数個の ```）
+    # 未閉じコードフェンスは終端文字チェックより先に処理
     if text.count("```") % 2 == 1:
+        lines = text.splitlines()
+        if len(lines) >= 2:
+            last = lines[-1].rstrip()
+            if last and not last.startswith("```"):
+                body = "\n".join(lines[:-1]).rstrip()
+                if body.count("```") % 2 == 1:
+                    body = body + "\n```"
+                if body and len(body) >= len(text) * 0.35:
+                    logger.info(f"✂️ 未閉じコードフェンス末尾を刈り取り: {last[:40]!r}")
+                    return body
         return text
+
+    if _ends_with_valid_terminal(text):
+        return original.rstrip() if original.endswith(("\n", " ")) else text
 
     lines = text.splitlines()
     if not lines:
         return text
 
     last_line = lines[-1]
-    if _is_protected_trailing_line(last_line):
+    # コードっぽい途中切れ行は保護対象外
+    if re.search(r"[=+\-*/(<\[{]\s*$", last_line.rstrip()) or re.match(
+        r"^[A-Za-z_][A-Za-z0-9_]*$", last_line.strip()
+    ):
+        pass
+    elif _is_protected_trailing_line(last_line):
         return text
 
     # 末尾行内で最後の正当終端位置を探す

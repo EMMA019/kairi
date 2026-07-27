@@ -65,7 +65,7 @@ async def try_greeting_mode(
                 None,
                 [],
             )
-            yield {"type": "done", "content": payload}
+            yield {"type": "done", "content": payload, "ok": bool((payload or "").strip())}
     yield {"type": "_handled"}
 
 
@@ -122,5 +122,5 @@ async def try_char_mode(
                 None,
                 [],
             )
-            yield ({"type": "done", "content": payload}, None)
+            yield ({"type": "done", "content": payload, "ok": bool((payload or "").strip())}, None)
     yield ({"type": "_handled"}, user_input)

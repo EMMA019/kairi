@@ -120,6 +120,37 @@ def _freshness_score(query: str, title: str, snippet: str) -> float:
     return max(-30.0, min(40.0, score))
 
 
+_JP_MARKET_QUERY = re.compile(
+    r"日経|TOPIX|東京株式|東証|日本市場|日本株|業種別|市況|終値|大引け",
+    re.IGNORECASE,
+)
+_JP_NOISE = re.compile(
+    r"\b(?:mortgage|refinance|HELOC|home equity|CD rates?|APY|best account|"
+    r"best CD|savings interest|Zillow|Rosen Law|class action|"
+    r"Pride Festival|van-ramming|Pirates|Mets|Cubs|grand slam)\b|"
+    r"住宅ローン|変動金利型住宅|定期預金おすすめ",
+    re.IGNORECASE,
+)
+_JP_SIGNAL = re.compile(
+    r"日経|TOPIX|東証|東京株式|業種|市況|終値|大引け|銀行株|保険株|半導体",
+    re.IGNORECASE,
+)
+
+
+def _jp_market_noise_penalty(query: str, title: str, snippet: str) -> float:
+    """日本市況クエリなのに米住宅ローン/CD/スポーツ訴訟が混ざるのを降格。"""
+    q = query or ""
+    if not _JP_MARKET_QUERY.search(q):
+        return 0.0
+    blob = f"{title} {snippet}"
+    penalty = 0.0
+    if _JP_NOISE.search(blob):
+        penalty -= 45.0
+    if _JP_SIGNAL.search(blob):
+        penalty += 12.0
+    return penalty
+
+
 def rerank(query: str, results: list[dict], top_k: int = 10, threshold: float = 0.0) -> list[dict]:
     if not results or len(results) <= 1:
         return results
@@ -152,6 +183,7 @@ def rerank(query: str, results: list[dict], top_k: int = 10, threshold: float = 
 
             score += _get_domain_score(url)
             score += _freshness_score(query, title, snippet)
+            score += _jp_market_noise_penalty(query, title, snippet)
             scored.append((score, item, title_tokens | snippet_tokens))
 
         scored.sort(key=lambda x: x[0], reverse=True)

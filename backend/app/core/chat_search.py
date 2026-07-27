@@ -131,7 +131,7 @@ def balance_search_queries(user_input: str, search_needed: bool, search_queries:
     market_keywords = [
         "暴落", "下落", "懸念", "株", "相場", "市場", "半導体", "インテル", "AVGO", "ブロードコム",
         "急落", "調整", "バブル", "SOX", "組み込", "リバランス", "銘柄", "ポートフォリオ", "ETF",
-        "日経", "ダウ", "ナスダック",
+        "日経", "ダウ", "ナスダック", "TOPIX", "金融", "セクター", "業種",
     ]
     negative_keywords = ["失敗", "問題", "危険", "批判", "欠点", "リスク", "悪化", "衰退", "デメリット", "バグ", "被害"]
 
@@ -143,20 +143,53 @@ def balance_search_queries(user_input: str, search_needed: bool, search_queries:
         k in user_input
         for k in ("米国市場", "アメリカ市場", "NY", "ナスダック", "Nasdaq", "S&P", "ダウ", "Dow", "Wall Street", "米国株")
     )
-    todayish = any(k in user_input for k in ("今日", "本日", "大引け", "終値", "today"))
+    todayish = any(k in user_input for k in ("今日", "本日", "大引け", "終値", "today", "どうだった"))
+    # planner と同じ: 「今日の市場」単独は日本寄り
+    if todayish and not jp_scope and not us_scope and any(
+        k in user_input for k in ("市場", "相場", "market", "Market")
+    ):
+        jp_scope = True
+    sector_finance = any(k in user_input for k in ("金融", "銀行", "保険", "証券"))
+    sector_semi = any(k in user_input for k in ("半導体", "SOX", "電機"))
+    wants_topix = "TOPIX" in user_input or "トピックス" in user_input
+    wants_sector = any(k in user_input for k in ("セクター", "業種", "ローテーション")) or sector_finance or sector_semi
 
     if any(kw in user_input for kw in market_keywords) or jp_scope or us_scope:
         search_needed = True
 
-        # 今日系の日本/米国は先頭クエリを地域特化に正規化
+        # 今日系の日本/米国は地域特化クエリに正規化（最大4本）
         if todayish and jp_scope and not us_scope:
-            search_queries = [f"日経平均 終値 {today}", f"東京株式市場 市況 {today}"]
+            search_queries = [
+                f"日経平均 終値 {today}",
+                f"東京株式市場 市況 {today}",
+                f"TOPIX 終値 {today}",
+                f"業種別騰落率 東証 {today}",
+            ]
             logger.info(f"🇯🇵 日本市場今日系クエリに正規化: {search_queries}")
-            return search_needed, search_queries[:2]
+            return search_needed, search_queries[:4]
+
         if todayish and us_scope and not jp_scope:
             search_queries = [f"US stock market {today}", f"Dow S&P Nasdaq close {today}"]
             logger.info(f"🇺🇸 米国市場今日系クエリに正規化: {search_queries}")
             return search_needed, search_queries[:2]
+
+        # 日本市場フォロー（金融/TOPIX/セクター）— 今日でなくても補強
+        soft_jp = jp_scope or (sector_finance and not us_scope) or (wants_sector and not us_scope and "ローテーション" in user_input)
+        if soft_jp and not us_scope and (wants_topix or wants_sector or sector_finance):
+            extras = []
+            if wants_topix or wants_sector:
+                extras.append(f"TOPIX 終値 騰落 {today}")
+            if sector_finance or wants_sector:
+                extras.append(f"東証 業種別騰落 銀行 保険 {today}")
+            if sector_semi:
+                extras.append(f"半導体 関連株 騰落 東京市場 {today}")
+            merged = list(search_queries or [])
+            for e in extras:
+                if e not in merged:
+                    merged.append(e)
+            search_queries = merged[:4]
+            logger.info(f"🇯🇵 日本市場フォロークエリ補強: {search_queries}")
+            return search_needed, search_queries
 
         if len(search_queries) == 1 and (
             len(search_queries[0]) > 30 or any(p in search_queries[0] for p in ["思惑", "短期", "見ての通り", "比率"])
@@ -174,7 +207,7 @@ def balance_search_queries(user_input: str, search_needed: bool, search_queries:
         has_rebound_query = any(
             w in q.lower()
             for q in search_queries
-            for w in ["rebound", "recovery", "high", "反発", "回復", "見通し", "outlook", "終値", "close"]
+            for w in ["rebound", "recovery", "high", "反発", "回復", "見通し", "outlook", "終値", "close", "TOPIX", "業種"]
         )
         if not has_rebound_query and len(search_queries) < 2:
             if any(k in user_input for k in ["半導体", "SOX", "SOXX", "インテル", "AVGO", "200A", "2243"]):
@@ -184,7 +217,6 @@ def balance_search_queries(user_input: str, search_needed: bool, search_queries:
             elif us_scope and not jp_scope:
                 search_queries.append(f"US stock market outlook {today}")
             else:
-                # 地域不明の一般リバランス等のみ従来の両面補完
                 search_queries.append("US Japan stock dividend ETF market outlook 2026")
             logger.info(f"📈 市場調査クエリに補完クエリを追加: {search_queries[-1]}")
     elif search_needed and any(kw in user_input for kw in negative_keywords) and len(search_queries) < 2:
@@ -213,7 +245,13 @@ async def run_web_search(
     search_results_text = None
     search_sources: list = []
     tasks = []
-    max_queries = 2
+    # 日本市況は TOPIX/業種クエリを含めて最大4本
+    qblob = " ".join(search_queries or [])
+    jp_market = any(
+        k in (user_input or "")
+        for k in ("日本市場", "日経", "東証", "TOPIX", "東京株式", "日本株", "国内市場")
+    ) or any(k in qblob for k in ("日経", "TOPIX", "東証", "東京株式"))
+    max_queries = 4 if jp_market else 2
     for q in search_queries[:max_queries]:
         yield {"type": "status", "status": "searching", "query": q}
         yield {"type": "pipeline", "stage": "search", "detail": f"情報収集中: {q}"}
@@ -234,7 +272,18 @@ async def run_web_search(
                 direct_url_fallback_texts.append(text)
             all_raw_sources.extend(sources)
 
+    # 日本市況: yfinance スナップショットを検索より先に置く
+    snapshot_block = ""
+    if jp_market:
+        try:
+            from app.core.tools.market_data import format_jp_market_snapshot_for_prompt
+            snapshot_block = format_jp_market_snapshot_for_prompt(user_input)
+        except Exception as e:
+            logger.warning(f"JP market snapshot failed: {e}")
+
     combined_texts = list(direct_url_fallback_texts)
+    if snapshot_block:
+        combined_texts.insert(0, snapshot_block)
     if all_raw_sources:
         from app.core.search.reranker import rerank
         from app.core.search.formatter import format_for_prompt

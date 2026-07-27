@@ -50,6 +50,7 @@ def apply_grounding_pipeline(
         sanitize_internal_tool_mentions,
         enforce_variable_numerical_claims,
     )
+    from .markup import strip_internal_markup
     from .format import (
         correct_common_typos,
         strip_unrequested_memory_mentions,
@@ -65,6 +66,7 @@ def apply_grounding_pipeline(
     reset_citation_metrics()
     before = text
 
+    text = strip_internal_markup(text)
     _, text = check_currency_consistency(text)
     _, text = verify_numbers_exist_in_source(text, source_text or "")
     # レガシー: 役職ハルシネーション（citation と併用、段階的縮小）

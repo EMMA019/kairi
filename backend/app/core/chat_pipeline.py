@@ -17,7 +17,11 @@ def strip_think_tags(text: str) -> str:
 
 
 def finalize_response_text(text: str, *, is_hyper_gal: bool = False) -> str:
-    text = strip_think_tags(text or "")
+    try:
+        from app.core.fact_filters.markup import strip_internal_markup
+        text = strip_internal_markup(text or "")
+    except Exception:
+        text = strip_think_tags(text or "")
     try:
         from app.core.fact_filter import trim_incomplete_trailing_sentence, strip_dangling_tool_promises
         text = strip_dangling_tool_promises(text)

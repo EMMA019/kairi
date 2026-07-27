@@ -46,7 +46,21 @@ export async function notifyChatComplete(preview: string): Promise<void> {
   if (typeof document !== "undefined" && !document.hidden) return;
 
   const body = (preview || "回答が届きました").replace(/\s+/g, " ").trim().slice(0, 120) || "回答が届きました";
+  await _showNotification("Kairi", body);
+}
 
+export async function notifyChatFailed(preview?: string): Promise<void> {
+  if (!isNotifyOnCompleteEnabled()) return;
+  if (typeof document !== "undefined" && !document.hidden) return;
+  const body =
+    (preview || "生成に失敗したか、本文が空です。もう一度送ってください")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 120) || "生成に失敗しました";
+  await _showNotification("Kairi（失敗）", body);
+}
+
+async function _showNotification(title: string, body: string): Promise<void> {
   try {
     const { Capacitor } = await import("@capacitor/core");
     if (Capacitor.isNativePlatform()) {
@@ -58,7 +72,7 @@ export async function notifyChatComplete(preview: string): Promise<void> {
           await LocalNotifications.schedule({
             notifications: [
               {
-                title: "Kairi",
+                title,
                 body,
                 id: Date.now() % 100000,
                 schedule: { at: new Date(Date.now() + 200) },
@@ -81,7 +95,7 @@ export async function notifyChatComplete(preview: string): Promise<void> {
   }
   if (Notification.permission === "granted") {
     try {
-      new Notification("Kairi", { body, icon: "/favicon.svg" });
+      new Notification(title, { body, icon: "/favicon.svg" });
     } catch {
       /* ignore */
     }

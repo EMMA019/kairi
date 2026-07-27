@@ -126,10 +126,17 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
         // 【修正ポイント1】最終コンテンツを確定
         // ============================================================
         const finalContent = event.content || streamingContentRef.current;
+        const ok = event.ok !== false && !!finalContent.trim();
+        const looksFailed =
+          !ok ||
+          /応答の生成に失敗|フィルタリングされました|出力が空|本文が空/.test(finalContent);
 
-        // バックグラウンド時は完了通知
+        // バックグラウンド通知: 成功のみ完了、失敗は失敗通知
         import("../utils/notifyComplete")
-          .then(({ notifyChatComplete }) => notifyChatComplete(finalContent))
+          .then(({ notifyChatComplete, notifyChatFailed }) => {
+            if (looksFailed) return notifyChatFailed(finalContent);
+            return notifyChatComplete(finalContent);
+          })
           .catch(() => {});
         
         // ============================================================
@@ -159,10 +166,14 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
             return [...prev, aiMessage];
           });
         } else {
-          // 応答が空だった場合でも、フォールバックメッセージを表示しない（二重表示防止）
-          // 空のままにする
-          // ただし、何も表示されないよりは良いので、必要ならフォールバックを表示してもよい
-          // 今回は二重表示防止を優先して何もしない
+          // 空レスでも失敗であることが分かる1行を残す（トークン浪費の空完了を隠さない）
+          const failMsg: ChatMessage = {
+            id: `ai-${++messageIdRef.current}`,
+            role: "assistant",
+            content: "*(⚠️ 応答を画面に出せませんでした。もう一度送ってください)*",
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, failMsg]);
         }
         
         // ============================================================

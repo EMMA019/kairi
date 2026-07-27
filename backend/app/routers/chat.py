@@ -411,7 +411,7 @@ async def chat(request: ChatRequest):
                 await _save_messages(
                     session_id, user_input, next_q, json.dumps(supervisor_json, ensure_ascii=False), supervisor_json, reasoning, search_sources
                 )
-                yield _sse_event({"type": "done", "content": next_q})
+                yield _sse_event({"type": "done", "content": next_q, "ok": bool((next_q or "").strip())})
                 return
             
             if mode == "spec_generation":
@@ -424,7 +424,7 @@ async def chat(request: ChatRequest):
                 await _save_messages(
                     session_id, user_input, surface, json.dumps(supervisor_json, ensure_ascii=False), supervisor_json, reasoning, search_sources
                 )
-                yield _sse_event({"type": "done", "content": surface})
+                yield _sse_event({"type": "done", "content": surface, "ok": bool((surface or "").strip())})
                 return
             
             if mode == "coding":
@@ -458,7 +458,7 @@ async def chat(request: ChatRequest):
                 except Exception as e:
                     logger.warning(f"Failed to save plan approval request to KV store: {e}")
                 
-                yield _sse_event({"type": "done", "content": plan_text})
+                yield _sse_event({"type": "done", "content": plan_text, "ok": bool((plan_text or "").strip())})
                 return
 
             # 内部仕様書の抽出 (過去の履歴から直近のものを探す)
@@ -479,7 +479,7 @@ async def chat(request: ChatRequest):
 
             # 沈黙判定（通常のchatモード等で、回答不要と判断された場合のみここで停止）
             if supervisor_json.get("silence"):
-                yield _sse_event({"type": "done", "content": ""})
+                yield _sse_event({"type": "done", "content": "", "ok": False})
                 await _save_messages(
                     session_id, user_input, "", json.dumps(supervisor_json, ensure_ascii=False), supervisor_json, reasoning, search_sources
                 )
@@ -580,8 +580,9 @@ async def chat(request: ChatRequest):
                 logger.warning(f"違反検出: {violation_risk} - session_id: {session_id}")
                 # 本格的な違反ログDB保存は必要に応じて実装
 
-            # 完了
-            yield _sse_event({"type": "done", "content": ai_response})
+            # 完了（空洞完了は ok:false）
+            from app.core.completion_status import build_done_payload
+            yield _sse_event(build_done_payload(ai_response, user_input))
 
             break  # supervisor loop break
 

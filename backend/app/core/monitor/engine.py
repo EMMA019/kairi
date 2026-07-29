@@ -178,6 +178,7 @@ async def process_news_for_radar(
 async def run_radar_loop_once(dry_run: bool = False, test_feed: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
     """
     1回の巡回バッチを実行。オンデマンドニュースを取得し、プロセスパイプラインを通す。
+    取得した全件（アラート化されなかったもの含む）をローリングプールへ蓄積する。
     """
     if test_feed is not None:
         raw_news = test_feed
@@ -190,6 +191,18 @@ async def run_radar_loop_once(dry_run: bool = False, test_feed: Optional[List[Di
             raw_news = []
 
     logger.info(f"🛰️ [RadarEngine] 巡回開始: 取得ニュース件数 = {len(raw_news)} 件")
+
+    # ローリングプールへ全件蓄積（72h retention）
+    if raw_news and test_feed is None:
+        try:
+            from app.core.news.database import save_news, purge_old_news, init_db as init_news_db
+            await init_news_db()
+            inserted = await save_news(raw_news)
+            purged = await purge_old_news()
+            logger.info(f"🗂️ [RadarEngine] プール蓄積: inserted={inserted} purged={purged}")
+        except Exception as e:
+            logger.warning(f"プール蓄積に失敗（巡回は継続）: {e}")
+
     notified = await process_news_for_radar(raw_news, dry_run=dry_run)
     logger.info(f"🛰️ [RadarEngine] 巡回完了: アラート通知 = {len(notified)} 件 / 棄却・重複カット = {len(raw_news) - len(notified)} 件")
     return notified

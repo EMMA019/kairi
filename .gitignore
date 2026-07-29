@@ -41,6 +41,7 @@ backend/storage/*.json
 !backend/storage/settings.example.json
 backend/storage/search_cache/
 backend/storage/violation_logs/
+backend/storage/briefings/
 temp.db
 backend/news.db
 

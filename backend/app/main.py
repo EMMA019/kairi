@@ -17,7 +17,8 @@ from app.core.news.database import init_db as init_news_db
 from app.core.news.scheduler import setup_scheduler, shutdown_scheduler
 from app.core.cache_manager import init_cache_db
 from app.core.monitor.scheduler import start_radar_scheduler, stop_radar_scheduler
-from app.routers import chat, history, memory, logs, mood, upload, settings, workspace, project, tools, image, integrity
+from app.core.briefing.scheduler import start_briefing_scheduler, stop_briefing_scheduler
+from app.routers import chat, history, memory, logs, mood, upload, settings, workspace, project, tools, image, integrity, news_health
 
 
 @asynccontextmanager
@@ -29,8 +30,10 @@ async def lifespan(app: FastAPI):
     await init_cache_db()
     setup_scheduler()  # スタブ（定期RSSは廃止）
     start_radar_scheduler()  # 24時間無人市場監視レーダー自動巡回開始
+    start_briefing_scheduler()  # 寄り前/大引け後ブリーフィング
     yield
     # 終了時: クリーンアップ
+    stop_briefing_scheduler()
     stop_radar_scheduler()
     shutdown_scheduler()
     from app.core.search.providers.http_client import close_http_client
@@ -94,6 +97,7 @@ app.include_router(project.router, prefix="/api", tags=["project"])
 app.include_router(tools.router, prefix="/api", tags=["tools"])
 app.include_router(image.router, prefix="/api", tags=["image"])
 app.include_router(integrity.router, prefix="/api", tags=["integrity"])
+app.include_router(news_health.router, prefix="/api", tags=["news"])
 
 
 @app.get("/api/ping")

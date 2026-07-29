@@ -61,3 +61,60 @@ def test_quotes_batch_uses_ibkr_then_yf_gap():
     assert out["quotes"]["AAPL"]["source"] == "ibkr"
     assert out["quotes"]["MSFT"]["source"] == "yfinance"
     assert out["source"] == "mixed"
+
+
+def test_running_on_cloud_render():
+    with patch.dict(
+        os.environ,
+        {"RENDER": "true", "KAIRI_CLOUD": ""},
+        clear=False,
+    ):
+        os.environ.pop("KAIRI_CLOUD", None)
+        assert ibkr_client.running_on_cloud() is True
+
+
+def test_market_data_off_on_cloud_when_unset():
+    env = {
+        "IBKR_ENABLED": "1",
+        "RENDER": "true",
+    }
+    with patch.dict(os.environ, env, clear=False):
+        os.environ.pop("IBKR_MARKET_DATA", None)
+        os.environ.pop("KAIRI_CLOUD", None)
+        assert ibkr_client.ibkr_market_data_enabled() is False
+
+
+def test_market_data_on_local_when_unset():
+    with patch.dict(os.environ, {"IBKR_ENABLED": "1"}, clear=False):
+        os.environ.pop("IBKR_MARKET_DATA", None)
+        os.environ.pop("RENDER", None)
+        os.environ.pop("RENDER_EXTERNAL_URL", None)
+        os.environ.pop("RENDER_SERVICE_ID", None)
+        os.environ.pop("KAIRI_CLOUD", None)
+        assert ibkr_client.running_on_cloud() is False
+        assert ibkr_client.ibkr_market_data_enabled() is True
+
+
+def test_market_data_explicit_overrides_cloud():
+    with patch.dict(
+        os.environ,
+        {"IBKR_ENABLED": "1", "RENDER": "true", "IBKR_MARKET_DATA": "1"},
+        clear=False,
+    ):
+        assert ibkr_client.ibkr_market_data_enabled() is True
+
+
+def test_format_jp_snapshot_forces_prefer_yfinance():
+    with patch(
+        "app.core.tools.market_data.get_jp_market_snapshot",
+        return_value={
+            "source": "yfinance",
+            "session": "afternoon",
+            "indices": {},
+            "sectors": {},
+            "errors": [],
+            "n225_intraday": {"ok": False},
+        },
+    ) as snap:
+        market_data.format_jp_market_snapshot_for_prompt("日本市場どうだった？")
+        assert snap.call_args.kwargs.get("prefer_yfinance") is True

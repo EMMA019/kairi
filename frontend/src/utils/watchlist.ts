@@ -6,20 +6,18 @@ import {
   type SwingSizing,
   computeSwingSizing,
 } from "./swingSizing";
+import { INDEX_BAR, SECTOR_BAR } from "./sectorUniverse";
 
-export const INDEX_BAR: Array<{ symbol: string; label: string }> = [
-  { symbol: "DIA", label: "Dow" },
-  { symbol: "SPY", label: "S&P500" },
-  { symbol: "QQQ", label: "Nasdaq" },
-  { symbol: "SOXX", label: "SOX" },
-];
-
-export const SECTOR_BAR: Array<{ symbol: string; label: string }> = [
-  { symbol: "XLK", label: "Tech" },
-  { symbol: "XLF", label: "Fin" },
-  { symbol: "XLE", label: "Energy" },
-  { symbol: "XBI", label: "Biotech" },
-];
+export { INDEX_BAR, SECTOR_BAR };
+export type { SectorItem } from "./sectorUniverse";
+export {
+  US_INDEX_BAR,
+  US_SECTOR_BAR,
+  JP_INDEX_BAR,
+  JP_SECTOR_BAR,
+  toTradingViewSymbol,
+  jpCodeFromSymbol,
+} from "./sectorUniverse";
 
 export const DEFAULT_WATCHLIST = ["AAPL", "MSFT", "NVDA", "AMD", "META"];
 

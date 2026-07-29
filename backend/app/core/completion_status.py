@@ -74,9 +74,42 @@ def is_hollow_completion(text: str, user_input: str = "") -> bool:
     return False
 
 
+_MARKET_QUERY_HINTS = (
+    "市場",
+    "前場",
+    "後場",
+    "日経",
+    "TOPIX",
+    "トピックス",
+    "株",
+    "どうだった",
+    "どんな感じ",
+    "業種",
+    "セクター",
+    "銀行",
+    "市況",
+)
+
+
+def is_aborted_short_market_reply(text: str, user_input: str = "") -> bool:
+    """
+    市況質問なのに本文が数文字で途切れたケース（例: 「か」のみ）。
+    履歴汚染を防ぐため DB 保存前に弾く。
+    """
+    t = (text or "").strip()
+    if not t or len(t) > 24:
+        return False
+    u = user_input or ""
+    if not any(k in u for k in _MARKET_QUERY_HINTS):
+        return False
+    return True
+
+
 def response_ok(text: str, user_input: str = "") -> bool:
     """done.ok 用。True = ユーザー向けに成功とみなしてよい。"""
     if is_failure_fallback(text):
+        return False
+    if is_aborted_short_market_reply(text, user_input):
         return False
     if is_hollow_completion(text, user_input):
         return False

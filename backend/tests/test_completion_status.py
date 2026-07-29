@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.completion_status import (
+    is_aborted_short_market_reply,
     is_hollow_completion,
     response_ok,
     wants_code_in_chat,
@@ -50,3 +51,12 @@ def test_empty_not_ok():
 def test_failure_fallback_not_ok():
     text = "*(⚠️ 応答の生成に失敗しました。もう一度お試しください)*"
     assert not response_ok(text)
+
+
+def test_aborted_short_market_reply():
+    assert is_aborted_short_market_reply("か", "日本市場どうだった？")
+    assert not response_ok("か", "日本市場どうだった？")
+    assert not is_aborted_short_market_reply("か", "今日の天気は？")
+    long_ok = "前場は下落で終えました。" * 3
+    assert not is_aborted_short_market_reply(long_ok, "日本市場どうだった？")
+    assert response_ok(long_ok, "日本市場どうだった？")

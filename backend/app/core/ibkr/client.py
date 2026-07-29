@@ -46,18 +46,44 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in ("1", "true", "yes", "on")
 
 
+def running_on_cloud() -> bool:
+    """
+    Render 等のクラウド（外部スマホ向け）かどうか。
+    明示 KAIRI_CLOUD=0/1 があればそれを優先。
+    """
+    raw = os.getenv("KAIRI_CLOUD")
+    if raw is not None and raw.strip() != "":
+        return _env_bool("KAIRI_CLOUD", False)
+    if _env_bool("RENDER", False):
+        return True
+    if (os.getenv("RENDER_EXTERNAL_URL") or "").strip():
+        return True
+    if (os.getenv("RENDER_SERVICE_ID") or "").strip():
+        return True
+    return False
+
+
 def ibkr_enabled() -> bool:
     return _env_bool("IBKR_ENABLED", False)
 
 
 def ibkr_market_data_enabled() -> bool:
-    """株価取得を IBKR 優先にするか。IBKR_ENABLED 時はデフォルト ON。"""
+    """
+    株価取得を IBKR 優先にするか。
+
+    - IBKR_ENABLED がオフなら False
+    - IBKR_MARKET_DATA 明示時はそれに従う
+    - 未設定かつクラウド（Render）なら False（スマホ途切れ防止・Yahoo 即時）
+    - 未設定かつローカルなら True（TWS 同居の Live 優先）
+    """
     if not ibkr_enabled():
         return False
     raw = os.getenv("IBKR_MARKET_DATA")
-    if raw is None:
-        return True
-    return _env_bool("IBKR_MARKET_DATA", True)
+    if raw is not None and raw.strip() != "":
+        return _env_bool("IBKR_MARKET_DATA", True)
+    if running_on_cloud():
+        return False
+    return True
 
 
 def market_data_type() -> int:

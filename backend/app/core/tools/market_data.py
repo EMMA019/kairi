@@ -13,11 +13,25 @@ JP_INDEX_TICKERS = {
     "^N225": "日経平均",
     "1306.T": "TOPIX連動ETF(1306)",
 }
+# NEXT FUNDS TOPIX-17（証券コード付きで Desk / チャット注入）
 JP_SECTOR_ETFS = {
-    "1631.T": "銀行業ETF",
-    "1632.T": "金融業ETF",
-    "1625.T": "電機・精密ETF",
-    "1621.T": "医薬品ETF",
+    "1615.T": "食品(1615)",
+    "1617.T": "エネルギー資源(1617)",
+    "1618.T": "建設・資材(1618)",
+    "1619.T": "素材・化学(1619)",
+    "1620.T": "医薬品(1620)",
+    "1621.T": "自動車・輸送機(1621)",
+    "1622.T": "鉄鋼・非鉄(1622)",
+    "1623.T": "機械(1623)",
+    "1624.T": "電機・精密(1624)",
+    "1625.T": "情報通信・サービス他(1625)",
+    "1626.T": "電力・ガス(1626)",
+    "1627.T": "運輸・物流(1627)",
+    "1628.T": "商社・卸売(1628)",
+    "1629.T": "小売(1629)",
+    "1630.T": "銀行(1630)",
+    "1631.T": "金融除く銀行(1631)",
+    "1632.T": "不動産(1632)",
 }
 
 
@@ -671,9 +685,10 @@ def _fmt_px(v: Any) -> str:
 def format_jp_market_snapshot_for_prompt(user_input: str = "") -> str:
     """
     検索結果先頭に注入する確定数値ブロック。
+    チャット注入は常に Yahoo 即時（IBKR 不通待ちでスマホ応答が途切れないようにする）。
     セッション別に『前場終値』と『直近値』を分離して誤認を防ぐ。
     """
-    snap = get_jp_market_snapshot(include_sectors=True)
+    snap = get_jp_market_snapshot(include_sectors=True, prefer_yfinance=True)
     src = snap.get("source") or "mixed"
     session = snap.get("session") or _jp_session_bucket()
     intra = snap.get("n225_intraday") or {}

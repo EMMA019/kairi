@@ -566,6 +566,21 @@ async def chat(request: ChatRequest):
                 yield _sse_event({"type": "error", "message": "応答の生成に失敗しました（出力が空です）。時間をおいてもう一度お試しください。"})
                 return
 
+            from app.core.completion_status import is_aborted_short_market_reply
+
+            if is_aborted_short_market_reply(ai_response, user_input):
+                logger.error(
+                    f"⚠️ 市況応答が極端に短いため DB 保存をスキップ (session_id: {session_id}, "
+                    f"len={len(ai_response.strip())}, preview={ai_response.strip()[:20]!r})"
+                )
+                yield _sse_event(
+                    {
+                        "type": "error",
+                        "message": "応答が途中で切れました。もう一度送ってください（市況は再送で続きから取れます）。",
+                    }
+                )
+                return
+
             if is_hyper_gal and ai_response:
                 ai_response = to_hyper_gal_v3(ai_response)
 

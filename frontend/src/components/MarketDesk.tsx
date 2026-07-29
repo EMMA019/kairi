@@ -4,6 +4,12 @@
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { executeMarketTool } from "../hooks/useMarketTool";
+import TradingViewChartModal, { type ChartTarget } from "./TradingViewChartModal";
+import {
+  JP_INDEX_BAR,
+  JP_SECTOR_BAR,
+  jpCodeFromSymbol,
+} from "../utils/sectorUniverse";
 import {
   addPaperJournalEntry,
   loadPaperJournal,
@@ -47,6 +53,7 @@ type DeskTab = "overview" | "radar" | "signals";
 type BarQuote = {
   symbol: string;
   label: string;
+  code?: string;
   price: number | null;
   changePct: number | null;
   source: string | null;
@@ -141,6 +148,36 @@ function pctColor(v: number | null | undefined): string {
   return "text-gray-400";
 }
 
+function QuoteTile({
+  q,
+  onOpen,
+}: {
+  q: BarQuote;
+  onOpen: (t: ChartTarget) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        onOpen({
+          symbol: q.symbol,
+          label: q.label,
+          code: q.code || q.symbol,
+        })
+      }
+      className="rounded-lg border border-white/5 bg-black/25 px-3 py-2 text-left transition hover:border-cyan-500/40 hover:bg-cyan-500/5"
+      title="チャートを開く"
+    >
+      <div className="flex items-baseline justify-between gap-1">
+        <span className="text-[10px] text-gray-500">{q.label}</span>
+        <span className="font-mono text-[10px] text-cyan-600/80">{q.code || q.symbol}</span>
+      </div>
+      <div className="mt-1 font-mono text-sm text-gray-100">{formatVal(q.price)}</div>
+      <div className={`font-mono text-[11px] ${pctColor(q.changePct)}`}>{formatPct(q.changePct)}</div>
+    </button>
+  );
+}
+
 function volumeWarn(ratio: number | null | undefined): boolean {
   if (ratio == null || !Number.isFinite(ratio)) return false;
   return ratio < 0.5 || ratio >= 1.8;
@@ -177,6 +214,7 @@ export function MarketDesk() {
   const [posError, setPosError] = useState<string | null>(null);
   const [lastQuoteAt, setLastQuoteAt] = useState<string | null>(null);
   const [quoteFeed, setQuoteFeed] = useState<string | null>(null);
+  const [chartTarget, setChartTarget] = useState<ChartTarget | null>(null);
   const [pageVisible, setPageVisible] = useState(
     () => typeof document === "undefined" || document.visibilityState === "visible",
   );
@@ -286,20 +324,23 @@ export function MarketDesk() {
       const barItems = [...INDEX_BAR, ...SECTOR_BAR];
       const barSymbols = barItems.map((b) => b.symbol);
       const watchSymbols = watchSymbolsRef.current.slice(0, WATCHLIST_MAX);
-      // 1接続バッチ（並列 IB 接続は 10197 競合しやすい）
-      const batch = await fetchQuotesBatch([...barSymbols, ...watchSymbols], { enrich: true });
 
-      const barResults: BarQuote[] = barItems.map(({ symbol, label }) => {
-        const quote = batch.quotes[symbol];
+      // セクター拡大時: バーは軽量、ウォッチだけ ATR enrich。直列で IB 競合回避。
+      const barBatch = await fetchQuotesBatch(barSymbols, { enrich: false });
+      const watchBatch = await fetchQuotesBatch(watchSymbols, { enrich: true });
+
+      const barResults: BarQuote[] = barItems.map(({ symbol, label, code }) => {
+        const quote = barBatch.quotes[symbol];
         const err =
           quote?.error != null
             ? String(quote.error)
             : quote?.current_price == null
-              ? batch.error || "no price"
+              ? barBatch.error || "no price"
               : undefined;
         return {
           symbol,
           label,
+          code,
           price: quote?.current_price ?? null,
           changePct: quote?.change_pct ?? null,
           source: quote?.source ?? null,
@@ -311,12 +352,12 @@ export function MarketDesk() {
 
       const map: Record<string, WatchRow> = {};
       const results = watchSymbols.map((symbol) => {
-        const quote = batch.quotes[symbol] ?? null;
+        const quote = watchBatch.quotes[symbol] ?? null;
         const err =
           quote?.error != null
             ? String(quote.error)
             : quote?.current_price == null
-              ? batch.error || "no price"
+              ? watchBatch.error || "no price"
               : undefined;
         const row = buildWatchRow(symbol, quote, settings, err);
         map[symbol] = row;
@@ -324,10 +365,11 @@ export function MarketDesk() {
       });
       setWatchRows(map);
 
-      const feedSrc = batch.source || null;
-      const anyLive = Object.values(batch.quotes).some(
-        (q) => q.realtime === true || q.source === "ibkr",
-      );
+      const feedSrc = watchBatch.source || barBatch.source || null;
+      const anyLive = [
+        ...Object.values(barBatch.quotes),
+        ...Object.values(watchBatch.quotes),
+      ].some((q) => q.realtime === true || q.source === "ibkr");
       setQuoteFeed(
         anyLive ? "IBKR live" : feedSrc === "yfinance" ? "Yahoo ~15m" : feedSrc || "mixed",
       );
@@ -666,38 +708,31 @@ export function MarketDesk() {
                 </button>
               }
             >
+              <p className="mb-2 text-[10px] text-gray-600">クリックで TradingView 日足</p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {(indexQuotes.length
                   ? indexQuotes
-                  : INDEX_BAR.map((x) => ({ ...x, price: null, changePct: null, source: null }))
+                  : INDEX_BAR.map((x) => ({
+                      ...x,
+                      price: null,
+                      changePct: null,
+                      source: null,
+                    }))
                 ).map((q) => (
-                  <div key={q.symbol} className="rounded-lg border border-white/5 bg-black/25 px-3 py-2">
-                    <div className="flex items-baseline justify-between gap-1">
-                      <span className="text-[10px] text-gray-500">{q.label}</span>
-                      <span className="font-mono text-[10px] text-gray-600">{q.symbol}</span>
-                    </div>
-                    <div className="mt-1 font-mono text-sm text-gray-100">{formatVal(q.price)}</div>
-                    <div className={`font-mono text-[11px] ${pctColor(q.changePct)}`}>
-                      {formatPct(q.changePct)}
-                    </div>
-                  </div>
+                  <QuoteTile key={q.symbol} q={q} onOpen={setChartTarget} />
                 ))}
               </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                 {(sectorQuotes.length
                   ? sectorQuotes
-                  : SECTOR_BAR.map((x) => ({ ...x, price: null, changePct: null, source: null }))
+                  : SECTOR_BAR.map((x) => ({
+                      ...x,
+                      price: null,
+                      changePct: null,
+                      source: null,
+                    }))
                 ).map((q) => (
-                  <div key={q.symbol} className="rounded-lg border border-white/5 bg-black/15 px-3 py-2">
-                    <div className="flex items-baseline justify-between gap-1">
-                      <span className="text-[10px] text-gray-500">{q.label}</span>
-                      <span className="font-mono text-[10px] text-gray-600">{q.symbol}</span>
-                    </div>
-                    <div className="mt-1 font-mono text-sm text-gray-100">{formatVal(q.price)}</div>
-                    <div className={`font-mono text-[11px] ${pctColor(q.changePct)}`}>
-                      {formatPct(q.changePct)}
-                    </div>
-                  </div>
+                  <QuoteTile key={q.symbol} q={q} onOpen={setChartTarget} />
                 ))}
               </div>
             </Section>
@@ -922,7 +957,22 @@ export function MarketDesk() {
                           key={sym}
                           className={`border-t border-white/5 ${warn ? "bg-amber-500/5" : ""}`}
                         >
-                          <td className="py-1.5 pr-2 font-mono font-semibold text-gray-100">{sym}</td>
+                          <td className="py-1.5 pr-2 font-mono font-semibold text-gray-100">
+                            <button
+                              type="button"
+                              className="text-cyan-200 hover:underline"
+                              title="チャートを開く"
+                              onClick={() =>
+                                setChartTarget({
+                                  symbol: sym,
+                                  label: sym,
+                                  code: jpCodeFromSymbol(sym),
+                                })
+                              }
+                            >
+                              {sym}
+                            </button>
+                          </td>
                           <td className="py-1.5 pr-2 font-mono">{formatVal(q?.current_price)}</td>
                           <td className={`py-1.5 pr-2 font-mono ${pctColor(q?.change_pct ?? null)}`}>
                             {formatPct(q?.change_pct)}
@@ -1044,32 +1094,42 @@ export function MarketDesk() {
                   <ErrorBanner message={jpError} />
                 </div>
               )}
-              {Object.keys(jpIndices).length > 0 ? (
-                <KvTable
-                  rows={Object.entries(jpIndices).map(([t, q]) => {
-                    const rec = asRecord(q);
-                    return [
-                      String(rec?.label || t),
-                      `${formatVal(rec?.current_price)} (${formatVal(rec?.change_pct)}%)`,
-                    ];
-                  })}
-                />
-              ) : (
-                !jpError && <p className="text-xs text-gray-500">Auto 5分 or Refresh</p>
-              )}
-              {Object.keys(jpSectors).length > 0 && (
-                <div className="mt-3">
-                  <KvTable
-                    rows={Object.entries(jpSectors).map(([t, q]) => {
-                      const rec = asRecord(q);
-                      return [
-                        String(rec?.label || t),
-                        `${formatVal(rec?.current_price)} (${formatVal(rec?.change_pct)}%)`,
-                      ];
-                    })}
-                  />
-                </div>
-              )}
+              <p className="mb-2 text-[10px] text-gray-600">証券コード表示 · クリックでチャート</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {JP_INDEX_BAR.map((item) => {
+                  const rec = asRecord(jpIndices[item.symbol]);
+                  const q: BarQuote = {
+                    symbol: item.symbol,
+                    label: item.label,
+                    code: item.code,
+                    price:
+                      typeof rec?.current_price === "number" ? rec.current_price : null,
+                    changePct: typeof rec?.change_pct === "number" ? rec.change_pct : null,
+                    source: typeof rec?.source === "string" ? rec.source : null,
+                  };
+                  return <QuoteTile key={item.symbol} q={q} onOpen={setChartTarget} />;
+                })}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                {JP_SECTOR_BAR.map((item) => {
+                  const rec = asRecord(jpSectors[item.symbol]);
+                  const q: BarQuote = {
+                    symbol: item.symbol,
+                    label: item.label,
+                    code: item.code,
+                    price:
+                      typeof rec?.current_price === "number" ? rec.current_price : null,
+                    changePct: typeof rec?.change_pct === "number" ? rec.change_pct : null,
+                    source: typeof rec?.source === "string" ? rec.source : null,
+                  };
+                  return <QuoteTile key={item.symbol} q={q} onOpen={setChartTarget} />;
+                })}
+              </div>
+              {!jpError &&
+                Object.keys(jpIndices).length === 0 &&
+                Object.keys(jpSectors).length === 0 && (
+                  <p className="mt-2 text-xs text-gray-500">Auto 5分 or Refresh</p>
+                )}
             </Section>
           </>
         )}
@@ -1282,6 +1342,7 @@ export function MarketDesk() {
           </>
         )}
       </div>
+      <TradingViewChartModal target={chartTarget} onClose={() => setChartTarget(null)} />
     </div>
   );
 }

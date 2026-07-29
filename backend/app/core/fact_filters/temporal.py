@@ -82,10 +82,18 @@ def fix_relative_date_labels(text: str, today: Optional[date] = None) -> str:
         return text
 
     from datetime import datetime, timezone, timedelta
+    import os
 
     if today is None:
-        jst = timezone(timedelta(hours=9))
-        today = datetime.now(jst).date()
+        fake = (os.environ.get("KAIRI_FAKE_TODAY") or "").strip()
+        if fake:
+            try:
+                today = date.fromisoformat(fake)
+            except ValueError:
+                today = None
+        if today is None:
+            jst = timezone(timedelta(hours=9))
+            today = datetime.now(jst).date()
 
     year = today.year
 

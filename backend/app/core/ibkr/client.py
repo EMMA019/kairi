@@ -338,9 +338,9 @@ def resolve_ib_contract(symbol: str) -> Any:
 
     # 指数
     if s in ("^N225", "N225", "NIKKEI", "NIKKEI225", "NIKKEI 225"):
-        return Index("N225", "OSE", "JPY")
+        return Index("N225", "OSE.JPN", "JPY")
     if s in ("^TOPX", "TOPIX", "TOPX", "TPX"):
-        return Index("TOPX", "OSE", "JPY")
+        return Index("TOPX", "OSE.JPN", "JPY")
     if s in ("^GSPC", "SPX", "S&P500", "S&P 500"):
         return Index("SPX", "CBOE", "USD")
     if s in ("^DJI", "DJI", "DOW", "DJIA"):

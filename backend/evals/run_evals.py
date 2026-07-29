@@ -110,15 +110,28 @@ def run_carryover(case: dict) -> tuple[str, bool]:
 
 
 def run_case(case: dict) -> tuple[bool, str, list[str]]:
+    import os
+
     pipeline = case.get("pipeline", "fact_filters_only")
     exp = case.get("expectations") or {}
     carryover_ok = None
-    if pipeline == "carryover_only":
-        text, carryover_ok = run_carryover(case)
-    else:
-        raw = case.get("mock_executor_output") or ""
-        source = case.get("search_results") or ""
-        text = apply_fact_filters(raw, source, case.get("input", ""))
+    fake_today = (case.get("fake_today") or "").strip()
+    prev_fake = os.environ.get("KAIRI_FAKE_TODAY")
+    try:
+        if fake_today:
+            os.environ["KAIRI_FAKE_TODAY"] = fake_today
+        if pipeline == "carryover_only":
+            text, carryover_ok = run_carryover(case)
+        else:
+            raw = case.get("mock_executor_output") or ""
+            source = case.get("search_results") or ""
+            text = apply_fact_filters(raw, source, case.get("input", ""))
+    finally:
+        if fake_today:
+            if prev_fake is None:
+                os.environ.pop("KAIRI_FAKE_TODAY", None)
+            else:
+                os.environ["KAIRI_FAKE_TODAY"] = prev_fake
     failures = check_expectations(text, exp, carryover_ok=carryover_ok)
     return (len(failures) == 0, text, failures)
 

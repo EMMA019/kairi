@@ -14,6 +14,10 @@ def test_resolve_us_and_jp_contracts():
     assert jp.currency == "JPY"
     n225 = resolve_ib_contract("^N225")
     assert n225.symbol == "N225"
+    assert n225.exchange == "OSE.JPN"
+    topx = resolve_ib_contract("^TOPX")
+    assert topx.symbol == "TOPX"
+    assert topx.exchange == "OSE.JPN"
 
 
 def test_quote_prefers_ibkr():

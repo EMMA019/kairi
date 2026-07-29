@@ -20,12 +20,16 @@ interface DeleteTarget {
 }
 
 export function KVMemoryPanel({ isOpen, onClose }: KVMemoryPanelProps) {
-  const { memories, isLoading, error, fetchMemories, deleteMemory } = useKVMemory();
+  const { memories, isLoading, error, fetchMemories, deleteMemory, purgeJunk } = useKVMemory();
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [confirmPurge, setConfirmPurge] = useState(false);
+  const [purgeBusy, setPurgeBusy] = useState(false);
+  const [purgeResult, setPurgeResult] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       fetchMemories();
+      setPurgeResult(null);
     }
   }, [isOpen, fetchMemories]);
 
@@ -44,6 +48,25 @@ export function KVMemoryPanel({ isOpen, onClose }: KVMemoryPanelProps) {
     if (deleteTarget) {
       await deleteMemory(deleteTarget.id);
       setDeleteTarget(null);
+    }
+  };
+
+  const handleConfirmPurge = async () => {
+    setPurgeBusy(true);
+    try {
+      const result = await purgeJunk();
+      if (result.success) {
+        setPurgeResult(
+          result.deletedCount > 0
+            ? `ジャンク ${result.deletedCount} 件を削除しました`
+            : "削除対象のジャンクはありませんでした"
+        );
+      } else {
+        setPurgeResult("ジャンク削除に失敗しました");
+      }
+    } finally {
+      setPurgeBusy(false);
+      setConfirmPurge(false);
     }
   };
 
@@ -84,15 +107,31 @@ export function KVMemoryPanel({ isOpen, onClose }: KVMemoryPanelProps) {
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a8 8 0 0 1 8 8c0 3.3-2 6.2-5 7.5V20a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-2.5C6 16.2 4 13.3 4 10a8 8 0 0 1 8-8z"/><path d="M12 2v4"/><path d="m4.9 7.5 3.5 2"/><path d="m19.1 7.5-3.5 2"/></svg>
             KV メモリ
           </h2>
-          <button 
-            onClick={onClose}
-            className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-[#282a2c] transition-colors"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmPurge(true)}
+              disabled={isLoading || purgeBusy || memories.length === 0}
+              className="text-xs px-2.5 py-1 rounded-md border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              title="ニュース要約・会話メタなど長期記憶に不適切なエントリを一括削除"
+            >
+              ジャンク一括削除
+            </button>
+            <button 
+              onClick={onClose}
+              className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-[#282a2c] transition-colors"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+          {purgeResult && (
+            <div className="text-xs text-amber-200/90 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2">
+              {purgeResult}
+            </div>
+          )}
           {isLoading ? (
             <div className="text-center text-gray-400 py-8">読み込み中...</div>
           ) : error ? (
@@ -149,6 +188,41 @@ export function KVMemoryPanel({ isOpen, onClose }: KVMemoryPanelProps) {
           })()}
         </div>
       </div>
+
+      {/* ジャンク一括削除確認 */}
+      {confirmPurge && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[250]"
+            onClick={() => !purgeBusy && setConfirmPurge(false)}
+          />
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[260] w-80 sm:w-96 bg-[#17191e] border border-white/10 rounded-2xl shadow-2xl p-5 animate-fade-in">
+            <h3 className="text-sm font-semibold text-gray-200 mb-2">ジャンク記憶を一括削除しますか？</h3>
+            <p className="text-xs text-gray-400 mb-4 leading-relaxed">
+              市場ニュース要約・会話メタ・一時データなど、長期記憶に不適切なエントリだけを削除します。
+              「覚えておいて」で保存した保有銘柄などは残します。
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmPurge(false)}
+                disabled={purgeBusy}
+                className="flex-1 py-2 text-sm rounded-lg bg-[#282a2c] text-gray-300 hover:bg-[#37393b] border border-[#3c4043] transition-colors disabled:opacity-50"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPurge}
+                disabled={purgeBusy}
+                className="flex-1 py-2 text-sm rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30 transition-colors disabled:opacity-50"
+              >
+                {purgeBusy ? "削除中..." : "一括削除する"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* 削除確認モーダル */}
       {deleteTarget && (

@@ -34,5 +34,26 @@ export function useKVMemory() {
     }
   }, []);
 
-  return { memories, isLoading, error, fetchMemories, deleteMemory };
+  const purgeJunk = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await apiFetch("/api/kv/purge-junk", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to purge junk memories");
+      const data = await res.json();
+      await fetchMemories();
+      return {
+        success: Boolean(data?.success),
+        deletedCount: Number(data?.deleted_count ?? 0),
+        deletedIds: (data?.deleted_ids as number[]) || [],
+      };
+    } catch (err: any) {
+      setError(err.message);
+      return { success: false, deletedCount: 0, deletedIds: [] as number[] };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchMemories]);
+
+  return { memories, isLoading, error, fetchMemories, deleteMemory, purgeJunk };
 }

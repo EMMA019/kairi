@@ -17,6 +17,9 @@ frontend/dist/
 *.log
 
 # Databases & Local Storage
+*.db
+*.db-shm
+*.db-wal
 storage/*.db
 storage/*.db-shm
 storage/*.db-wal
@@ -24,6 +27,13 @@ storage/*.tmp
 backend/data/*.db
 backend/data/*.db-shm
 backend/data/*.db-wal
+backend/app/data/*.db
+backend/app/data/*.db-shm
+backend/app/data/*.db-wal
+backend/app/core/news/*.db
+backend/cache/*.db
+backend/cache/*.db-shm
+backend/cache/*.db-wal
 backend/storage/*.db
 backend/storage/*.db-shm
 backend/storage/*.db-wal
@@ -31,6 +41,9 @@ backend/storage/*.json
 !backend/storage/settings.example.json
 backend/storage/search_cache/
 backend/storage/violation_logs/
+temp.db
+backend/news.db
+
 
 # Local scratch & output directories (separate projects / generated)
 Github/

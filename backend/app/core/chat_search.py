@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+from datetime import datetime, timezone, timedelta
 from typing import AsyncGenerator, Optional
 from app.core.search import web_search
 from app.core.search_relevance import (
@@ -121,17 +122,52 @@ def sanitize_conversational_query(q_text: str) -> str:
     return " ".join(tokens[:5]) if tokens else q_text[:30]
 
 
+def _is_todayish_market_query(user_input: str, *, now_jst: datetime | None = None) -> bool:
+    """今日の市況・前場/後場・『どんな感じだった』等を今日系として扱う。"""
+    text = user_input or ""
+    if any(
+        k in text
+        for k in (
+            "今日",
+            "本日",
+            "大引け",
+            "終値",
+            "today",
+            "どうだった",
+            "どう動",
+            "前場",
+            "後場",
+            "寄り",
+            "昼休み",
+            "どんな感じ",
+        )
+    ):
+        return True
+    # 「7/29の日本市場」など、日付が今日そのものなら今日系
+    now = now_jst or datetime.now(timezone(timedelta(hours=9)))
+    m = re.search(r"(?:(\d{4})[年/\-])?(\d{1,2})[月/\-](\d{1,2})", text)
+    if not m:
+        return False
+    year = int(m.group(1)) if m.group(1) else now.year
+    try:
+        return year == now.year and int(m.group(2)) == now.month and int(m.group(3)) == now.day
+    except ValueError:
+        return False
+
+
 def balance_search_queries(user_input: str, search_needed: bool, search_queries: list) -> tuple[bool, list]:
     """市場・ネガティブ問いに対するクエリバランス補完（地域スコープ付き）。"""
     from datetime import datetime, timezone, timedelta
 
     JST = timezone(timedelta(hours=9))
-    today = datetime.now(JST).strftime("%Y-%m-%d")
+    now_jst = datetime.now(JST)
+    today = now_jst.strftime("%Y-%m-%d")
 
     market_keywords = [
         "暴落", "下落", "懸念", "株", "相場", "市場", "半導体", "インテル", "AVGO", "ブロードコム",
         "急落", "調整", "バブル", "SOX", "組み込", "リバランス", "銘柄", "ポートフォリオ", "ETF",
         "日経", "ダウ", "ナスダック", "TOPIX", "金融", "セクター", "業種",
+        "前場", "後場",
     ]
     negative_keywords = ["失敗", "問題", "危険", "批判", "欠点", "リスク", "悪化", "衰退", "デメリット", "バグ", "被害"]
 
@@ -143,7 +179,7 @@ def balance_search_queries(user_input: str, search_needed: bool, search_queries:
         k in user_input
         for k in ("米国市場", "アメリカ市場", "NY", "ナスダック", "Nasdaq", "S&P", "ダウ", "Dow", "Wall Street", "米国株")
     )
-    todayish = any(k in user_input for k in ("今日", "本日", "大引け", "終値", "today", "どうだった"))
+    todayish = _is_todayish_market_query(user_input, now_jst=now_jst)
     # planner と同じ: 「今日の市場」単独は日本寄り
     if todayish and not jp_scope and not us_scope and any(
         k in user_input for k in ("市場", "相場", "market", "Market")
@@ -229,7 +265,19 @@ def balance_search_queries(user_input: str, search_needed: bool, search_queries:
 def should_skip_deep_fetch(user_input: str) -> bool:
     """終値・大引け・今日の市況はスニペットで足りるのでディープフェッチ省略。"""
     text = user_input or ""
-    return any(k in text for k in ("終値", "大引け", "今日の日本市場", "今日の米国市場", "本日の市場", "市況"))
+    return any(
+        k in text
+        for k in (
+            "終値",
+            "大引け",
+            "今日の日本市場",
+            "今日の米国市場",
+            "本日の市場",
+            "市況",
+            "前場",
+            "後場",
+        )
+    )
 
 
 async def run_web_search(

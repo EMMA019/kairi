@@ -11,8 +11,26 @@ def _market_today_shortcut(user_input: str, current_date: str, current_date_en: 
     """
     「今日の日本/米国市場」系は LLM planner を飛ばして固定クエリを返す。
     """
+    from datetime import datetime, timezone, timedelta
+
     text = user_input or ""
-    todayish = any(k in text for k in ("今日", "本日", "大引け", "終値", "today", "どうだった", "どう動"))
+    JST = timezone(timedelta(hours=9))
+    now = datetime.now(JST)
+    todayish = any(
+        k in text
+        for k in (
+            "今日", "本日", "大引け", "終値", "today", "どうだった", "どう動",
+            "前場", "後場", "寄り", "昼休み", "どんな感じ",
+        )
+    )
+    if not todayish:
+        m = re.search(r"(?:(\d{4})[年/\-])?(\d{1,2})[月/\-](\d{1,2})", text)
+        if m:
+            year = int(m.group(1)) if m.group(1) else now.year
+            try:
+                todayish = year == now.year and int(m.group(2)) == now.month and int(m.group(3)) == now.day
+            except ValueError:
+                todayish = False
     if not todayish:
         return None
 
@@ -25,12 +43,15 @@ def _market_today_shortcut(user_input: str, current_date: str, current_date_en: 
         else:
             jp = True
 
+    session = "前場" if "前場" in text else ("後場" if "後場" in text else "")
+
     if jp and not us:
+        q_extra = f" {session}".rstrip()
         return {
             "needs_search": True,
             "search_queries": [
-                f"日経平均 終値 {current_date}",
-                f"東京株式市場 市況 {current_date}",
+                f"日経平均{q_extra} 終値 {current_date}".replace("  ", " ").strip(),
+                f"東京株式市場 市況{q_extra} {current_date}".replace("  ", " ").strip(),
                 f"TOPIX 終値 {current_date}",
                 f"業種別騰落率 東証 {current_date}",
             ],

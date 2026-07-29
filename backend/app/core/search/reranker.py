@@ -87,23 +87,13 @@ def _age_points(age_days: int, weight: float) -> float:
     return -10.0 * weight
 
 
-def _freshness_score(query: str, title: str, snippet: str) -> float:
-    blob = f"{title} {snippet}"
-    now = datetime.now()
-    score = 0.0
-    freshness_query = any(
-        k in (query or "").lower()
-        for k in ("今日", "本日", "today", "終値", "大引け", "市況", "close", "market")
-    )
-    weight = 1.5 if freshness_query else 1.0
-
+def _extract_dates(blob: str) -> list[datetime]:
+    dates: list[datetime] = []
     for m in re.finditer(r"(20\d{2})[年/\-](\d{1,2})[月/\-](\d{1,2})", blob):
         try:
-            d = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
-            score += _age_points((now - d).days, weight)
+            dates.append(datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))))
         except ValueError:
             pass
-
     for m in re.finditer(
         r"\b(January|February|March|April|May|June|July|August|September|October|November|December|"
         r"Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(20\d{2})\b",
@@ -112,27 +102,66 @@ def _freshness_score(query: str, title: str, snippet: str) -> float:
     ):
         try:
             mon = _MONTHS[m.group(1).lower()]
-            d = datetime(int(m.group(3)), mon, int(m.group(2)))
-            score += _age_points((now - d).days, weight)
+            dates.append(datetime(int(m.group(3)), mon, int(m.group(2))))
         except ValueError:
             pass
+    return dates
 
-    return max(-30.0, min(40.0, score))
+
+def _freshness_score(query: str, title: str, snippet: str) -> float:
+    blob = f"{title} {snippet}"
+    now = datetime.now()
+    score = 0.0
+    freshness_query = any(
+        k in (query or "").lower()
+        for k in ("今日", "本日", "today", "終値", "大引け", "市況", "前場", "後場", "close", "market")
+    )
+    weight = 1.5 if freshness_query else 1.0
+    dates = _extract_dates(blob)
+    for d in dates:
+        score += _age_points((now - d).days, weight)
+
+    # 今日系市況: 明示日付が古すぎる記事は強く落とす（最高値更新の過去記事対策）
+    if freshness_query and dates:
+        newest = max(dates)
+        age = (now.date() - newest.date()).days
+        if age > 3:
+            score -= 55.0
+        elif age > 1:
+            score -= 25.0
+    elif freshness_query and not dates:
+        # 日付なしの英語プレマーケット雑多は市況クエリで弱体化
+        if re.search(r"\b(?:premarket|after hours|biggest moves)\b", blob, re.I):
+            score -= 30.0
+
+    # 下落相場なのに「最高値更新」「大幅続伸」だけの古い文脈を落とす
+    if freshness_query and re.search(r"最高値|大幅続伸|1636円高|6万6", blob):
+        if re.search(r"急落|続落|大幅安|売り優勢|下落", query or ""):
+            score -= 20.0
+        # クエリが前場でも、スナップショット注入側と矛盾しやすい定型見出しは減点
+        if re.search(r"前場|市況|日経", query or ""):
+            score -= 15.0
+
+    return max(-80.0, min(40.0, score))
 
 
-_JP_MARKET_QUERY = re.compile(
-    r"日経|TOPIX|東京株式|東証|日本市場|日本株|業種別|市況|終値|大引け",
-    re.IGNORECASE,
-)
 _JP_NOISE = re.compile(
     r"\b(?:mortgage|refinance|HELOC|home equity|CD rates?|APY|best account|"
     r"best CD|savings interest|Zillow|Rosen Law|class action|"
-    r"Pride Festival|van-ramming|Pirates|Mets|Cubs|grand slam)\b|"
+    r"Pride Festival|van-ramming|Pirates|Mets|Cubs|grand slam|"
+    r"Cerezo Osaka|Borussia Dortmund|prediction markets|Wall Street is here|"
+    r"Visa is cutting|ACCESS Newswire|PACSUN|back-to-school|"
+    r"Amcor to report|Sorona|SUNON Unveils|ErP 2026|FTSE4Good|DESILO|"
+    r"single stock futures|SpaceX|Kalshi)\b|"
     r"住宅ローン|変動金利型住宅|定期預金おすすめ",
     re.IGNORECASE,
 )
+_JP_MARKET_QUERY = re.compile(
+    r"日経|TOPIX|東京株式|東証|日本市場|日本株|業種別|市況|終値|大引け|前場|後場",
+    re.IGNORECASE,
+)
 _JP_SIGNAL = re.compile(
-    r"日経|TOPIX|東証|東京株式|業種|市況|終値|大引け|銀行株|保険株|半導体",
+    r"日経|TOPIX|東証|東京株式|業種|市況|終値|大引け|前場|後場|銀行株|保険株|半導体",
     re.IGNORECASE,
 )
 

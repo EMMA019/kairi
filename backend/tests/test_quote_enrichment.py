@@ -48,9 +48,11 @@ def test_quote_dict_yf_includes_metrics():
     fake_ticker.history = MagicMock(return_value=hist)
 
     with patch.object(md.yf, "Ticker", return_value=fake_ticker):
-        q = md._quote_dict_yf("AAPL")
+        q = md._quote_dict_yf("AAPL", enrich_vol_atr=True)
         assert q["volume"] == 1_200_000
         assert q["average_volume"] == 1_000_000
         assert q["volume_ratio"] == 1.2
         assert q["atr"] is not None
         assert q.get("day_range") is not None
+        assert "ret_5d" in q
+        assert "ret_20d" in q

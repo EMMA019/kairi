@@ -12,6 +12,9 @@ import os
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from typing import Any, Callable, TypeVar
 
+# 購読不足・競合時は待たずに諦める（yfinance フォールバックを速くする）
+_SUBSCRIPTION_ERROR_CODES = frozenset({10089, 354, 162, 10197, 200})
+
 from app.core.ibkr.schema import (
     ACCOUNT_SUMMARY_TAGS,
     FILL_LIMIT_DEFAULT,
@@ -55,6 +58,22 @@ def ibkr_market_data_enabled() -> bool:
     if raw is None:
         return True
     return _env_bool("IBKR_MARKET_DATA", True)
+
+
+def market_data_type() -> int:
+    """
+    IBKR reqMarketDataType:
+      1 = Live（本番リアルタイム）
+      2 = Frozen
+      3 = Delayed（〜15分）
+      4 = Delayed frozen
+    既定は 1（購読あり本番向け）。未購読時は速失敗→yfinance。
+    """
+    try:
+        v = int(os.getenv("IBKR_MARKET_DATA_TYPE", "1"))
+    except ValueError:
+        v = 1
+    return v if v in (1, 2, 3, 4) else 1
 
 
 def connection_settings() -> dict[str, Any]:
@@ -409,63 +428,139 @@ def _quote_from_bars(symbol: str, contract: Any, bars: Any) -> dict[str, Any] | 
     }
 
 
+def _ticker_has_price(t: Any) -> bool:
+    last = _finite(getattr(t, "last", None))
+    close = _finite(getattr(t, "close", None))
+    bid = _finite(getattr(t, "bid", None))
+    ask = _finite(getattr(t, "ask", None))
+    try:
+        mkt = _finite(t.marketPrice()) if hasattr(t, "marketPrice") else None
+    except Exception:
+        mkt = None
+    return (mkt or last or close or bid or ask) is not None
+
+
+def _attach_md_meta(quote: dict[str, Any], md_type: int) -> dict[str, Any]:
+    quote = dict(quote)
+    quote["market_data_type"] = md_type
+    quote["realtime"] = md_type == 1
+    if quote.get("source") == "ibkr" and md_type in (3, 4):
+        quote["source"] = "ibkr_delayed"
+    return quote
+
+
 def _fetch_one_quote(ib: Any, symbol: str) -> dict[str, Any]:
     contract = resolve_ib_contract(symbol)
-    # デモ／未購読向け: delayed
+    md_type = market_data_type()
     try:
-        ib.reqMarketDataType(3)
+        ib.reqMarketDataType(md_type)
     except Exception:
         pass
-    qualified = ib.qualifyContracts(contract)
-    if not qualified:
-        return {
-            "ticker": symbol,
-            "error": "contract_not_found",
-            "message": f"IBKR でコントラクト解決できません: {symbol}",
-            "source": "ibkr",
-        }
-    contract = qualified[0]
-    quote: dict[str, Any] | None = None
-    try:
-        tickers = ib.reqTickers(contract)
-        ib.sleep(1.2)
-        if tickers:
-            quote = _quote_from_ib_ticker(symbol, contract, tickers[0])
-            if quote.get("current_price") is None:
-                quote = None
-    except Exception as e:
-        logger.warning(f"IBKR reqTickers failed {symbol}: {e}")
-        quote = None
 
-    if quote is None:
+    sub_errors: list[str] = []
+
+    def on_error(reqId: Any, errorCode: Any, errorString: Any, contractObj: Any = None) -> None:
         try:
-            bars = ib.reqHistoricalData(
-                contract,
-                endDateTime="",
-                durationStr="10 D",
-                barSizeSetting="1 day",
-                whatToShow="TRADES",
-                useRTH=True,
-                formatDate=1,
-            )
-            quote = _quote_from_bars(symbol, contract, bars)
+            code = int(errorCode)
+        except (TypeError, ValueError):
+            return
+        if code in _SUBSCRIPTION_ERROR_CODES:
+            sub_errors.append(f"{code}:{errorString}")
+
+    try:
+        ib.errorEvent += on_error
+    except Exception:
+        pass
+
+    try:
+        qualified = ib.qualifyContracts(contract)
+        if not qualified:
+            return {
+                "ticker": symbol,
+                "error": "contract_not_found",
+                "message": f"IBKR でコントラクト解決できません: {symbol}",
+                "source": "ibkr",
+                "market_data_type": md_type,
+                "realtime": False,
+            }
+        contract = qualified[0]
+        if sub_errors:
+            return {
+                "ticker": symbol,
+                "error": "not_subscribed",
+                "message": f"IBKR 購読/契約エラー: {symbol} ({sub_errors[0]})",
+                "source": "ibkr",
+                "market_data_type": md_type,
+                "realtime": False,
+            }
+
+        quote: dict[str, Any] | None = None
+        try:
+            tickers = ib.reqTickers(contract)
+            # 最大 ~1.0s。購読エラー or 価格到着で打ち切り
+            for _ in range(5):
+                ib.sleep(0.2)
+                if sub_errors:
+                    break
+                if tickers and _ticker_has_price(tickers[0]):
+                    break
+            if tickers and not sub_errors:
+                quote = _quote_from_ib_ticker(symbol, contract, tickers[0])
+                if quote.get("current_price") is None:
+                    quote = None
         except Exception as e:
-            logger.warning(f"IBKR historical fallback failed {symbol}: {e}")
+            logger.warning(f"IBKR reqTickers failed {symbol}: {e}")
+            quote = None
+
+        if sub_errors and quote is None:
+            return {
+                "ticker": symbol,
+                "error": "not_subscribed",
+                "message": f"IBKR マーケットデータ未購読: {symbol} ({sub_errors[0]})",
+                "source": "ibkr",
+                "market_data_type": md_type,
+                "realtime": False,
+            }
+
+        # 購読エラーが無いときだけ日足フォールバック（終値用）
+        if quote is None:
+            try:
+                bars = ib.reqHistoricalData(
+                    contract,
+                    endDateTime="",
+                    durationStr="10 D",
+                    barSizeSetting="1 day",
+                    whatToShow="TRADES",
+                    useRTH=True,
+                    formatDate=1,
+                )
+                quote = _quote_from_bars(symbol, contract, bars)
+            except Exception as e:
+                logger.warning(f"IBKR historical fallback failed {symbol}: {e}")
+                return {
+                    "ticker": symbol,
+                    "error": "no_market_data",
+                    "message": f"IBKR から価格を取得できません: {symbol} ({e})",
+                    "source": "ibkr",
+                    "market_data_type": md_type,
+                    "realtime": False,
+                }
+
+        if quote is None or quote.get("current_price") is None:
             return {
                 "ticker": symbol,
                 "error": "no_market_data",
-                "message": f"IBKR から価格を取得できません: {symbol} ({e})",
+                "message": f"IBKR 気配・履歴ともに価格なし: {symbol}",
                 "source": "ibkr",
+                "market_data_type": md_type,
+                "realtime": False,
             }
-
-    if quote is None or quote.get("current_price") is None:
-        return {
-            "ticker": symbol,
-            "error": "no_market_data",
-            "message": f"IBKR 気配・履歴ともに価格なし: {symbol}",
-            "source": "ibkr",
-        }
-    return quote
+        return _attach_md_meta(quote, md_type)
+    finally:
+        try:
+            ib.errorEvent -= on_error
+        except Exception:
+            pass
 
 
 def fetch_quote(symbol: str) -> dict[str, Any]:

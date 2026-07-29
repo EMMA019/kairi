@@ -51,8 +51,33 @@ def test_market_today_shortcut_japan():
     assert any("業種" in q for q in out["search_queries"])
 
 
+def test_japan_morning_session_is_todayish():
+    needed, queries = balance_search_queries(
+        "7/29の日本市場前場がどんな感じだった？",
+        search_needed=True,
+        search_queries=["7月29日 日経平均 前場"],
+    )
+    assert needed is True
+    blob = " ".join(queries)
+    assert "日経" in blob
+    assert "TOPIX" in blob
+    assert "us japan stock dividend" not in blob.lower()
+
+
+def test_market_today_shortcut_morning():
+    out = _market_today_shortcut(
+        "7/29の日本市場前場がどんな感じだった？",
+        "2026-07-29",
+        "July 29, 2026",
+    )
+    assert out is not None
+    assert any("前場" in q for q in out["search_queries"])
+    assert out["providers"] == ["brave", "news"]
+
+
 def test_skip_deep_fetch_for_close():
     assert should_skip_deep_fetch("今日の日本市場はどうだった？") is True
+    assert should_skip_deep_fetch("7/29の日本市場前場") is True
     assert should_skip_deep_fetch("Pythonの書き方教えて") is False
 
 
@@ -77,7 +102,28 @@ def test_rerank_prefers_fresh_date():
     assert fresh > stale
 
 
-def test_rerank_demotes_mortgage_for_jp_market():
+def test_rerank_demotes_stale_ath_headline():
+    query = "7/29 日本市場 前場 日経平均"
+    results = [
+        {
+            "title": "日経平均株価、最高値更新　終値1636円高の6万6329円に反発 - 日本経済新聞",
+            "snippet": "2026年5月22日の東京株式市場。日経平均は大幅続伸。",
+            "url": "https://www.nikkei.com/old-ath",
+        },
+        {
+            "title": "日経平均前場 続落 半導体売り - 東京株式市場",
+            "snippet": "2026年7月29日 前場の東京株式。日経平均は売り優勢。",
+            "url": "https://www.nikkei.com/today-morning",
+        },
+        {
+            "title": "Stocks making the biggest moves premarket: Micron, Exxon",
+            "snippet": "Premarket movers after hours.",
+            "url": "https://www.cnbc.com/premarket-junk",
+        },
+    ]
+    ranked = rerank(query, results, top_k=3)
+    assert ranked[0]["url"] == "https://www.nikkei.com/today-morning"
+
     query = "今日の日本市場 日経平均 終値"
     results = [
         {

@@ -1,7 +1,8 @@
 /**
- * MarketDesk — 市況閲覧デスク（発注なし）。後続で Signals / Orders タブを足せる構造。
+ * MarketDesk — 市況デスク（紙のみ・実発注なし）。
+ * 主軸: $700 デイトレ〜スイング / 年利10% / 自動更新。
  */
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { executeMarketTool } from "../hooks/useMarketTool";
 import {
   addPaperJournalEntry,
@@ -10,17 +11,32 @@ import {
   type PaperJournalEntry,
   type PaperSide,
 } from "../utils/paperJournal";
-import type { ScalpSettings } from "../utils/scalpSizing";
+import {
+  addPaperPosition,
+  closePaperPosition,
+  loadPaperPositions,
+  openPositions,
+  realizedTotalUsd,
+  removePaperPosition,
+  unrealizedPnlUsd,
+  type PaperPosition,
+} from "../utils/paperPositions";
+import {
+  MAX_OPEN_POSITIONS,
+  annualTargetUsd,
+  suggestedStopTarget,
+  type SwingSettings,
+} from "../utils/swingSizing";
 import {
   INDEX_BAR,
   SECTOR_BAR,
   WATCHLIST_MAX,
   addWatchSymbol,
   buildWatchRow,
-  loadScalpSettings,
+  loadSwingSettings,
   loadWatchlist,
   removeWatchSymbol,
-  saveScalpSettings,
+  saveSwingSettings,
   saveWatchlist,
   type QuotePayload,
   type WatchRow,
@@ -36,6 +52,9 @@ type BarQuote = {
   source: string | null;
   error?: string;
 };
+
+const QUOTE_POLL_MS = 60_000;
+const HEAVY_POLL_MS = 300_000;
 
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
@@ -109,6 +128,12 @@ function formatPct(v: number | null | undefined): string {
   return `${sign}${v.toFixed(2)}%`;
 }
 
+function formatUsd(v: number | null | undefined): string {
+  if (v == null || !Number.isFinite(v)) return "—";
+  const sign = v > 0 ? "+" : "";
+  return `${sign}$${v.toFixed(2)}`;
+}
+
 function pctColor(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return "text-gray-400";
   if (v > 0) return "text-emerald-300";
@@ -147,26 +172,46 @@ export function MarketDesk() {
   const [watchRows, setWatchRows] = useState<Record<string, WatchRow>>({});
   const [addTicker, setAddTicker] = useState("");
   const [watchError, setWatchError] = useState<string | null>(null);
-  const [scalp, setScalp] = useState<ScalpSettings>(() => loadScalpSettings());
+  const [swing, setSwing] = useState<SwingSettings>(() => loadSwingSettings());
+  const [positions, setPositions] = useState<PaperPosition[]>(() => loadPaperPositions());
+  const [posError, setPosError] = useState<string | null>(null);
+  const [lastQuoteAt, setLastQuoteAt] = useState<string | null>(null);
+  const [quoteFeed, setQuoteFeed] = useState<string | null>(null);
+  const [pageVisible, setPageVisible] = useState(
+    () => typeof document === "undefined" || document.visibilityState === "visible",
+  );
+
+  const quoteBusyRef = useRef(false);
+  const heavyBusyRef = useRef(false);
+  const watchSymbolsRef = useRef(watchSymbols);
+  const swingRef = useRef(swing);
+  watchSymbolsRef.current = watchSymbols;
+  swingRef.current = swing;
 
   useEffect(() => {
     setJournal(loadPaperJournal());
   }, []);
 
   useEffect(() => {
-    saveScalpSettings(scalp);
-  }, [scalp]);
+    saveSwingSettings(swing);
+  }, [swing]);
 
   useEffect(() => {
     setWatchRows((prev) => {
       const next: Record<string, WatchRow> = {};
       for (const sym of watchSymbols) {
         const old = prev[sym];
-        next[sym] = buildWatchRow(sym, old?.quote ?? null, scalp, old?.error);
+        next[sym] = buildWatchRow(sym, old?.quote ?? null, swing, old?.error);
       }
       return next;
     });
-  }, [scalp, watchSymbols]);
+  }, [swing, watchSymbols]);
+
+  useEffect(() => {
+    const onVis = () => setPageVisible(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
 
   const run = useCallback(async (key: string, fn: () => Promise<void>) => {
     setLoading(key);
@@ -177,8 +222,16 @@ export function MarketDesk() {
     }
   }, []);
 
-  const fetchOneQuote = async (ticker: string): Promise<{ quote: QuotePayload | null; error?: string }> => {
-    const r = await executeMarketTool("get_stock_quote", { ticker });
+  const fetchOneQuote = async (
+    ticker: string,
+    opts?: { preferYfinance?: boolean; enrich?: boolean },
+  ): Promise<{ quote: QuotePayload | null; error?: string }> => {
+    // 既定は IBKR ライブ優先（本番リアルタイム）。未購読時は backend が速失敗→yfinance。
+    const r = await executeMarketTool("get_stock_quote", {
+      ticker,
+      prefer_yfinance: opts?.preferYfinance === true,
+      enrich_vol_atr: opts?.enrich !== false,
+    });
     if (r.error) return { quote: null, error: r.error };
     const q = asQuote(r.parsed);
     if (!q) return { quote: null, error: "parse failed" };
@@ -186,98 +239,225 @@ export function MarketDesk() {
     return { quote: q };
   };
 
-  const refreshUsdJpy = async (settings: ScalpSettings): Promise<ScalpSettings> => {
+  const fetchQuotesBatch = async (
+    tickers: string[],
+    opts?: { preferYfinance?: boolean; enrich?: boolean },
+  ): Promise<{ quotes: Record<string, QuotePayload>; error?: string; source?: string }> => {
+    if (!tickers.length) return { quotes: {} };
+    const r = await executeMarketTool("get_stock_quotes", {
+      tickers,
+      prefer_yfinance: opts?.preferYfinance === true,
+      enrich_vol_atr: opts?.enrich !== false,
+    });
+    if (r.error) return { quotes: {}, error: r.error };
+    const root = asRecord(r.parsed);
+    if (!root) return { quotes: {}, error: "parse failed" };
+    const rawQuotes = asRecord(root.quotes) || {};
+    const quotes: Record<string, QuotePayload> = {};
+    for (const [sym, val] of Object.entries(rawQuotes)) {
+      const q = asQuote(val);
+      if (q) quotes[sym] = q;
+    }
+    return {
+      quotes,
+      source: typeof root.source === "string" ? root.source : undefined,
+      error: typeof root.error === "string" ? root.error : undefined,
+    };
+  };
+
+  const refreshUsdJpy = async (settings: SwingSettings): Promise<SwingSettings> => {
     if (settings.usdjpyManual) return settings;
-    const { quote } = await fetchOneQuote("USDJPY=X");
+    const { quote } = await fetchOneQuote("USDJPY=X", { enrich: false });
     const px = quote?.current_price;
     if (px != null && Number.isFinite(px) && px > 0) {
       const next = { ...settings, usdjpy: px };
-      setScalp(next);
+      setSwing(next);
       return next;
     }
     return settings;
   };
 
-  const refreshWatchlist = () =>
-    run("watch", async () => {
+  const refreshQuotesCore = useCallback(async () => {
+    if (quoteBusyRef.current) return;
+    quoteBusyRef.current = true;
+    try {
       setWatchError(null);
-      const settings = await refreshUsdJpy(scalp);
-      const symbols = watchSymbols.slice(0, WATCHLIST_MAX);
-      const results = await Promise.all(
-        symbols.map(async (symbol) => {
-          const { quote, error } = await fetchOneQuote(symbol);
-          return buildWatchRow(symbol, quote, settings, error);
-        }),
-      );
-      const map: Record<string, WatchRow> = {};
-      for (const row of results) map[row.symbol] = row;
-      setWatchRows(map);
-      const fails = results.filter((r) => r.error);
-      if (fails.length) {
-        setWatchError(`${fails.length} 銘柄で取得エラー（詳細は各行）`);
-      }
-    });
-
-  const refreshAllOverviewQuotes = () =>
-    run("overview_quotes", async () => {
-      setWatchError(null);
-      const settings = await refreshUsdJpy(scalp);
+      const settings = await refreshUsdJpy(swingRef.current);
       const barItems = [...INDEX_BAR, ...SECTOR_BAR];
-      const barResults = await Promise.all(
-        barItems.map(async ({ symbol, label }) => {
-          const { quote, error } = await fetchOneQuote(symbol);
-          return {
-            symbol,
-            label,
-            price: quote?.current_price ?? null,
-            changePct: quote?.change_pct ?? null,
-            source: quote?.source ?? null,
-            error,
-          };
-        }),
-      );
+      const barSymbols = barItems.map((b) => b.symbol);
+      const watchSymbols = watchSymbolsRef.current.slice(0, WATCHLIST_MAX);
+      // 1接続バッチ（並列 IB 接続は 10197 競合しやすい）
+      const batch = await fetchQuotesBatch([...barSymbols, ...watchSymbols], { enrich: true });
+
+      const barResults: BarQuote[] = barItems.map(({ symbol, label }) => {
+        const quote = batch.quotes[symbol];
+        const err =
+          quote?.error != null
+            ? String(quote.error)
+            : quote?.current_price == null
+              ? batch.error || "no price"
+              : undefined;
+        return {
+          symbol,
+          label,
+          price: quote?.current_price ?? null,
+          changePct: quote?.change_pct ?? null,
+          source: quote?.source ?? null,
+          error: err,
+        };
+      });
       setIndexQuotes(barResults.slice(0, INDEX_BAR.length));
       setSectorQuotes(barResults.slice(INDEX_BAR.length));
 
-      const results = await Promise.all(
-        watchSymbols.slice(0, WATCHLIST_MAX).map(async (symbol) => {
-          const { quote, error } = await fetchOneQuote(symbol);
-          return buildWatchRow(symbol, quote, settings, error);
-        }),
-      );
       const map: Record<string, WatchRow> = {};
-      for (const row of results) map[row.symbol] = row;
+      const results = watchSymbols.map((symbol) => {
+        const quote = batch.quotes[symbol] ?? null;
+        const err =
+          quote?.error != null
+            ? String(quote.error)
+            : quote?.current_price == null
+              ? batch.error || "no price"
+              : undefined;
+        const row = buildWatchRow(symbol, quote, settings, err);
+        map[symbol] = row;
+        return row;
+      });
       setWatchRows(map);
-    });
 
-  const refreshIbkr = () =>
-    run("ibkr", async () => {
-      setIbkrError(null);
-      const [s, p, f] = await Promise.all([
-        executeMarketTool("ibkr_account_summary"),
-        executeMarketTool("ibkr_positions"),
-        executeMarketTool("ibkr_recent_fills", { limit: 20 }),
+      const feedSrc = batch.source || null;
+      const anyLive = Object.values(batch.quotes).some(
+        (q) => q.realtime === true || q.source === "ibkr",
+      );
+      setQuoteFeed(
+        anyLive ? "IBKR live" : feedSrc === "yfinance" ? "Yahoo ~15m" : feedSrc || "mixed",
+      );
+      setLastQuoteAt(new Date().toLocaleTimeString());
+      const fails = results.filter((r) => r.error || r.quote?.current_price == null);
+      if (fails.length) {
+        setWatchError(
+          `${fails.length} 銘柄で価格未取得（休場でも前日終値は出る想定。再取得するかバックエンドログを確認）`,
+        );
+      }
+    } catch (e) {
+      setWatchError(e instanceof Error ? e.message : String(e));
+    } finally {
+      quoteBusyRef.current = false;
+    }
+  }, []);
+
+  const refreshIbkr = useCallback(
+    () =>
+      run("ibkr", async () => {
+        setIbkrError(null);
+        const [s, p, f] = await Promise.all([
+          executeMarketTool("ibkr_account_summary"),
+          executeMarketTool("ibkr_positions"),
+          executeMarketTool("ibkr_recent_fills", { limit: 20 }),
+        ]);
+        const fail =
+          s.error ||
+          p.error ||
+          f.error ||
+          (asRecord(s.parsed)?.ok === false
+            ? String(asRecord(s.parsed)?.message || asRecord(s.parsed)?.error)
+            : null);
+        if (fail) setIbkrError(fail);
+        setIbkrSummary(s.parsed ?? s.raw);
+        setIbkrPositions(p.parsed ?? p.raw);
+        setIbkrFills(f.parsed ?? f.raw);
+      }),
+    [run],
+  );
+
+  const refreshJapan = useCallback(
+    () =>
+      run("japan", async () => {
+        setJpError(null);
+        const r = await executeMarketTool("get_jp_market_snapshot", {
+          prefer_yfinance: false,
+        });
+        if (r.error) setJpError(r.error);
+        setJpSnap(r.parsed ?? r.raw);
+      }),
+    [run],
+  );
+
+  const refreshHeavy = useCallback(async () => {
+    if (heavyBusyRef.current) return;
+    heavyBusyRef.current = true;
+    try {
+      await Promise.all([
+        (async () => {
+          setJpError(null);
+          const r = await executeMarketTool("get_jp_market_snapshot", {
+            prefer_yfinance: false,
+          });
+          if (r.error) setJpError(r.error);
+          setJpSnap(r.parsed ?? r.raw);
+        })(),
+        (async () => {
+          setIbkrError(null);
+          const [s, p, f] = await Promise.all([
+            executeMarketTool("ibkr_account_summary"),
+            executeMarketTool("ibkr_positions"),
+            executeMarketTool("ibkr_recent_fills", { limit: 20 }),
+          ]);
+          const fail =
+            s.error ||
+            p.error ||
+            f.error ||
+            (asRecord(s.parsed)?.ok === false
+              ? String(asRecord(s.parsed)?.message || asRecord(s.parsed)?.error)
+              : null);
+          if (fail) setIbkrError(fail);
+          setIbkrSummary(s.parsed ?? s.raw);
+          setIbkrPositions(p.parsed ?? p.raw);
+          setIbkrFills(f.parsed ?? f.raw);
+        })(),
       ]);
-      const fail =
-        s.error ||
-        p.error ||
-        f.error ||
-        (asRecord(s.parsed)?.ok === false
-          ? String(asRecord(s.parsed)?.message || asRecord(s.parsed)?.error)
-          : null);
-      if (fail) setIbkrError(fail);
-      setIbkrSummary(s.parsed ?? s.raw);
-      setIbkrPositions(p.parsed ?? p.raw);
-      setIbkrFills(f.parsed ?? f.raw);
-    });
+    } finally {
+      heavyBusyRef.current = false;
+    }
+  }, []);
 
-  const refreshJapan = () =>
-    run("japan", async () => {
-      setJpError(null);
-      const r = await executeMarketTool("get_jp_market_snapshot");
-      if (r.error) setJpError(r.error);
-      setJpSnap(r.parsed ?? r.raw);
+  // Auto refresh quotes
+  useEffect(() => {
+    if (!swing.autoRefresh || !pageVisible || tab !== "overview") return;
+    void refreshQuotesCore();
+    const id = window.setInterval(() => {
+      void refreshQuotesCore();
+    }, QUOTE_POLL_MS);
+    return () => window.clearInterval(id);
+  }, [swing.autoRefresh, pageVisible, tab, refreshQuotesCore]);
+
+  // Auto refresh Japan / IBKR (sparse)
+  useEffect(() => {
+    if (!swing.autoRefresh || !pageVisible || tab !== "overview") return;
+    void refreshHeavy();
+    const id = window.setInterval(() => {
+      void refreshHeavy();
+    }, HEAVY_POLL_MS);
+    return () => window.clearInterval(id);
+  }, [swing.autoRefresh, pageVisible, tab, refreshHeavy]);
+
+  // Signals tab: run lead-lag once on enter (not every minute — v2)
+  useEffect(() => {
+    if (tab !== "signals" || leadLagParsed || leadLag) return;
+    void run("leadlag", async () => {
+      setLeadLagError(null);
+      setLeadLagParsed(null);
+      const r = await executeMarketTool("analyze_sector_lead_lag");
+      if (r.error) setLeadLagError(r.error);
+      if (/sklearn|No module named/i.test(r.raw)) {
+        setLeadLagError("scikit-learn 未導入のため実行できません（pip install scikit-learn）");
+      }
+      const rec = asRecord(r.parsed);
+      if (rec?.error) setLeadLagError(String(rec.error));
+      else if (rec) setLeadLagParsed(rec);
+      setLeadLag(r.raw);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on tab enter
+  }, [tab]);
 
   const fetchRadar = () =>
     run("radar", async () => {
@@ -315,6 +495,71 @@ export function MarketDesk() {
     );
   };
 
+  const openPaperFromWatch = (symbol: string, side: PaperSide = "long") => {
+    setPosError(null);
+    const row = watchRows[symbol];
+    const price = row?.quote?.current_price;
+    const atr = row?.metrics.atr;
+    const sizing = row?.sizing;
+    if (price == null || !(price > 0)) {
+      setPosError("現値が無いため紙ポジを開けません（更新待ち）");
+      return;
+    }
+    const qty = sizing?.recommended && sizing.recommended > 0 ? sizing.recommended : 1;
+    const st = suggestedStopTarget(side, price, atr, swing);
+    if (!st) {
+      setPosError("ストップ/目標を計算できません");
+      return;
+    }
+    const res = addPaperPosition({
+      symbol,
+      side,
+      qty,
+      entryPrice: price,
+      stopPrice: st.stop,
+      targetPrice: st.target,
+      note: `Auto stop ATR×${swing.atrMult}`,
+      source: "watchlist",
+    });
+    setPositions(res.entries);
+    if (!res.ok) setPosError(res.reason);
+  };
+
+  const openPaperFromSignal = (name: string, side: PaperSide, score: unknown) => {
+    setPosError(null);
+    // Sector names are not always tickers — journal note + try open if looks like ticker
+    addJournal(name, side, `Lead-lag ${side} score ${formatVal(score)}`, "lead_lag");
+    const sym = name.trim().toUpperCase();
+    if (/^[A-Z.]{1,6}$/.test(sym) || /^\d{4}\.T$/.test(sym)) {
+      void (async () => {
+        const { quote } = await fetchOneQuote(sym);
+        const price = quote?.current_price;
+        const atr = quote?.atr ?? null;
+        if (price == null) {
+          setPosError(`${sym}: 価格取得失敗（ジャーナルのみ記録）`);
+          return;
+        }
+        const st = suggestedStopTarget(side, price, atr, swing);
+        if (!st) return;
+        const riskUsd = swing.capitalUsd * swing.riskPct;
+        const stopDist = Math.abs(price - st.stop) || price * 0.03;
+        const qty = Math.max(1, Math.min(Math.floor(swing.capitalUsd / price), Math.floor(riskUsd / stopDist)));
+        const res = addPaperPosition({
+          symbol: sym,
+          side,
+          qty,
+          entryPrice: price,
+          stopPrice: st.stop,
+          targetPrice: st.target,
+          note: `Lead-lag score ${formatVal(score)}`,
+          source: "lead_lag",
+        });
+        setPositions(res.entries);
+        if (!res.ok) setPosError(res.reason);
+      })();
+    }
+  };
+
   const onAddWatch = () => {
     const next = addWatchSymbol(watchSymbols, addTicker);
     setWatchSymbols(next);
@@ -323,15 +568,33 @@ export function MarketDesk() {
   };
 
   const onRemoveWatch = (symbol: string) => {
-    const next = removeWatchSymbol(watchSymbols, symbol);
-    setWatchSymbols(next);
+    setWatchSymbols(removeWatchSymbol(watchSymbols, symbol));
   };
+
+  const markFor = (symbol: string): number | null => {
+    const q = watchRows[symbol]?.quote?.current_price;
+    if (q != null) return q;
+    return null;
+  };
+
+  const openPos = openPositions(positions);
+  let unrealizedSum = 0;
+  let unrealizedOk = true;
+  for (const p of openPos) {
+    const u = unrealizedPnlUsd(p, markFor(p.symbol));
+    if (u == null) unrealizedOk = false;
+    else unrealizedSum += u;
+  }
+  const realized = realizedTotalUsd(positions);
+  const ytd = realized + (unrealizedOk ? unrealizedSum : unrealizedSum);
+  const target = annualTargetUsd(swing);
+  const progress = target > 0 ? Math.min(100, Math.max(0, (ytd / target) * 100)) : 0;
 
   const summaryRec = asRecord(ibkrSummary);
   const summaryData = asRecord(summaryRec?.data);
   const tags = asRecord(summaryData?.tags) || {};
   const posData = asRecord(asRecord(ibkrPositions)?.data);
-  const positions = Array.isArray(posData?.positions) ? (posData!.positions as any[]) : [];
+  const ibkrPosList = Array.isArray(posData?.positions) ? (posData!.positions as any[]) : [];
   const fillData = asRecord(asRecord(ibkrFills)?.data);
   const fills = Array.isArray(fillData?.fills) ? (fillData!.fills as any[]) : [];
   const jpRec = asRecord(jpSnap);
@@ -344,29 +607,46 @@ export function MarketDesk() {
     { id: "signals", label: "Signals" },
   ];
 
-  const quotesBusy =
-    loading === "watch" || loading === "indexbar" || loading === "overview_quotes";
+  const quotesBusy = loading === "overview_quotes" || quoteBusyRef.current;
 
   return (
     <div className="flex h-full flex-col bg-[#0b0f19] text-gray-100">
       <header className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
         <div>
           <h2 className="text-base font-bold tracking-tight text-white">Market Desk</h2>
-          <p className="text-[11px] text-gray-500">Read-only + paper journal · 実発注なし</p>
+          <p className="text-[11px] text-gray-500">
+            $700 swing/day paper · 年利10%目標 · 実発注なし
+            {lastQuoteAt && (
+              <span className="ml-2 text-cyan-500/80">
+                Updated {lastQuoteAt}
+                {quoteFeed ? ` · ${quoteFeed}` : ""}
+              </span>
+            )}
+          </p>
         </div>
-        <div className="flex gap-1 rounded-lg bg-black/30 p-1">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
-                tab === t.id ? "bg-cyan-500/20 text-cyan-200" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1.5 text-[11px] text-gray-400">
+            <input
+              type="checkbox"
+              checked={swing.autoRefresh}
+              onChange={(e) => setSwing((s) => ({ ...s, autoRefresh: e.target.checked }))}
+            />
+            Auto
+          </label>
+          <div className="flex gap-1 rounded-lg bg-black/30 p-1">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
+                  tab === t.id ? "bg-cyan-500/20 text-cyan-200" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
@@ -378,11 +658,11 @@ export function MarketDesk() {
               action={
                 <button
                   type="button"
-                  onClick={refreshAllOverviewQuotes}
-                  disabled={quotesBusy}
+                  onClick={() => run("overview_quotes", refreshQuotesCore)}
+                  disabled={loading === "overview_quotes"}
                   className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-50"
                 >
-                  {quotesBusy ? "Loading…" : "Refresh all"}
+                  {loading === "overview_quotes" ? "Loading…" : "Refresh now"}
                 </button>
               }
             >
@@ -420,55 +700,77 @@ export function MarketDesk() {
                   </div>
                 ))}
               </div>
-              {!indexQuotes.length && (
-                <p className="mt-2 text-[11px] text-gray-500">
-                  Refresh all で DIA/SPY/QQQ/SOXX + セクターETF
-                </p>
-              )}
             </Section>
 
-            <Section title="Paper scalp settings">
-              <p className="mb-3 text-[11px] text-gray-500">
-                リスク円 = ターゲット幅逆行時の許容損失（買付代金ではない）。ウォッチリストは監視専用で資金按分しない。
-                薄商い時は $1 取りきれない想定。
-              </p>
+            <Section title="Swing capital ($700 · 年利10%)">
+              <div className="mb-3">
+                <div className="mb-1 flex justify-between text-[11px] text-gray-400">
+                  <span>
+                    YTD P&amp;L {formatUsd(ytd)} / 目標 {formatUsd(target)}
+                  </span>
+                  <span>{progress.toFixed(0)}%</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-black/40">
+                  <div
+                    className={`h-full rounded-full ${ytd >= 0 ? "bg-emerald-500/70" : "bg-rose-500/70"}`}
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-[10px] text-gray-600">
+                  実現 {formatUsd(realized)} · 含み {formatUsd(unrealizedOk ? unrealizedSum : null)} ·
+                  同時紙ポジ上限 {MAX_OPEN_POSITIONS}
+                </p>
+              </div>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 <label className="text-[11px] text-gray-400">
-                  元手（買付上限 JPY）
+                  元手 (USD)
                   <input
                     type="number"
-                    value={scalp.capitalJpy}
-                    onChange={(e) => setScalp((s) => ({ ...s, capitalJpy: Number(e.target.value) || 0 }))}
+                    value={swing.capitalUsd}
+                    onChange={(e) => setSwing((s) => ({ ...s, capitalUsd: Number(e.target.value) || 0 }))}
                     className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 font-mono text-sm text-white outline-none focus:border-cyan-500/50"
                   />
                 </label>
                 <label className="text-[11px] text-gray-400">
-                  リスク円（$逆行許容）
+                  1トレードリスク (%)
                   <input
                     type="number"
-                    value={scalp.riskJpy}
-                    onChange={(e) => setScalp((s) => ({ ...s, riskJpy: Number(e.target.value) || 0 }))}
+                    step="0.5"
+                    value={swing.riskPct * 100}
+                    onChange={(e) =>
+                      setSwing((s) => ({ ...s, riskPct: (Number(e.target.value) || 0) / 100 }))
+                    }
                     className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 font-mono text-sm text-white outline-none focus:border-cyan-500/50"
                   />
                 </label>
                 <label className="text-[11px] text-gray-400">
-                  ターゲット幅 ($)
+                  ストップ ATR倍数
                   <input
                     type="number"
                     step="0.1"
-                    value={scalp.targetUsd}
-                    onChange={(e) => setScalp((s) => ({ ...s, targetUsd: Number(e.target.value) || 1 }))}
+                    value={swing.atrMult}
+                    onChange={(e) => setSwing((s) => ({ ...s, atrMult: Number(e.target.value) || 1.5 }))}
                     className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 font-mono text-sm text-white outline-none focus:border-cyan-500/50"
                   />
                 </label>
                 <label className="text-[11px] text-gray-400">
-                  USD/JPY
+                  利確 R:R
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={swing.rewardRisk}
+                    onChange={(e) => setSwing((s) => ({ ...s, rewardRisk: Number(e.target.value) || 2 }))}
+                    className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 font-mono text-sm text-white outline-none focus:border-cyan-500/50"
+                  />
+                </label>
+                <label className="text-[11px] text-gray-400">
+                  USD/JPY（参考）
                   <input
                     type="number"
                     step="0.01"
-                    value={scalp.usdjpy}
+                    value={swing.usdjpy}
                     onChange={(e) =>
-                      setScalp((s) => ({
+                      setSwing((s) => ({
                         ...s,
                         usdjpy: Number(e.target.value) || s.usdjpy,
                         usdjpyManual: true,
@@ -480,26 +782,73 @@ export function MarketDesk() {
                 <label className="flex items-end gap-2 pb-2 text-[11px] text-gray-300">
                   <input
                     type="checkbox"
-                    checked={scalp.usdjpyManual}
-                    onChange={(e) => setScalp((s) => ({ ...s, usdjpyManual: e.target.checked }))}
+                    checked={swing.usdjpyManual}
+                    onChange={(e) => setSwing((s) => ({ ...s, usdjpyManual: e.target.checked }))}
                   />
-                  USD/JPY 手動固定（Refresh で上書きしない）
+                  USD/JPY 手動固定
                 </label>
-                <div className="flex items-end">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      run("fx", async () => {
-                        await refreshUsdJpy({ ...scalp, usdjpyManual: false });
-                      })
-                    }
-                    disabled={loading === "fx"}
-                    className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-50"
-                  >
-                    {loading === "fx" ? "Loading…" : "Fetch USDJPY"}
-                  </button>
-                </div>
               </div>
+            </Section>
+
+            <Section title={`Open paper positions (${openPos.length}/${MAX_OPEN_POSITIONS})`}>
+              {posError && (
+                <div className="mb-2">
+                  <ErrorBanner message={posError} />
+                </div>
+              )}
+              {openPos.length === 0 ? (
+                <p className="text-xs text-gray-500">ウォッチリストから Open で紙ポジ作成</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[40rem] text-left text-[11px]">
+                    <thead className="text-gray-500">
+                      <tr>
+                        <th className="pb-2 pr-2">Symbol</th>
+                        <th className="pb-2 pr-2">Side</th>
+                        <th className="pb-2 pr-2">Qty</th>
+                        <th className="pb-2 pr-2">Entry</th>
+                        <th className="pb-2 pr-2">Mark</th>
+                        <th className="pb-2 pr-2">uPnL</th>
+                        <th className="pb-2 pr-2">Stop</th>
+                        <th className="pb-2 pr-2">Target</th>
+                        <th className="pb-2" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {openPos.map((p) => {
+                        const mark = markFor(p.symbol);
+                        const u = unrealizedPnlUsd(p, mark);
+                        return (
+                          <tr key={p.id} className="border-t border-white/5">
+                            <td className="py-1.5 pr-2 font-mono font-semibold">{p.symbol}</td>
+                            <td className={`py-1.5 pr-2 ${p.side === "long" ? "text-emerald-300" : "text-rose-300"}`}>
+                              {p.side.toUpperCase()}
+                            </td>
+                            <td className="py-1.5 pr-2 font-mono">{p.qty}</td>
+                            <td className="py-1.5 pr-2 font-mono">{formatVal(p.entryPrice)}</td>
+                            <td className="py-1.5 pr-2 font-mono">{formatVal(mark)}</td>
+                            <td className={`py-1.5 pr-2 font-mono ${pctColor(u)}`}>{formatUsd(u)}</td>
+                            <td className="py-1.5 pr-2 font-mono">{formatVal(p.stopPrice)}</td>
+                            <td className="py-1.5 pr-2 font-mono">{formatVal(p.targetPrice)}</td>
+                            <td className="py-1.5">
+                              <button
+                                type="button"
+                                className="rounded border border-rose-500/30 px-1.5 py-0.5 text-[10px] text-rose-200 hover:bg-rose-500/10"
+                                onClick={() => {
+                                  const exit = mark ?? p.entryPrice;
+                                  setPositions(closePaperPosition(p.id, exit));
+                                }}
+                              >
+                                Close
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </Section>
 
             <Section
@@ -507,11 +856,11 @@ export function MarketDesk() {
               action={
                 <button
                   type="button"
-                  onClick={refreshWatchlist}
-                  disabled={quotesBusy || !watchSymbols.length}
+                  onClick={() => run("overview_quotes", refreshQuotesCore)}
+                  disabled={Boolean(quotesBusy) || !watchSymbols.length}
                   className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-50"
                 >
-                  {loading === "watch" ? "Loading…" : "Refresh list"}
+                  Refresh list
                 </button>
               }
             >
@@ -543,19 +892,20 @@ export function MarketDesk() {
                 </div>
               )}
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[52rem] text-left text-[11px]">
+                <table className="w-full min-w-[56rem] text-left text-[11px]">
                   <thead className="text-gray-500">
                     <tr>
                       <th className="pb-2 pr-2">Symbol</th>
                       <th className="pb-2 pr-2">Price</th>
                       <th className="pb-2 pr-2">Chg%</th>
-                      <th className="pb-2 pr-2">Vol ratio</th>
+                      <th className="pb-2 pr-2">Vol</th>
                       <th className="pb-2 pr-2">ATR</th>
-                      <th className="pb-2 pr-2">$1/ATR</th>
-                      <th className="pb-2 pr-2">買える</th>
-                      <th className="pb-2 pr-2">リスク株</th>
+                      <th className="pb-2 pr-2">Px/ATR</th>
+                      <th className="pb-2 pr-2">5d</th>
+                      <th className="pb-2 pr-2">20d</th>
+                      <th className="pb-2 pr-2">Bias</th>
                       <th className="pb-2 pr-2">推奨</th>
-                      <th className="pb-2 pr-2">±$1 JPY</th>
+                      <th className="pb-2 pr-2">Stop$</th>
                       <th className="pb-2 pr-2">Src</th>
                       <th className="pb-2" />
                     </tr>
@@ -577,30 +927,27 @@ export function MarketDesk() {
                           <td className={`py-1.5 pr-2 font-mono ${pctColor(q?.change_pct ?? null)}`}>
                             {formatPct(q?.change_pct)}
                           </td>
-                          <td
-                            className={`py-1.5 pr-2 font-mono ${warn ? "text-amber-300" : "text-gray-200"}`}
-                            title="直近出来高 / 平均。急増・急減の目安"
-                          >
+                          <td className={`py-1.5 pr-2 font-mono ${warn ? "text-amber-300" : ""}`}>
                             {m?.volumeRatio != null ? m.volumeRatio.toFixed(2) : "—"}
                           </td>
                           <td className="py-1.5 pr-2 font-mono">{formatVal(m?.atr)}</td>
-                          <td
-                            className="py-1.5 pr-2 font-mono text-cyan-200/90"
-                            title="大きいほどターゲット幅がATRに対して近い"
-                          >
-                            {m?.dollarEase != null ? m.dollarEase.toFixed(2) : "—"}
+                          <td className="py-1.5 pr-2 font-mono">
+                            {m?.priceOverAtr != null ? m.priceOverAtr.toFixed(1) : "—"}
                           </td>
-                          <td className="py-1.5 pr-2 font-mono" title="元手で買える株数">
-                            {sz ? sz.capitalShares : "—"}
+                          <td className={`py-1.5 pr-2 font-mono ${pctColor(m?.ret5d)}`}>
+                            {formatPct(m?.ret5d)}
                           </td>
-                          <td className="py-1.5 pr-2 font-mono" title="リスク円から逆算">
-                            {sz ? sz.riskShares : "—"}
+                          <td className={`py-1.5 pr-2 font-mono ${pctColor(m?.ret20d)}`}>
+                            {formatPct(m?.ret20d)}
+                          </td>
+                          <td className="py-1.5 pr-2 font-mono text-cyan-200/80">
+                            {m?.bias ?? "—"}
                           </td>
                           <td className="py-1.5 pr-2 font-mono text-emerald-200">
                             {sz ? sz.recommended : "—"}
                           </td>
                           <td className="py-1.5 pr-2 font-mono">
-                            {sz ? formatVal(Math.round(sz.pnlPerTargetJpy)) : "—"}
+                            {sz?.stopDistance ? sz.stopDistance.toFixed(2) : "—"}
                           </td>
                           <td className="py-1.5 pr-2 font-mono text-gray-500">
                             {q?.source || (row?.error ? "err" : "—")}
@@ -610,9 +957,9 @@ export function MarketDesk() {
                               <button
                                 type="button"
                                 className="rounded border border-emerald-500/30 px-1.5 py-0.5 text-[10px] text-emerald-200 hover:bg-emerald-500/10"
-                                onClick={() => addJournal(sym, "long", "Watchlist paper", "watchlist")}
+                                onClick={() => openPaperFromWatch(sym, "long")}
                               >
-                                Paper
+                                Open
                               </button>
                               <button
                                 type="button"
@@ -630,7 +977,6 @@ export function MarketDesk() {
                   </tbody>
                 </table>
               </div>
-              {!watchSymbols.length && <p className="text-xs text-gray-500">銘柄を追加してください</p>}
             </Section>
 
             <Section
@@ -651,71 +997,31 @@ export function MarketDesk() {
                   <ErrorBanner message={ibkrError} />
                 </div>
               )}
-              {summaryRec?.ok === false && (
-                <div className="mb-2">
-                  <ErrorBanner
-                    message={`${String(summaryRec.error || "error")}: ${String(summaryRec.message || "")}`}
-                  />
-                </div>
-              )}
               {summaryRec?.ok === true && (
-                <>
-                  <p className="mb-2 text-xs text-gray-400">
-                    Account:{" "}
-                    <span className="font-mono text-gray-200">{String(summaryData?.account || "—")}</span>
-                  </p>
-                  <KvTable
-                    rows={[
-                      ["NetLiquidation", formatVal(tags.NetLiquidation)],
-                      ["TotalCashValue", formatVal(tags.TotalCashValue)],
-                      ["BuyingPower", formatVal(tags.BuyingPower)],
-                      ["GrossPositionValue", formatVal(tags.GrossPositionValue)],
-                      ["AvailableFunds", formatVal(tags.AvailableFunds)],
-                      ["UnrealizedPnL", formatVal(tags.UnrealizedPnL)],
-                      ["RealizedPnL", formatVal(tags.RealizedPnL)],
-                      ["Currency", formatVal(tags.Currency)],
-                    ]}
-                  />
-                </>
+                <KvTable
+                  rows={[
+                    ["NetLiquidation", formatVal(tags.NetLiquidation)],
+                    ["TotalCashValue", formatVal(tags.TotalCashValue)],
+                    ["BuyingPower", formatVal(tags.BuyingPower)],
+                    ["AvailableFunds", formatVal(tags.AvailableFunds)],
+                  ]}
+                />
               )}
               {!ibkrSummary && !ibkrError && (
-                <p className="text-xs text-gray-500">Refresh で TWS 経由の残高を取得</p>
+                <p className="text-xs text-gray-500">Auto または Refresh で残高取得</p>
               )}
-              {positions.length > 0 && (
-                <div className="mt-4">
-                  <h4 className="mb-2 text-xs font-semibold text-gray-300">Positions</h4>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="text-gray-500">
-                        <tr>
-                          <th className="pb-1 pr-2">Symbol</th>
-                          <th className="pb-1 pr-2">Qty</th>
-                          <th className="pb-1">AvgCost</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {positions.map((row, i) => (
-                          <tr key={i} className="border-t border-white/5">
-                            <td className="py-1 pr-2 font-mono">{row.symbol || row.localSymbol}</td>
-                            <td className="py-1 pr-2 font-mono">{formatVal(row.position)}</td>
-                            <td className="py-1 font-mono">{formatVal(row.avgCost)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+              {ibkrPosList.length > 0 && (
+                <div className="mt-3 text-[11px] text-gray-400">
+                  Live positions: {ibkrPosList.length}（参照のみ）
                 </div>
               )}
               {fills.length > 0 && (
-                <div className="mt-4">
-                  <h4 className="mb-2 text-xs font-semibold text-gray-300">Recent fills</h4>
-                  <div className="max-h-40 space-y-1 overflow-y-auto font-mono text-[11px] text-gray-300">
-                    {fills.map((row, i) => (
-                      <div key={i}>
-                        {row.time} {row.side} {row.symbol} ×{formatVal(row.shares)} @ {formatVal(row.price)}
-                      </div>
-                    ))}
-                  </div>
+                <div className="mt-2 max-h-24 overflow-y-auto font-mono text-[10px] text-gray-500">
+                  {fills.slice(0, 5).map((row, i) => (
+                    <div key={i}>
+                      {row.time} {row.side} {row.symbol} ×{formatVal(row.shares)}
+                    </div>
+                  ))}
                 </div>
               )}
             </Section>
@@ -749,11 +1055,10 @@ export function MarketDesk() {
                   })}
                 />
               ) : (
-                !jpError && <p className="text-xs text-gray-500">Refresh で日経/TOPIX/業種ETF</p>
+                !jpError && <p className="text-xs text-gray-500">Auto 5分 or Refresh</p>
               )}
               {Object.keys(jpSectors).length > 0 && (
                 <div className="mt-3">
-                  <h4 className="mb-2 text-xs font-semibold text-gray-300">Sector ETFs</h4>
                   <KvTable
                     rows={Object.entries(jpSectors).map(([t, q]) => {
                       const rec = asRecord(q);
@@ -793,6 +1098,9 @@ export function MarketDesk() {
               </div>
             }
           >
+            <p className="mb-2 text-[11px] text-gray-500">
+              レーダー×ウォッチリスト本結合は v2。ここではログ閲覧のみ。
+            </p>
             {radarError && (
               <div className="mb-2">
                 <ErrorBanner message={radarError} />
@@ -807,7 +1115,7 @@ export function MarketDesk() {
         {tab === "signals" && (
           <>
             <Section
-              title="Sector Lead-Lag Signals"
+              title="Sector Lead-Lag (swing candidates)"
               action={
                 <button
                   type="button"
@@ -820,7 +1128,7 @@ export function MarketDesk() {
               }
             >
               <p className="mb-2 text-[11px] text-gray-500">
-                US→JP セクター予測。気になる銘柄は下の Paper Journal に記録（実発注なし）。
+                数日〜数週ホールド向け候補。Open paper で紙ポジ作成（実発注なし）。毎分自動実行は v2。
               </p>
               {leadLagError && (
                 <div className="mb-2">
@@ -832,45 +1140,45 @@ export function MarketDesk() {
                   <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
                     <h4 className="mb-2 text-xs font-semibold text-emerald-300">LONG candidates</h4>
                     <ul className="space-y-1 text-xs">
-                      {Object.entries(asRecord(leadLagParsed.Recommended_Longs) || {}).map(([name, score]) => (
-                        <li key={name} className="flex items-center justify-between gap-2">
-                          <span>
-                            {name}{" "}
-                            <span className="font-mono text-gray-400">+{formatVal(score)}</span>
-                          </span>
-                          <button
-                            type="button"
-                            className="rounded border border-emerald-500/30 px-2 py-0.5 text-[10px] text-emerald-200 hover:bg-emerald-500/10"
-                            onClick={() =>
-                              addJournal(name, "long", `Lead-lag LONG score ${formatVal(score)}`, "lead_lag")
-                            }
-                          >
-                            Paper
-                          </button>
-                        </li>
-                      ))}
+                      {Object.entries(asRecord(leadLagParsed.Recommended_Longs) || {}).map(
+                        ([name, score]) => (
+                          <li key={name} className="flex items-center justify-between gap-2">
+                            <span>
+                              {name}{" "}
+                              <span className="font-mono text-gray-400">+{formatVal(score)}</span>
+                            </span>
+                            <button
+                              type="button"
+                              className="rounded border border-emerald-500/30 px-2 py-0.5 text-[10px] text-emerald-200 hover:bg-emerald-500/10"
+                              onClick={() => openPaperFromSignal(name, "long", score)}
+                            >
+                              Open paper
+                            </button>
+                          </li>
+                        ),
+                      )}
                     </ul>
                   </div>
                   <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-3">
                     <h4 className="mb-2 text-xs font-semibold text-rose-300">SHORT candidates</h4>
                     <ul className="space-y-1 text-xs">
-                      {Object.entries(asRecord(leadLagParsed.Recommended_Shorts) || {}).map(([name, score]) => (
-                        <li key={name} className="flex items-center justify-between gap-2">
-                          <span>
-                            {name}{" "}
-                            <span className="font-mono text-gray-400">{formatVal(score)}</span>
-                          </span>
-                          <button
-                            type="button"
-                            className="rounded border border-rose-500/30 px-2 py-0.5 text-[10px] text-rose-200 hover:bg-rose-500/10"
-                            onClick={() =>
-                              addJournal(name, "short", `Lead-lag SHORT score ${formatVal(score)}`, "lead_lag")
-                            }
-                          >
-                            Paper
-                          </button>
-                        </li>
-                      ))}
+                      {Object.entries(asRecord(leadLagParsed.Recommended_Shorts) || {}).map(
+                        ([name, score]) => (
+                          <li key={name} className="flex items-center justify-between gap-2">
+                            <span>
+                              {name}{" "}
+                              <span className="font-mono text-gray-400">{formatVal(score)}</span>
+                            </span>
+                            <button
+                              type="button"
+                              className="rounded border border-rose-500/30 px-2 py-0.5 text-[10px] text-rose-200 hover:bg-rose-500/10"
+                              onClick={() => openPaperFromSignal(name, "short", score)}
+                            >
+                              Open paper
+                            </button>
+                          </li>
+                        ),
+                      )}
                     </ul>
                   </div>
                 </div>
@@ -883,20 +1191,15 @@ export function MarketDesk() {
                   </pre>
                 </details>
               )}
-              {!leadLag && !leadLagError && (
-                <p className="text-xs text-gray-500">Run model でシグナルを取得</p>
-              )}
             </Section>
 
-            <Section title="Paper Journal">
-              <p className="mb-3 text-[11px] text-gray-500">
-                ブラウザ localStorage のみ。IBKR には送りません。
-              </p>
+            <Section title="Closed / notes journal">
+              <p className="mb-3 text-[11px] text-gray-500">メモ用。ポジション本体は Overview の Open positions。</p>
               <div className="mb-3 flex flex-wrap gap-2">
                 <input
                   value={paperSymbol}
                   onChange={(e) => setPaperSymbol(e.target.value)}
-                  placeholder="Symbol / sector"
+                  placeholder="Symbol"
                   className="rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 text-sm text-white outline-none focus:border-cyan-500/50"
                 />
                 <select
@@ -923,42 +1226,51 @@ export function MarketDesk() {
                   disabled={!paperSymbol.trim()}
                   className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-50"
                 >
-                  Add
+                  Add note
                 </button>
               </div>
+              {positions.filter((p) => p.status === "closed").length > 0 && (
+                <div className="mb-3">
+                  <h4 className="mb-1 text-[11px] font-semibold text-gray-400">Closed paper</h4>
+                  <ul className="space-y-1 text-[11px]">
+                    {positions
+                      .filter((p) => p.status === "closed")
+                      .slice(0, 10)
+                      .map((p) => (
+                        <li key={p.id} className="flex justify-between gap-2 font-mono text-gray-400">
+                          <span>
+                            {p.symbol} {p.side} ×{p.qty} → {formatUsd(p.realizedPnlUsd)}
+                          </span>
+                          <button
+                            type="button"
+                            className="text-gray-600 hover:text-red-300"
+                            onClick={() => setPositions(removePaperPosition(p.id))}
+                          >
+                            ×
+                          </button>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              )}
               {journal.length === 0 ? (
-                <p className="text-xs text-gray-500">まだ記録がありません</p>
+                <p className="text-xs text-gray-500">メモなし</p>
               ) : (
                 <ul className="space-y-2">
-                  {journal.map((e) => (
+                  {journal.slice(0, 20).map((e) => (
                     <li
                       key={e.id}
                       className="flex items-start justify-between gap-2 rounded-lg border border-white/5 bg-black/20 px-3 py-2 text-xs"
                     >
                       <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                              e.side === "long"
-                                ? "bg-emerald-500/20 text-emerald-300"
-                                : "bg-rose-500/20 text-rose-300"
-                            }`}
-                          >
-                            {e.side.toUpperCase()}
-                          </span>
-                          <span className="font-mono text-gray-100">{e.symbol}</span>
-                          {e.source && <span className="text-gray-500">· {e.source}</span>}
-                        </div>
+                        <span className="font-mono text-gray-100">{e.symbol}</span>{" "}
+                        <span className="text-gray-500">{e.side}</span>
                         <p className="mt-1 text-gray-400">{e.note}</p>
-                        <p className="mt-0.5 text-[10px] text-gray-600">
-                          {new Date(e.createdAt).toLocaleString()}
-                        </p>
                       </div>
                       <button
                         type="button"
-                        className="shrink-0 text-gray-500 hover:text-red-300"
+                        className="text-gray-500 hover:text-red-300"
                         onClick={() => setJournal(removePaperJournalEntry(e.id))}
-                        title="Delete"
                       >
                         ×
                       </button>

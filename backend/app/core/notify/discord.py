@@ -26,6 +26,71 @@ EMBED_COLORS = {
     "DEFAULT": 0x95A5A6                  # グレー
 }
 
+DISCORD_CONTENT_LIMIT = 1900  # 2000字制限に余裕を持たせる
+
+
+def _split_discord_chunks(content: str, limit: int = DISCORD_CONTENT_LIMIT) -> List[str]:
+    """改行優先で Discord 本文を分割する。"""
+    text = (content or "").strip()
+    if not text:
+        return []
+    if len(text) <= limit:
+        return [text]
+
+    chunks: List[str] = []
+    remaining = text
+    while remaining:
+        if len(remaining) <= limit:
+            chunks.append(remaining)
+            break
+        cut = remaining.rfind("\n", 0, limit)
+        if cut < limit // 3:
+            cut = limit
+        chunks.append(remaining[:cut].rstrip())
+        remaining = remaining[cut:].lstrip("\n")
+    return chunks
+
+
+async def send_discord_text(
+    content: str,
+    *,
+    dry_run: bool = False,
+) -> bool:
+    """
+    Discord Webhook へプレーンテキストを全文送信（2000字超は分割）。
+    Embed ではなく content フィールドを使う。Webhook 未設定時はログのみ。
+    """
+    webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
+    chunks = _split_discord_chunks(content)
+    if not chunks:
+        return True
+
+    if dry_run or not webhook_url:
+        mode_str = "DRY-RUN (Webhook未設定)" if not webhook_url else "DRY-RUN"
+        for i, chunk in enumerate(chunks, 1):
+            logger.info(
+                f"📢 [{mode_str}] Discord text chunk {i}/{len(chunks)} ({len(chunk)} chars):\n{chunk[:500]}"
+            )
+        return True
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            for i, chunk in enumerate(chunks, 1):
+                payload = {"content": chunk}
+                resp = await client.post(webhook_url, json=payload)
+                if resp.status_code not in (200, 204):
+                    logger.error(
+                        f"❌ Discord text chunk {i}/{len(chunks)} failed "
+                        f"({resp.status_code}): {resp.text}"
+                    )
+                    return False
+            logger.info(f"✅ Discord text sent ({len(chunks)} chunk(s))")
+            return True
+    except Exception as e:
+        logger.error(f"❌ Discord text send exception: {e}")
+        return False
+
+
 async def send_discord_alert(
     alert_item: Dict[str, Any],
     dry_run: bool = False

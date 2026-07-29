@@ -7,7 +7,7 @@
 ![Models](https://img.shields.io/badge/Models-DeepSeek_V4_%2F_GPT_%2F_Gemini-orange)
 ![Cache](https://img.shields.io/badge/Cache-SQLite_Semantic-purple)
 
-**チャットと開発に特化した、完全自律型AIエージェント**
+**チャット・開発・市況ブリーフィングに対応した、自律型AIエージェント**
 
 </div>
 
@@ -17,15 +17,15 @@
 
 Kairiは「チャット」と「開発（IDE）」に特化したAIエージェントです。ユーザーが「〇〇を作って」「〇〇を修正して」と指示すると、Supervisor（思考担当）が計画を立て、Executor（実行担当）がコードを生成・修正・テスト実行まで自律的に行います。
 
-**株式機能は削除済み**。チャットと開発機能に100%集中しています。
+**チャット・開発に加え、Market Desk 向けの市況ブリーフィング配信**まで扱う AI エージェントです。
 
 ### 本命 / 実験 / 運用
 
 | 区分 | 内容 |
 |------|------|
-| **本命** | 検索で裏取りする回答、task 実装ループ、**明示時のみ** KV 記憶 |
-| **実験** | char 画像ギャラリー、radar、ギャル文字、integrity 装飾 UI |
-| **運用** | `KAIRI_API_TOKEN`、`python -m evals.run_evals`、`POST /api/kv/purge-junk` |
+| **本命** | 検索で裏取りする回答、task 実装ループ、**明示時のみ** KV 記憶、寄り前/大引け後ブリーフィング |
+| **実験** | char 画像ギャラリー、radar アラート、ギャル文字、integrity 装飾 UI |
+| **運用** | `KAIRI_API_TOKEN`、`python -m evals.run_evals`、`POST /api/kv/purge-junk`、[docs/BRIEFING_OPS.md](docs/BRIEFING_OPS.md) |
 
 未知の事実への対策は「検索 → 出典強制 → 未ヒットなら埋めない」が基本です（RL再学習・複数モデル交差は対象外）。  
 リポジトリ分割の詳細は [docs/REPO_SEPARATION.md](docs/REPO_SEPARATION.md) を参照。
@@ -77,12 +77,25 @@ SupervisorはJSON形式で回答方針を出力し、Executorがそれに厳密�
 - コマンド実行キャッシュ（git hashベース）
 - 定型応答ショートサーキット（「おはよう」等はSupervisor呼び出しゼロ）
 
-### 6. オンデマンド1次情報ニュース（New）
+### 6. ニュースプールと市況ブリーフィング
 
-定期RSS巡回を廃止。ユーザーが「ニュースある？」と聞いた**そのタイミング**で1次情報を取得：
-- PR Newswire / BusinessWire / AP News のRSSをその場でパース
-- キーワードがあればBraveで `site:prnewswire.com` 限定検索
-- 60分キャッシュで2回目は即レスポンス
+RSS を並列取得し、72時間のローリングプールに蓄積します（ペイウォール記事は無料ソースで差し替え）。
+
+| 項目 | 内容 |
+|------|------|
+| **寄り前** | JST 08:15 — 米国確定値（DIA/SPY/QQQ/SOXX/USDJPY）＋解説＋ヘッドライン |
+| **大引け後** | JST 16:00 — 日経/TOPIX スナップショット＋前日比＋解説＋ヘッドライン |
+| **UI** | Market Desk → Briefing タブ（一覧・プレビュー・手動生成・フィード健全性） |
+| **配信** | Discord Webhook へ全文分割送信（未設定時はログのみ） |
+
+手動生成例:
+
+```bash
+curl -X POST -H "X-API-Token: $KAIRI_API_TOKEN" \
+  "$KAIRI_BACKEND_URL/api/briefing/generate?kind=preopen"
+```
+
+試験運用チェックリスト: [docs/BRIEFING_OPS.md](docs/BRIEFING_OPS.md)
 
 ### 7. デュアルモードUI
 
@@ -90,6 +103,7 @@ SupervisorはJSON形式で回答方針を出力し、Executorがそれに厳密�
 |--------|------|
 | **💬 チャット** | 画面全体でAIと会話。挨拶・雑談・質問・実装依頼まで全てここから |
 | **💻 IDE** | 左にチャット、右にMonaco Editor + ファイルエクスプローラー。コードをリアルタイム編集・保存 |
+| **📈 Market** | Market Desk（紙トレード概況）と Briefing パネル |
 
 - **コードパネル**: AIが生成したコードをMonaco Editorで直接編集・保存
 - **Markdown/Mermaid/HTMLプレビュー**: コードブロックをその場でプレビュー
@@ -230,6 +244,9 @@ backend/
 ├── app/
 │   ├── main.py                     # FastAPI エントリーポイント
 │   ├── core/
+│   │   ├── briefing/               # 寄り前/大引け後ブリーフィング生成
+│   │   ├── news/                   # RSS プール・ペイウォール差し替え
+│   │   ├── notify/discord.py       # Discord Webhook（アラート＋全文配信）
 │   │   ├── supervisor.py           # 思考モデル (プロンプト+実行)
 │   │   ├── executor.py             # 実行モデル (プロンプト+ストリーミング)
 │   │   ├── cache_manager.py        # セマンティックキャッシュ
@@ -251,12 +268,13 @@ backend/
 │   │   ├── history.py              # 会話履歴API
 │   │   ├── memory.py               # KVメモリAPI
 │   │   ├── workspace.py            # ワークスペースAPI
+│   │   ├── news_health.py          # ニュース健全性・ブリーフィング API
 │   │   └── settings.py             # 設定API
 │   └── utils/
 │       ├── logger.py               # 構造化ログ
 │       └── parser.py               # XML/JSONパース
 ├── cache/                          # LLM応答・検索結果キャッシュ
-├── storage/                        # 会話履歴DB
+├── storage/                        # 会話履歴DB・briefings/
 └── requirements.txt
 
 frontend/
@@ -266,6 +284,8 @@ frontend/
 │   │   ├── ChatArea.tsx            # 会話表示エリア
 │   │   ├── InputArea.tsx           # 入力欄
 │   │   ├── IDEView.tsx             # IDEモード全体
+│   │   ├── MarketDesk.tsx          # 市況デスク
+│   │   ├── BriefingPanel.tsx       # ブリーフィング一覧・生成
 │   │   ├── CodePanel.tsx           # Monacoエディタ+プレビュー
 │   │   ├── FileExplorer.tsx        # ファイルエクスプローラー
 │   │   └── Sidebar.tsx             # サイドバー
@@ -288,7 +308,9 @@ frontend/
 | `GEMINI_API_KEY` | Gemini APIキー | - |
 | `OPENAI_API_KEY` | OpenAI APIキー | - |
 | `BRAVE_API_KEY` | Brave Search APIキー（検索用） | - |
+| `DISCORD_WEBHOOK_URL` | ブリーフィング/アラート Discord 配信 | - |
 | `LLM_PROVIDER` | デフォルトLLM | `deepseek` |
+| `KAIRI_API_TOKEN` | API 認証トークン（本番必須） | - |
 
 ---
 

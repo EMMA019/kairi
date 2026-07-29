@@ -47,8 +47,9 @@ import {
   type QuotePayload,
   type WatchRow,
 } from "../utils/watchlist";
+import { BriefingPanel } from "./BriefingPanel";
 
-type DeskTab = "overview" | "radar" | "signals";
+type DeskTab = "overview" | "radar" | "signals" | "briefing";
 
 type BarQuote = {
   symbol: string;
@@ -647,6 +648,7 @@ export function MarketDesk() {
     { id: "overview", label: "Overview" },
     { id: "radar", label: "Radar" },
     { id: "signals", label: "Signals" },
+    { id: "briefing", label: "Briefing" },
   ];
 
   const quotesBusy = loading === "overview_quotes" || quoteBusyRef.current;
@@ -1340,6 +1342,15 @@ export function MarketDesk() {
               )}
             </Section>
           </>
+        )}
+
+        {tab === "briefing" && (
+          <Section title="Market Briefing">
+            <p className="mb-3 text-[11px] text-gray-500">
+              寄り前 / 大引け後の下書き。目視確認後に Discord へ全文配信されます。
+            </p>
+            <BriefingPanel />
+          </Section>
         )}
       </div>
       <TradingViewChartModal target={chartTarget} onClose={() => setChartTarget(null)} />

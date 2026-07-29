@@ -1,5 +1,5 @@
 """News health / briefing API"""
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -41,7 +41,6 @@ async def generate_briefing_now(
     from app.core.briefing.generator import generate_briefing
 
     result = await generate_briefing(kind, dry_run=dry_run)  # type: ignore[arg-type]
-    # レスポンスに全文を載せると重いので path と件数を中心に
     return {
         "success": True,
         "kind": result["kind"],
@@ -49,5 +48,28 @@ async def generate_briefing_now(
         "story_count": result["story_count"],
         "pool_count": result["pool_count"],
         "dry_run": result["dry_run"],
+        "has_commentary": result.get("has_commentary", False),
         "preview": (result.get("markdown") or "")[:2000],
     }
+
+
+@router.get("/briefing/list")
+async def briefing_list():
+    """保存済みブリーフィング一覧。"""
+    from app.core.briefing.generator import list_briefing_files
+
+    return {"files": list_briefing_files()}
+
+
+@router.get("/briefing/file/{filename}")
+async def briefing_file(filename: str):
+    """ブリーフィング本文（パストラバーサル対策済み）。"""
+    from app.core.briefing.generator import read_briefing_file
+
+    try:
+        content = read_briefing_file(filename)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid filename")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="not found")
+    return {"filename": filename, "content": content}

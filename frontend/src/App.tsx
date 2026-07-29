@@ -14,6 +14,7 @@ import { IntegrityBadge } from "./components/IntegrityBadge";
 import { Sidebar } from "./components/Sidebar";
 import { ActivityBar } from "./components/ActivityBar";
 import { IDEView } from "./components/IDEView";
+import { MarketView } from "./components/MarketView";
 import { ToolPanel } from "./components/ToolPanel";
 import type { CodeBlock } from "./components/CodePanel";
 import { apiFetch, AUTH_REQUIRED_EVENT } from "./utils/api";
@@ -69,7 +70,7 @@ function getOrCreateSessionId(): string {
 
 function App() {
   const [sessionId, setSessionId] = useState(getOrCreateSessionId);
-  const [mode, setMode] = useState<"chat" | "task" | "char">("chat");
+  const [mode, setMode] = useState<"chat" | "task" | "char" | "market">("chat");
   const [isKVPanelOpen, setIsKVPanelOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -179,23 +180,35 @@ function App() {
 
   const handleSend = useCallback(
     (content: string, forceSearch: boolean = false) => {
-      sendMessage(content, mode, forceSearch);
+      // Market は UI モードのみ。API には chat として送る
+      const apiMode = mode === "market" ? "chat" : mode;
+      sendMessage(content, apiMode, forceSearch);
     },
     [sendMessage, mode]
   );
 
   const handleToggleMode = useCallback(() => {
-    setMode(prev => {
-      let nextMode: "chat" | "task" | "char" = "task";
+    setMode((prev) => {
+      // Chat バッジ: chat → Workspace(task) → char → market → chat
+      let nextMode: "chat" | "task" | "char" | "market" = "chat";
       if (prev === "chat") nextMode = "task";
       else if (prev === "task") nextMode = "char";
-      else nextMode = "chat";
-      
-      if (nextMode === "task") {
+      else if (prev === "char") nextMode = "market";
+      else nextMode = "chat"; // market → chat
+
+      if (nextMode === "task" || nextMode === "market") {
         setIsSidebarOpen(false);
       }
-      
+
       return nextMode;
+    });
+  }, []);
+
+  const handleToggleMarket = useCallback(() => {
+    setMode((prev) => {
+      if (prev === "market") return "chat";
+      setIsSidebarOpen(false);
+      return "market";
     });
   }, []);
 
@@ -249,6 +262,7 @@ function App() {
         onNewSession={handleNewSession}
         mode={mode}
         onToggleMode={handleToggleMode}
+        onToggleMarket={handleToggleMarket}
         onOpenKVMemory={() => setIsKVPanelOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenToolPanel={() => setIsToolPanelOpen(true)}
@@ -364,6 +378,23 @@ function App() {
               onStop={cancelStream}
               onCloseIDE={() => setMode("chat")}
             />
+          ) : mode === "market" ? (
+            <MarketView
+              sessionId={sessionId}
+              messages={messages}
+              streamingContent={streamingContent}
+              streamingReasoning={streamingReasoning}
+              streamingSources={streamingSources}
+              streamingChart={streamingChart}
+              pipelineStages={pipelineStages}
+              status={status}
+              searchQuery={searchQuery}
+              isFetchingHistory={isFetchingHistory}
+              error={error}
+              onSend={handleSend}
+              onStop={cancelStream}
+              onCloseMarket={() => setMode("chat")}
+            />
           ) : (
             <div
               className="flex-1 flex flex-col h-full overflow-hidden relative min-w-0 min-h-0 transition-[background-image] duration-500"
@@ -444,6 +475,15 @@ function App() {
             >
               <span className="text-base">💻</span>
               <span className="text-[10px] tracking-tight">Workspace</span>
+            </button>
+            <button
+              onClick={() => setMode("market")}
+              className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all ${
+                mode === "market" ? "text-cyan-400 bg-cyan-500/15 scale-105 font-bold" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <span className="text-base">📈</span>
+              <span className="text-[10px] tracking-tight">Market</span>
             </button>
             <button
               onClick={() => setMode("char")}

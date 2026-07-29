@@ -4,7 +4,7 @@
  */
 
 interface ModeBadgeProps {
-  mode: "chat" | "task" | "stocks" | "char";
+  mode: "chat" | "task" | "stocks" | "char" | "market";
   status: "idle" | "thinking" | "searching" | "responding" | "planning_search";
   onToggle: () => void;
 }
@@ -18,8 +18,8 @@ export function ModeBadge({ mode, status, onToggle }: ModeBadgeProps) {
     if (status === "searching") {
       return { className: "searching", label: "Searching", emoji: "🟣" };
     }
-    if (mode === "stocks") {
-      return { className: "stocks", label: "Stocks", emoji: "📈" };
+    if (mode === "stocks" || mode === "market") {
+      return { className: "stocks", label: "Market", emoji: "📈" };
     }
     if (mode === "task") {
       return { className: "task", label: "Workspace", emoji: "🔵" };
@@ -36,7 +36,7 @@ export function ModeBadge({ mode, status, onToggle }: ModeBadgeProps) {
     <button
       className={`mode-badge ${className}`}
       onClick={onToggle}
-      title={`Currently: ${label} mode (click to switch)`}
+      title={`Currently: ${label} mode (click: Chat→Workspace→Char→Market)`}
       aria-label={`${label} mode`}
       id="mode-badge"
     >

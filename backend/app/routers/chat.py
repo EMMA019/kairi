@@ -303,7 +303,14 @@ async def chat(request: ChatRequest):
                     max_age_seconds=1800,
                 )
             
-            if cached_response:
+            # IBKR 口座照会は Supervisor LLM を飛ばす（空JSONフォールバック対策）
+            from app.core.ibkr.intent import ibkr_supervisor_shortcut
+
+            ibkr_short = ibkr_supervisor_shortcut(user_input)
+            if ibkr_short:
+                logger.info(f"🏦 IBKR supervisor shortcut: {user_input[:40]}...")
+                supervisor_json, reasoning = ibkr_short, ""
+            elif cached_response:
                 logger.info(f"⚡ Supervisorキャッシュヒット: {user_input[:30]}...")
                 supervisor_json = cached_response["supervisor_json"]
                 reasoning = cached_response.get("reasoning", "")

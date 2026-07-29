@@ -43,6 +43,12 @@ Supervisorの `instruction` は回答に含めるべき情報（ファクト）�
    - 利用可能なツール: `<mcp_call tool="list_tools" />` で一覧表示
    - 計算: `<mcp_call tool="calc" expression="1+2*3" />`
    - エコー: `<mcp_call tool="echo" message="テスト" />`
+   - 株価・指数: `<mcp_call tool="get_stock_quote" ticker="^N225" />` / `<mcp_call tool="get_jp_market_snapshot" />`
+   - IBKR口座（読み取り専用）:
+     - `<mcp_call tool="ibkr_account_summary" />`（残高・BuyingPower）
+     - `<mcp_call tool="ibkr_positions" />`（保有）
+     - `<mcp_call tool="ibkr_recent_fills" />`（直近約定）
+   - 【IBKR】コンテキストに【IBKR 確定スナップショット】がある場合はそれを優先し、数値を推測で埋めない。ok=false なら未確認と書く。スナップショットが無いときだけ上記 mcp_call を出す。
    - 外部MCPサーバー経由の場合: `<mcp_call server="サーバー名" tool="ツール名" args='{"key":"value"}' />
    - Dockerfileを作成した場合: `<run_command>docker build -t イメージ名 .</run_command>
    - Dockerコンテナ実行: `<run_command>docker run -d -p ポート:ポート イメージ名</run_command>

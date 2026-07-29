@@ -215,4 +215,9 @@ except Exception as e:
 try:
     import app.core.tools.market_data
 except Exception as e:
-    logger.warning(f"market_dataツールのロードに失敗しました: {e}")
+    logger.warning(f"market_dataツールのロードに失敗しました: {e}")
+
+try:
+    import app.core.tools.ibkr_tools
+except Exception as e:
+    logger.warning(f"ibkrツールのロードに失敗しました: {e}")

@@ -372,4 +372,12 @@ def finalize_search_context(
     if search_results_text and not search_unsupported:
         store_search_carryover(session_id, search_results_text, search_queries, user_input)
 
+    # IBKR 口座照会: 検索の有無に関係なくスナップショットを先頭注入
+    try:
+        from app.core.ibkr.intent import prepend_ibkr_snapshot
+
+        search_results_text = prepend_ibkr_snapshot(user_input, search_results_text)
+    except Exception as e:
+        logger.warning(f"IBKR snapshot inject failed: {e}")
+
     return search_results_text, search_unsupported

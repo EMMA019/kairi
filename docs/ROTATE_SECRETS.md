@@ -18,3 +18,4 @@
 
 - 実設定: `backend/storage/settings.json`（gitignore 済み）
 - テンプレ: `backend/storage/settings.example.json`
+- IBKR（閲覧専用）: 接続先のみ `.env`（`IBKR_HOST` / `IBKR_PORT` / `IBKR_CLIENT_ID`）。口座パスワードは TWS/Gateway 側。手順は `docs/IBKR_GATEWAY.md`

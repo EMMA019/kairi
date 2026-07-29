@@ -113,10 +113,19 @@ class Settings:
             "mapbox_api_key": "MAPBOX_API_KEY",
             "cf_account_id": "CF_ACCOUNT_ID",
             "cf_api_token": "CF_API_TOKEN",
+            "ibkr_enabled": "IBKR_ENABLED",
+            "ibkr_host": "IBKR_HOST",
+            "ibkr_port": "IBKR_PORT",
+            "ibkr_client_id": "IBKR_CLIENT_ID",
         }
         for k, env_key in env_map.items():
             val = self._settings.get(k)
-            if val:
+            if val is None or val == "":
+                continue
+            # bool False も反映（IBKR_ENABLED=0）
+            if isinstance(val, bool):
+                os.environ[env_key] = "1" if val else "0"
+            else:
                 os.environ[env_key] = str(val)
 
     def _load(self):

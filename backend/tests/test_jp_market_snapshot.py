@@ -33,6 +33,7 @@ def test_jp_snapshot_structure_with_mock():
         "forward_pe": None,
         "market_cap": None,
         "currency": "JPY",
+        "source": "yfinance",
     }
 
     def fake_quote(ticker: str):
@@ -45,13 +46,14 @@ def test_jp_snapshot_structure_with_mock():
             q["change_pct"] = 0.36
         return q
 
-    with patch("app.core.tools.market_data._quote_dict", side_effect=fake_quote):
-        snap = get_jp_market_snapshot(include_sectors=True)
-        assert "^N225" in snap["indices"]
-        assert "^TOPX" in snap["indices"]
-        assert "1631.T" in snap["sectors"]
-        text = format_jp_market_snapshot_for_prompt("今日の日本市場")
-        assert "日経平均" in text or "^N225" in text
-        assert "TOPIX" in text
-        assert "推測禁止" in text
-        assert "未確認" in text
+    with patch("app.core.ibkr.client.ibkr_market_data_enabled", return_value=False):
+        with patch("app.core.tools.market_data._quote_dict_yf", side_effect=fake_quote):
+            snap = get_jp_market_snapshot(include_sectors=True)
+            assert "^N225" in snap["indices"]
+            assert "^TOPX" in snap["indices"]
+            assert "1631.T" in snap["sectors"]
+            text = format_jp_market_snapshot_for_prompt("今日の日本市場")
+            assert "日経平均" in text or "^N225" in text
+            assert "TOPIX" in text
+            assert "推測禁止" in text
+            assert "未確認" in text

@@ -3,6 +3,8 @@ LLM 呼び出しラッパー（Anthropic Claude, OpenAI 互換 API, Gemini 公�
 ローカルLLM (Ollama等) にも対応。
 2026年6月現在の最新フラッグシップモデルに最適化済み。
 """
+from __future__ import annotations
+
 import os
 import re
 import base64

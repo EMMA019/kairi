@@ -146,6 +146,13 @@ async def run_supervisor(
     """
     思考モデル (LLM) を呼び出し、回答方針 (JSON) と推論プロセス (reasoning) を取得する。
     """
+    from app.core.ibkr.intent import ibkr_supervisor_shortcut
+
+    ibkr_short = ibkr_supervisor_shortcut(user_input)
+    if ibkr_short:
+        logger.info("🏦 IBKR supervisor shortcut (run_supervisor)")
+        return ibkr_short, ""
+
     context_parts = []
 
     if memory_text:

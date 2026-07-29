@@ -74,7 +74,7 @@ def apply_grounding_pipeline(
     text = verify_temporal_leadership_claims(text, source_text or "")
     text = verify_chronological_rationalization(text, source_text or "")
     text = filter_unknown_entity_listings(text)
-    text = enforce_variable_numerical_claims(text, source_text or "")
+    text = enforce_variable_numerical_claims(text, source_text or "", user_input=user_input or "")
     text = correct_common_typos(text)
     text = strip_unrequested_memory_mentions(text, user_input=user_input)
     text = strip_omakase_skill_questions(text, user_input=user_input)

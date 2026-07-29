@@ -79,9 +79,14 @@ async def run_executor(
     history_messages: list[dict],
     mode: str = "chat",
     system_instruction: str = "",
+    enable_thinking: bool | None = None,
 ) -> AsyncGenerator[str, None]:
     """
     実行モデル (LLM) を呼び出し、回答をストリーミング生成する。
+
+    enable_thinking:
+      None のとき mode から推定（chat/char は OFF、task/coding/research は ON）。
+      継続生成など明示指定時は呼び出し側の値を優先。
     """
     if mode == "char" and system_instruction:
         system_prompt = system_instruction
@@ -176,6 +181,10 @@ Docker Compose の操作が必要な場合は、以下の curl コマンドで�
     settings = app_settings.get()
     provider = settings.get("executor_provider", "deepseek")
     model_name = settings.get("executor_model", "deepseek-v4-flash")
+
+    # 雑談で長い think が本文トークンを食い潰すのを防ぐ
+    if enable_thinking is None:
+        enable_thinking = mode not in ("chat", "char")
     
     stream = stream_model(
         system_instruction=system_prompt,
@@ -183,6 +192,7 @@ Docker Compose の操作が必要な場合は、以下の curl コマンドで�
         model_name=model_name,
         provider=provider,
         max_tokens=16384,
+        enable_thinking=enable_thinking,
     )
     
     async for chunk in stream:

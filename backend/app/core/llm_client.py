@@ -235,6 +235,25 @@ def _ensure_request_size(system_instruction: str, messages: list, max_bytes: int
     return system_instruction, sanitized
 
 
+def _deepseek_thinking_kwargs(enable_thinking: bool) -> dict:
+    """DeepSeek V4 thinking モード制御。
+
+    雑談で reasoning が長いと max_tokens を食い潰して本文が途切れるため、
+    chat 系は disabled。公式は low/medium を high にマップするため effort 下げでは解決しない。
+
+    注意: インストール済み openai SDK は reasoning_effort を create() の直引数として
+    受け付けないため、thinking / reasoning_effort はすべて extra_body 経由で渡す。
+    """
+    if enable_thinking:
+        return {
+            "extra_body": {
+                "thinking": {"type": "enabled"},
+                "reasoning_effort": "high",
+            },
+        }
+    return {"extra_body": {"thinking": {"type": "disabled"}}}
+
+
 @retry(
     wait=wait_exponential(multiplier=1, min=2, max=10),
     stop=stop_after_attempt(2),
@@ -248,6 +267,7 @@ async def _call_model_inner(
     max_tokens: int = 16384,
     provider: str | None = None,
     temperature: float = 0.7,
+    enable_thinking: bool = True,
 ) -> str:
     """
     LLM を呼び出し、完全なレスポンスを返す（非ストリーミング）。
@@ -290,7 +310,8 @@ async def _call_model_inner(
             model=model,
             max_tokens=max_tokens,
             messages=oai_messages,
-            temperature=temperature,  # ← 追加
+            temperature=temperature,
+            **_deepseek_thinking_kwargs(enable_thinking),
         )
         msg = response.choices[0].message
         content = getattr(msg, "content", "") or ""
@@ -349,6 +370,7 @@ async def _stream_model_inner(
     max_tokens: int = 16384,
     provider: str | None = None,
     temperature: float = 0.7,
+    enable_thinking: bool = True,
 ) -> AsyncGenerator[str, None]:
     """
     LLM をストリーミングモードで呼び出し、テキストチャンクを逐次 yield。
@@ -422,7 +444,8 @@ async def _stream_model_inner(
             max_tokens=max_tokens,
             messages=oai_messages,
             stream=True,
-            temperature=temperature,  # ← 追加
+            temperature=temperature,
+            **_deepseek_thinking_kwargs(enable_thinking),
         )
         is_thinking = False
         has_finished_thinking = False
@@ -541,6 +564,7 @@ async def call_model(
     max_tokens: int = 16384,
     provider: str | None = None,
     temperature: float = 0.7,
+    enable_thinking: bool = True,
 ) -> str:
     if not check_budget():
         raise HTTPException(status_code=429, detail="API utilization limit (daily budget) exceeded. Please try again tomorrow.")
@@ -548,7 +572,9 @@ async def call_model(
     prompt_text = system_instruction + "".join([m.get("content", "") for m in messages])
     prompt_tokens = _estimate_tokens(prompt_text)
     
-    result = await _call_model_inner(system_instruction, messages, model_name, max_tokens, provider, temperature)
+    result = await _call_model_inner(
+        system_instruction, messages, model_name, max_tokens, provider, temperature, enable_thinking
+    )
     
     completion_tokens = _estimate_tokens(result)
     actual_model = model_name or "default-model"
@@ -563,6 +589,7 @@ async def stream_model(
     max_tokens: int = 16384,
     provider: str | None = None,
     temperature: float = 0.7,
+    enable_thinking: bool = True,
 ) -> AsyncGenerator[str, None]:
     """予算チェック後、ストリーム生成を実行するラッパー。例外発生時は自動リトライ用のエスカレーションタグを返す。"""
     if not check_budget():
@@ -574,7 +601,9 @@ async def stream_model(
     
     completion_text = ""
     try:
-        async for chunk in _stream_model_inner(system_instruction, messages, model_name, max_tokens, provider, temperature):
+        async for chunk in _stream_model_inner(
+            system_instruction, messages, model_name, max_tokens, provider, temperature, enable_thinking
+        ):
             completion_text += chunk
             yield chunk
     except Exception as e:

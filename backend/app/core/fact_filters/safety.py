@@ -136,7 +136,7 @@ def sanitize_indirect_prompt_injection(text: str) -> str:
 
 
 
-def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
+def enforce_variable_numerical_claims(text: str, source_text: str, user_input: str = "") -> str:
     """
     時間・金額・頻度・日付・件数などの「変動しうる数値情報」を検証・制御するフィルター。
     モデルの知識・推測を使用させず、検索結果からの直接コピーのみ許可する方針をプログラム的に担保する。
@@ -148,12 +148,24 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
     免責注記を1つだけ付与する方式に変更した。
 
     判定は完全一致および正規化形式。部分一致（"15"が共通してるからOK等）は行わない。
+    user_input: 旅行免責はユーザー発話に旅行意図があるときだけ付与する（能力説明の「観光」誤爆防止）。
     """
     if not text:
         return text
 
     src = source_text or ""
+    user_q = user_input or ""
     unverified_categories: set[str] = set()
+
+    # 「」「」内の禁止例・能力説明中の％は統計比率フラグにしない
+    def _pct_in_quote(pos: int) -> bool:
+        # 直前の開き引用と閉じ引用のバランスで簡易判定
+        before = text[:pos]
+        # 全角・半角カギ括弧
+        for open_c, close_c in (("「", "」"), ("『", "』"), ("\"", "\""), ("'", "'")):
+            if before.count(open_c) > before.count(close_c):
+                return True
+        return False
 
     # ====================================================================
     # 1. 時間間隔・頻度（例: 「30分毎」「30分ごと」「30分に1本」「1時間おき」等）
@@ -313,6 +325,9 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
         num_part = match.group(1)
         if pct_str in src or num_part in src:
             return pct_str
+        if _pct_in_quote(match.start()):
+            logger.debug(f"[NumericalDefense] 引用・禁止例内の％をスキップ: {pct_str}")
+            return pct_str
         logger.warning(f"[NumericalDefense] ソース未記載のパーセンテージ・統計比率を検知: {pct_str}")
         unverified_categories.add("統計比率")
         return pct_str
@@ -344,21 +359,34 @@ def enforce_variable_numerical_claims(text: str, source_text: str) -> str:
         ]
         finance_score = sum(1 for kw in _FINANCE_NEWS_KEYWORDS if kw in text)
         travel_score = sum(1 for kw in _TRAVEL_SPOT_KEYWORDS if kw in text)
-        is_finance_context = (finance_score >= 1 and travel_score == 0) or (finance_score >= 3 and finance_score > travel_score)
+        # お出かけ／金融免責は「ユーザーがそのドメインを聞いている」ときだけ
+        user_travel_intent = sum(1 for kw in _TRAVEL_SPOT_KEYWORDS if kw in user_q) > 0
+        user_finance_intent = sum(1 for kw in _FINANCE_NEWS_KEYWORDS if kw in user_q) > 0
+        is_finance_context = (
+            user_finance_intent
+            and ((finance_score >= 1 and travel_score == 0) or (finance_score >= 3 and finance_score > travel_score))
+        )
 
-        if travel_score > 0:
-            logger.info(f"[NumericalDefense] 店舗・旅行・サービスお出かけコンテキスト検出(travel={travel_score}, finance={finance_score}) → 店舗・お出かけ注記を追加")
+        if travel_score > 0 and user_travel_intent:
+            logger.info(f"[NumericalDefense] 店舗・旅行・サービスお出かけコンテキスト検出(travel={travel_score}, finance={finance_score}, user_travel=1) → 店舗・お出かけ注記を追加")
             if "※営業時間" not in text and "※正確な" not in text and "※最新の情報" not in text and "※お出かけ前に" not in text:
                 text = text.rstrip() + f"\n\n※{categories_str}等の情報は変動する場合があります。お出かけ前に公式サイトや店舗へ直接ご確認いただくことをおすすめします。"
+        elif travel_score > 0 and not user_travel_intent:
+            logger.info(f"[NumericalDefense] 回答内に旅行語があるが user_input に旅行意図なし → お出かけ注記スキップ")
+            if "統計比率" in unverified_categories and len(unverified_categories) == 1:
+                pass  # 雑談の統計比率のみ → 注記不要
+            elif not ("統計比率" in unverified_categories and len(unverified_categories) == 1):
+                if "※正確な" not in text and "※最新の情報" not in text and "※各種情報" not in text and "※お出かけ前に" not in text and "※一部の比率" not in text:
+                    text = text.rstrip() + f"\n\n※{categories_str}等の情報は参考値または変動する場合があります。最新の情報は各公式サイト等をご確認ください。"
         elif is_finance_context:
-            logger.info(f"[NumericalDefense] 金融・ニュース分析・資産運用コンテキスト検出(finance={finance_score}, travel={travel_score}) → アナリスト向けデータ注記判定")
+            logger.info(f"[NumericalDefense] 金融・ニュース分析・資産運用コンテキスト検出(finance={finance_score}, travel={travel_score}, user_finance=1) → アナリスト向けデータ注記判定")
             if any(c in unverified_categories for c in ["統計比率", "料金", "日程"]) and "※一部の比率" not in text and "※正確な" not in text:
                 text = text.rstrip() + "\n\n※一部の比率・市場指標や価格等はソース記事に明記されていない推計または周辺参考データを含む場合があります。正確な最新数値は公式開示データをご確認ください。"
         elif "統計比率" in unverified_categories and len(unverified_categories) == 1:
-            logger.info("[NumericalDefense] 一般・雑談文脈における統計比率のみの未検証検出 → 見当違いな店舗免責注記不要としてスキップ")
+            logger.info("[NumericalDefense] 一般・雑談文脈における統計比率のみの未検証検出 → 見当違いな免責注記不要としてスキップ")
         else:
             logger.info(f"[NumericalDefense] 一般文脈における未検証数値カテゴリ({categories_str}) → 汎用免責注記")
-            if "※正確な" not in text and "※最新の情報" not in text and "※各種情報" not in text and "※お出かけ前に" not in text:
+            if "※正確な" not in text and "※最新の情報" not in text and "※各種情報" not in text and "※お出かけ前に" not in text and "※一部の比率" not in text:
                 text = text.rstrip() + f"\n\n※{categories_str}等の情報は参考値または変動する場合があります。最新の情報は各公式サイト等をご確認ください。"
 
     return check_financial_arithmetic_consistency(text)

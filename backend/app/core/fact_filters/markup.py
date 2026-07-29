@@ -98,6 +98,27 @@ def looks_incomplete_output(text: str) -> bool:
         return True
 
     last_line = s.splitlines()[-1].rstrip()
+
+    # 単独バッククォート / 未閉じインラインコード残骸
+    if re.match(r"^\s*`\s*$", last_line):
+        return True
+    # 奇数個のインラインバッククォートで終わる（フェンスは上記で処理済み）
+    if last_line.count("`") % 2 == 1 and "```" not in last_line:
+        return True
+
+    # Markdown 表の途中切れ（| 始まりでセル未完、または末尾が裸バッククォート）
+    if last_line.lstrip().startswith("|"):
+        cells = [c.strip() for c in last_line.strip("|").split("|")]
+        if any(c.endswith("`") and c.count("`") % 2 == 1 for c in cells):
+            return True
+        # 閉じ `|` がなく途中で切れている、またはセルが空で異常に短い
+        if not last_line.rstrip().endswith("|") and len(last_line) > 2:
+            return True
+        if cells and cells[-1] == "" and last_line.count("|") >= 2:
+            # "| foo | `" のような途中切れ
+            if "`" in last_line:
+                return True
+
     # コードっぽい途中切れ
     if re.search(
         r"(?:^|\n)\s*(?:if|for|while|def|class|return|import|from|elif|else)\b.*[:=\(\{\[]\s*$",
@@ -110,6 +131,14 @@ def looks_incomplete_output(text: str) -> bool:
         # 単独識別子で終わる（例: lag）
         if len(s.splitlines()) >= 3:
             return True
+
+    # 日本語本文が句点・閉じ括弧なしで終わる（短文挨拶は除外）
+    _TERMINALS = set("。．！？!?…‼⁉」』）)]\"'”’")
+    if len(s) >= 40 and s[-1] not in _TERMINALS and not last_line.startswith("```"):
+        # 英数字のみの識別子やURL末尾は除外
+        if re.search(r"[ぁ-んァ-ン一-龥]", last_line):
+            return True
+
     return False
 
 

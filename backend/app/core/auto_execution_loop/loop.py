@@ -718,6 +718,7 @@ async def auto_execute_with_retry(
         try:
             cont_prompt = (
                 "直前の回答が途中で切れています。続きの文章またはコードのみを出力してください。"
+                "Markdown表の途中ならセルを完成させて表を閉じてください。"
                 "前文の繰り返し・XMLツールタグ・thinkタグは禁止です。"
             )
             cont_history = exec_history + [
@@ -731,16 +732,28 @@ async def auto_execute_with_retry(
                 memory_text=memory_text,
                 history_messages=cont_history,
                 mode=mode,
-                system_instruction=executor_sys_prompt + "\n続きのみ。ツールタグ禁止。",
+                system_instruction=executor_sys_prompt + "\n続きのみ。ツールタグ・think禁止。表途中なら完成させよ。",
+                enable_thinking=False,
             )
             continuation = ""
+            cont_buf = ""
             async for chunk in cont_stream:
-                continuation += chunk
-                if yield_sse_func:
-                    yield_sse_func({"type": "chunk", "content": chunk})
+                cont_buf += chunk
+                # 生チャンクを出さず、内部マークアップ除去後に差分だけ SSE
+                cleaned = strip_internal_markup(cont_buf)
+                if cleaned.startswith(continuation):
+                    delta = cleaned[len(continuation):]
+                else:
+                    delta = cleaned
+                    continuation = ""
+                if delta:
+                    continuation = cleaned
+                    if yield_sse_func:
+                        yield_sse_func({"type": "chunk", "content": delta})
+            continuation = strip_internal_markup(cont_buf)
             if continuation.strip():
                 final_accumulated_response = (
-                    final_accumulated_response.rstrip() + "\n" + strip_internal_markup(continuation)
+                    final_accumulated_response.rstrip() + "\n" + continuation
                 )
         except Exception as e:
             logger.warning(f"Continuation generation failed: {e}")

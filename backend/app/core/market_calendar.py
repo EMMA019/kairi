@@ -425,8 +425,27 @@ def check_market_status(dt: Optional[datetime.datetime] = None) -> dict:
 def format_market_status(dt: Optional[datetime.datetime] = None) -> str:
     """市場ステータスと現地時間を人間が読める形式で返す（Supervisor/Executor用）"""
     status = check_market_status(dt)
+    JST = datetime.timezone(datetime.timedelta(hours=9))
+    base_dt = dt if dt is not None else datetime.datetime.now(JST)
+    if base_dt.tzinfo is None:
+        base_dt = base_dt.replace(tzinfo=JST)
+    weekdays_ja = ["月", "火", "水", "木", "金", "土", "日"]
+    today_d = base_dt.date()
+    tomorrow_d = today_d + datetime.timedelta(days=1)
+    day_after_d = today_d + datetime.timedelta(days=2)
+
+    def _rel_line(label: str, d: datetime.date) -> str:
+        return f"{label}={d.strftime('%Y/%m/%d')} ({weekdays_ja[d.weekday()]})"
+
     parts = []
-    parts.append(f"【現在の日時と時差状況】\n日本時間 (JST): {status['datetime']}\n現地ニューヨーク時間 (ET): {status.get('et_datetime', 'N/A')}")
+    parts.append(
+        f"【現在の日時と時差状況】\n"
+        f"日本時間 (JST): {status['datetime']}\n"
+        f"現地ニューヨーク時間 (ET): {status.get('et_datetime', 'N/A')}\n"
+        f"【相対日付対応表（JST・厳守）】{_rel_line('今日', today_d)} / "
+        f"{_rel_line('明日', tomorrow_d)} / {_rel_line('あさって', day_after_d)}\n"
+        f"⚠️ 日付に「明日」「あさって」を付けるときは上記対応表のみ。2日後を『明日』と呼ぶことは禁止。"
+    )
     
     # 米国市場
     us_status = status["us_market"]
@@ -459,13 +478,7 @@ def format_market_status(dt: Optional[datetime.datetime] = None) -> str:
     parts.append(jp_text)
     
     # 向こう7日間のスケジュールカレンダーを作成・追加（祝日見落とし・休日営業誤認の完全防止）
-    JST = datetime.timezone(datetime.timedelta(hours=9))
-    base_dt = dt if dt is not None else datetime.datetime.now(JST)
-    if base_dt.tzinfo is None:
-        base_dt = base_dt.replace(tzinfo=JST)
-    
     schedule_lines = ["【📅 向こう7日間の市場開閉＆祝日スケジュール表（予定の言及時は必ず参照・祝日無視の厳格禁止）】"]
-    weekdays_ja = ["月", "火", "水", "木", "金", "土", "日"]
     for i in range(1, 8):
         target_dt = base_dt + datetime.timedelta(days=i)
         target_date = target_dt.date()

@@ -96,6 +96,45 @@ def test_junk_detects_image_and_transfer_noise():
     })
 
 
+def test_junk_detects_compressor_ephemeral_market_facts():
+    """会話圧縮由来の一時タグ・市場エフェメラルは junk。"""
+    assert is_junk_memory({
+        "category": "profile",
+        "quote": "日経平均",
+        "summary": {
+            "target": "日経平均",
+            "note": "前場終値61,689.86円（前日比-675.06円）",
+            "tags": ["一時データ", "スキャン結果"],
+        },
+    })
+    assert is_junk_memory({
+        "category": "profile",
+        "quote": "日銀政策",
+        "summary": {
+            "target": "日銀政策",
+            "note": "追加利上げ観測、7/31会合が注目点",
+            "tags": [],
+        },
+    })
+    assert is_junk_memory({
+        "category": "profile",
+        "quote": "今後の注目イベント",
+        "summary": {
+            "target": "今後の注目イベント",
+            "note": "7/29 Microsoft決算、7/31 日銀会合",
+        },
+    })
+    # 明示保存の保有は tags がなくても残す
+    assert not is_junk_memory({
+        "category": "profile",
+        "quote": "今GOOGLを保有していることを記憶しておいてください！絶賛＄350くらいで取得しててマイナス中（2株だけどねｗ）",
+        "summary": {
+            "target": "GOOGL保有状況",
+            "note": "GOOGL（アルファベット株式）を2株保有。取得価格約350ドル。",
+        },
+    })
+
+
 def test_entry_match_keyword_only():
     entry = {
         "category": "profile",

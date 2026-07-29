@@ -72,6 +72,97 @@ def strip_outdated_past_event_predictions(
 
 
 
+def fix_relative_date_labels(text: str, today: Optional[date] = None) -> str:
+    """
+    「明日7月31日」のように相対語と絶対日が食い違うハルシネーションを補正する。
+    - 明日 = today+1 / あさって = today+2 のみ正しい。
+    - 不一致時は正しい相対語に置換（2日後→あさって、1日後以外の明日→相対語削除など）。
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    from datetime import datetime, timezone, timedelta
+
+    if today is None:
+        jst = timezone(timedelta(hours=9))
+        today = datetime.now(jst).date()
+
+    year = today.year
+
+    # 「明日」/「あさって」の直後〜近傍の日付（最大20文字以内）
+    pattern = re.compile(
+        r"(?P<label>明日|あさって|明後日)"
+        r"(?P<mid>[^0-9\n]{0,12})"
+        r"(?:(?P<year>\d{4})\s*年\s*)?"
+        r"(?P<month>\d{1,2})\s*月\s*(?P<day>\d{1,2})\s*日"
+    )
+
+    def _correct_label(delta_days: int) -> Optional[str]:
+        if delta_days == 1:
+            return "明日"
+        if delta_days == 2:
+            return "あさって"
+        if delta_days == 0:
+            return "本日"
+        if delta_days > 2:
+            return None  # 相対語を落として絶対日のみ
+        # 過去日: 相対語を落とす
+        return None
+
+    def repl(m: re.Match) -> str:
+        label = m.group("label")
+        mid = m.group("mid") or ""
+        y = int(m.group("year")) if m.group("year") else year
+        month = int(m.group("month"))
+        day = int(m.group("day"))
+        try:
+            target = date(y, month, day)
+        except ValueError:
+            return m.group(0)
+
+        # 年省略で過去日になった場合は翌年候補（年末跨ぎ）
+        if not m.group("year") and target < today - timedelta(days=180):
+            try:
+                target = date(year + 1, month, day)
+                y = year + 1
+            except ValueError:
+                pass
+
+        delta = (target - today).days
+        correct = _correct_label(delta)
+
+        date_part = f"{month}月{day}日"
+        if m.group("year"):
+            date_part = f"{y}年{date_part}"
+
+        # 正しい相対語との一致判定
+        label_ok = (
+            (label == "明日" and delta == 1)
+            or (label in ("あさって", "明後日") and delta == 2)
+        )
+        if label_ok:
+            if label == "明後日":
+                return f"あさって{mid}{date_part}"
+            return m.group(0)
+
+        if correct is None:
+            logger.debug(
+                f"相対日付不一致を補正（相対語削除）: {m.group(0)!r} "
+                f"(today={today}, target={target}, delta={delta})"
+            )
+            # mid が「の」「に」等の接続なら日付側に残す
+            joined = f"{mid}{date_part}"
+            return joined.lstrip(" 、,") if joined.startswith((" ", "、", ",")) else joined.lstrip()
+
+        logger.debug(
+            f"相対日付不一致を補正: {m.group(0)!r} → {correct}{mid}{date_part} "
+            f"(today={today}, delta={delta})"
+        )
+        return f"{correct}{mid}{date_part}"
+
+    return pattern.sub(repl, text)
+
+
 def verify_holiday_and_weekend_claims(text: str) -> str:
     """
     祝日・連休関係の誤断定フィルター（動的祝日判定版）：

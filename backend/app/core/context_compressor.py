@@ -138,12 +138,11 @@ async def compress_messages_stage2(
 
     import re
     import json
-    from app.core.kv_store import kv_store
 
     # DeepSeek Reasoning などの <think> タグを除去する
     summary_result = re.sub(r'<think>.*?</think>', '', summary_result, flags=re.DOTALL).strip()
 
-    # JSON抽出とKV保存
+    # JSON抽出のみ。key_facts は履歴要約に折り込む（永続KVへの書き込みは禁止＝増殖防止）
     extracted_summary = summary_result
     try:
         from app.utils.parser import find_json_objects
@@ -151,14 +150,22 @@ async def compress_messages_stage2(
         if objs:
             data = json.loads(objs[0])
             extracted_summary = data.get("summary", extracted_summary)
-            key_facts = data.get("key_facts", [])
+            key_facts = data.get("key_facts", []) or []
+            fact_lines = []
             for fact in key_facts:
-                target = fact.get("target")
-                note = fact.get("note")
+                if not isinstance(fact, dict):
+                    continue
+                target = (fact.get("target") or "").strip()
+                note = (fact.get("note") or "").strip()
                 if target and note:
-                    await kv_store.set(target, note)
+                    fact_lines.append(f"- {target}: {note}")
+            if fact_lines:
+                extracted_summary = (
+                    f"{extracted_summary}\n\n【引き継ぎファクト】\n" + "\n".join(fact_lines)
+                )
+                logger.info(f"圧縮 key_facts を要約に折込（KV未書き込み）: {len(fact_lines)}件")
     except Exception as e:
-        logger.error(f"圧縮モジュールのJSONパース/KV保存エラー: {e}")
+        logger.error(f"圧縮モジュールのJSONパースエラー: {e}")
 
     summary_text = (
         "【過去の会話の重要コンテキスト要約】\n"

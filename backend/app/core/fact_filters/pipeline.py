@@ -38,6 +38,7 @@ def apply_grounding_pipeline(
         strip_out_of_period_event_mentions,
         verify_holiday_and_weekend_claims,
         strip_unverified_day_of_week,
+        fix_relative_date_labels,
     )
     from .entity import (
         verify_temporal_leadership_claims,
@@ -85,6 +86,7 @@ def apply_grounding_pipeline(
     text = clean_broken_markdown_tables(text)
     text = strip_out_of_period_event_mentions(text)
     text = verify_holiday_and_weekend_claims(text)
+    text = fix_relative_date_labels(text)
     text = strip_excuse_hallucinations(text)
     text = sanitize_buffer_contamination(text)
     text = strip_unverified_day_of_week(text, source_text=source_text or "", strip_if_no_source=True)

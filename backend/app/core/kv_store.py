@@ -99,26 +99,16 @@ class KVStore:
             return [self._row_to_dict(row) for row in rows]
 
     async def set(self, key: str, value: str) -> None:
-        """任意のキーで文字列データを保存（スキャン結果など一時データ用）"""
-        await self._init_defaults_if_empty()
-        async with get_db() as db:
-            result = await db.execute("SELECT id, category, quote, target, stance, note, tags FROM kv_memories WHERE target = ?", (key,))
-            row = await result.fetchone()
-            if row:
-                await db.execute(
-                    "UPDATE kv_memories SET note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                    (value, row[0])
-                )
-            else:
-                tags = json.dumps(["一時データ", "スキャン結果"], ensure_ascii=False)
-                await db.execute(
-                    """
-                    INSERT INTO kv_memories (category, quote, target, stance, note, tags)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    ("profile", key, key, None, value, tags)
-                )
-            await db.commit()
+        """永続KVへの一時データ書き込みは廃止（会話圧縮による増殖を防ぐ）。
+
+        以前は profile + tags「一時データ/スキャン結果」で INSERT していたが、
+        明示保存ゲートをバイパスして市場ファクト等が無制限に増える原因だった。
+        呼び出し側は履歴要約など別経路へ移すこと。このメソッドは no-op。
+        """
+        logger.warning(
+            f"kv_store.set は廃止済み（no-op）: key={key!r} value_len={len(value or '')}"
+        )
+        return
 
     async def get(self, key: str) -> str | None:
         """任意のキーで保存されたデータを取得"""

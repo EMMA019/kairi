@@ -77,10 +77,21 @@ _JUNK_TARGET_RE = re.compile(
     r"過去の話題|ユーザーの反応|動作背景|運用状況|"
     r"Morph|DeepSeek|MiniMAX|GLM-|Gemini|OpenRouter|Kimi|マルチプロバイダ|"
     r"開発依頼|方向性|現状|参考ソース|収益化|意図変更|投資手段|"
-    r"ジタン|ゴロワーズ|Gitanes|アルファベット株"
+    r"ジタン|ゴロワーズ|Gitanes|アルファベット株|"
+    # 市場・指標のエフェメラル要約（圧縮/会話由来）
+    r"日経|TOPIX|前場|後場|終値|始値|業種|セクター|半導体|"
+    r"銀行セクター|金融セクター|FOMC|日銀|金融政策|"
+    r"Microsoft決算|MSFT決算|SKハイニックス|原油|為替・金利|"
+    r"支援材料|懸念材料|今後の注目|注目イベント|"
+    # 会話メタ・未完了タスクメモ
+    r"ユーザーの追加質問|未回答|最終指示|改善方針|改善点|"
+    r"ユーザー最終要求|ユーザーからのフィードバック|実運用に向けた方向性|"
+    r"ペアトレード|改良(?:版)?コード|学術リソース"
     r")",
     re.IGNORECASE,
 )
+
+_EPHEMERAL_KV_TAGS = {"一時データ", "スキャン結果"}
 
 # quote がユーザー発言の引用でないとき（AIが要約を quote にしている）
 _QUOTE_IS_META_RE = re.compile(
@@ -151,9 +162,15 @@ def is_junk_memory(entry: dict) -> bool:
     quote = str(entry.get("quote") or "")
     category = str(entry.get("category") or "")
     stance = str(summary.get("stance") or "")
+    tags = summary.get("tags") or []
+    tag_set = {str(t).strip() for t in tags if t is not None}
 
     if category == "persona":
         return False
+
+    # 圧縮由来の一時タグは常に junk（明示保有でもタグ付きは圧縮由来）
+    if tag_set & _EPHEMERAL_KV_TAGS:
+        return True
 
     # ユーザー本人の嗜好・保有・予定はニュース語を含んでも許容
     # ただし「GOOGL保有」のように明示保有のみ。単なる話題名の profile は落とす。

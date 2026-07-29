@@ -36,56 +36,42 @@ export const JP_INDEX_BAR: SectorItem[] = [
   { symbol: "1306.T", label: "TOPIX連動", code: "1306" },
 ];
 
-/** NEXT FUNDS TOPIX-17 sector ETFs (Yahoo: ####.T). */
+/** NEXT FUNDS TOPIX-17 sector ETFs (Yahoo: ####.T).
+ * 公式: 1617–1633。1615 は東証33銀行業で別銘柄（含めない）。
+ * 出典: NEXT FUNDS / JPX
+ */
 export const JP_SECTOR_BAR: SectorItem[] = [
-  { symbol: "1615.T", label: "食品", code: "1615" },
-  { symbol: "1617.T", label: "エネルギー資源", code: "1617" },
-  { symbol: "1618.T", label: "建設・資材", code: "1618" },
-  { symbol: "1619.T", label: "素材・化学", code: "1619" },
-  { symbol: "1620.T", label: "医薬品", code: "1620" },
-  { symbol: "1621.T", label: "自動車・輸送機", code: "1621" },
-  { symbol: "1622.T", label: "鉄鋼・非鉄", code: "1622" },
-  { symbol: "1623.T", label: "機械", code: "1623" },
-  { symbol: "1624.T", label: "電機・精密", code: "1624" },
-  { symbol: "1625.T", label: "情報通信・サービス他", code: "1625" },
-  { symbol: "1626.T", label: "電力・ガス", code: "1626" },
-  { symbol: "1627.T", label: "運輸・物流", code: "1627" },
-  { symbol: "1628.T", label: "商社・卸売", code: "1628" },
-  { symbol: "1629.T", label: "小売", code: "1629" },
-  { symbol: "1630.T", label: "銀行", code: "1630" },
-  { symbol: "1631.T", label: "金融（除く銀行）", code: "1631" },
-  { symbol: "1632.T", label: "不動産", code: "1632" },
+  { symbol: "1617.T", label: "食品", code: "1617" },
+  { symbol: "1618.T", label: "エネルギー資源", code: "1618" },
+  { symbol: "1619.T", label: "建設・資材", code: "1619" },
+  { symbol: "1620.T", label: "素材・化学", code: "1620" },
+  { symbol: "1621.T", label: "医薬品", code: "1621" },
+  { symbol: "1622.T", label: "自動車・輸送機", code: "1622" },
+  { symbol: "1623.T", label: "鉄鋼・非鉄", code: "1623" },
+  { symbol: "1624.T", label: "機械", code: "1624" },
+  { symbol: "1625.T", label: "電機・精密", code: "1625" },
+  { symbol: "1626.T", label: "情報通信・サービス他", code: "1626" },
+  { symbol: "1627.T", label: "電力・ガス", code: "1627" },
+  { symbol: "1628.T", label: "運輸・物流", code: "1628" },
+  { symbol: "1629.T", label: "商社・卸売", code: "1629" },
+  { symbol: "1630.T", label: "小売", code: "1630" },
+  { symbol: "1631.T", label: "銀行", code: "1631" },
+  { symbol: "1632.T", label: "金融（除く銀行）", code: "1632" },
+  { symbol: "1633.T", label: "不動産", code: "1633" },
 ];
 
 /** Legacy aliases used by MarketDesk / watchlist imports. */
 export const INDEX_BAR = US_INDEX_BAR;
 export const SECTOR_BAR = US_SECTOR_BAR;
 
-const US_AMEX = new Set([
-  "DIA",
-  "SPY",
-  "QQQ",
-  "SOXX",
-  "XBI",
-  "XLK",
-  "XLF",
-  "XLE",
-  "XLV",
-  "XLI",
-  "XLY",
-  "XLP",
-  "XLU",
-  "XLB",
-  "XLRE",
-  "XLC",
-]);
-
 /**
- * Map Kairi / Yahoo tickers to TradingView pro symbols.
+ * Map Kairi / Yahoo tickers to TradingView symbols.
+ * 米国は裸ティッカー（誤った AMEX: 接頭辞で QQQ 等が未検出になるのを防ぐ）。
+ * 日本は TSE:、指数は明示マップ。
  */
 export function toTradingViewSymbol(raw: string): string {
   const s = (raw || "").trim();
-  if (!s) return "AMEX:SPY";
+  if (!s) return "SPY";
   if (s.includes(":")) return s;
 
   const upper = s.toUpperCase();
@@ -100,9 +86,8 @@ export function toTradingViewSymbol(raw: string): string {
   }
   if (/^\d{4}$/.test(upper)) return `TSE:${upper}`;
 
-  if (US_AMEX.has(upper)) return `AMEX:${upper}`;
-  // Default US equities / ETFs on NASDAQ or SMART → AMEX covers most liquid ETFs; stocks often NASDAQ
-  if (/^[A-Z]{1,5}$/.test(upper)) return `NASDAQ:${upper}`;
+  // US equities / ETFs: bare ticker (TradingView resolves exchange)
+  if (/^[A-Z]{1,5}$/.test(upper)) return upper;
   return upper;
 }
 

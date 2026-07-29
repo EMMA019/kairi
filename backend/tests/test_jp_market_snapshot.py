@@ -66,8 +66,9 @@ def test_jp_snapshot_structure_with_mock():
                     snap = get_jp_market_snapshot(include_sectors=True)
                     assert "^N225" in snap["indices"]
                     assert "1306.T" in snap["indices"]
-                    assert "1630.T" in snap["sectors"]
-                    assert "1620.T" in snap["sectors"]
+                    assert "1631.T" in snap["sectors"]
+                    assert "1633.T" in snap["sectors"]
+                    assert "1615.T" not in snap["sectors"]
                     assert len(snap["sectors"]) >= 17
                     text = format_jp_market_snapshot_for_prompt("7/29の日本市場前場")
                     assert "前場終値" in text
@@ -75,4 +76,4 @@ def test_jp_snapshot_structure_with_mock():
                     assert "直近値" in text
                     assert "前場終値ではない" in text or "morning_close" in text
                     assert "推測禁止" in text
-                    assert "銀行(1630)" in text or "1630" in text
+                    assert "銀行(1631)" in text or "1631" in text

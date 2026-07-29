@@ -129,11 +129,19 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
         else:
             results = []
             if "duckduckgo" not in providers and "free" not in providers and "jina" not in providers:
-                _is_news = any(kw in _search_query for kw in ["市場", "株", "市況", "ニュース", "決算", "相場", "market", "news"])
+                _is_news = any(kw in _search_query for kw in ["市場", "株", "市況", "ニュース", "決算", "相場", "market", "news", "Dow", "Nasdaq", "close"])
+                # 明示日付クエリは lookback を広げて Tavily に渡す
+                _days = 7
+                if any(ch.isdigit() for ch in (_search_query or "")) and any(
+                    k in (_search_query or "") for k in ("2026-", "July", "July ", "close", "市場", "market")
+                ):
+                    _days = 14 if _market_fresh else 7
+                elif _market_fresh:
+                    _days = 3
                 if _is_news:
-                    results = await search_tavily(_search_query, topic="news", days=2 if _market_fresh else 7)
+                    results = await search_tavily(_search_query, topic="news", days=_days)
                 else:
-                    results = await search_tavily(_search_query)
+                    results = await search_tavily(_search_query, days=_days)
 
             # Tavily結果なし時は Brave Search API へ自動フォールバック
             if not results and "duckduckgo" not in providers and "jina" not in providers:

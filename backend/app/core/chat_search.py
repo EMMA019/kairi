@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import asyncio
 import re
-from datetime import datetime, timezone, timedelta
-from typing import AsyncGenerator, Optional
+from datetime import date, datetime, timezone, timedelta
+from typing import AsyncGenerator, Literal, Optional
+from zoneinfo import ZoneInfo
+
 from app.core.search import web_search
 from app.core.search_relevance import (
     is_search_effectively_empty,
@@ -18,6 +20,89 @@ logger = get_logger(__name__)
 
 _MAX_SEARCH_CARRY_SESSIONS = 200
 _last_search_by_session: dict[str, dict] = {}
+JST = timezone(timedelta(hours=9))
+ET = ZoneInfo("America/New_York")
+
+_TODAYISH_KW = (
+    "今日",
+    "本日",
+    "大引け",
+    "終値",
+    "today",
+    "どうだった",
+    "どう動",
+    "前場",
+    "後場",
+    "寄り",
+    "昼休み",
+    "どんな感じ",
+)
+
+
+def parse_explicit_calendar_date(
+    text: str,
+    *,
+    default_year: int | None = None,
+) -> date | None:
+    """文中の 7/29・7月29日・2026-07-29 を抽出。なければ None。"""
+    if not text:
+        return None
+    now = datetime.now(JST)
+    year_default = default_year if default_year is not None else now.year
+    m = re.search(r"(?:(\d{4})[年/\-])?(\d{1,2})[月/\-](\d{1,2})日?", text)
+    if not m:
+        return None
+    year = int(m.group(1)) if m.group(1) else year_default
+    try:
+        return date(year, int(m.group(2)), int(m.group(3)))
+    except ValueError:
+        return None
+
+
+def _previous_weekday(d: date) -> date:
+    d = d - timedelta(days=1)
+    while d.weekday() >= 5:
+        d -= timedelta(days=1)
+    return d
+
+
+def last_us_equity_session_date(now_jst: datetime | None = None) -> date:
+    """
+    直近の米国株レギュラーセッション確定日（ET）。
+    平日 16:00 ET 未満 → 前営業日、以降 → 当日（土日は金曜へ）。
+    """
+    now = now_jst or datetime.now(JST)
+    et = now.astimezone(ET)
+    d = et.date()
+    if d.weekday() >= 5:
+        return _previous_weekday(d)
+    if et.hour < 16:
+        return _previous_weekday(d)
+    return d
+
+
+def resolve_market_anchor_date(
+    user_input: str,
+    *,
+    market: Literal["jp", "us"] = "jp",
+    now_jst: datetime | None = None,
+) -> date:
+    """
+    市況クエリの日付アンカー。
+    明示日付があればそれを優先。なければ日本=JST今日、米国=直近確定セッション日。
+    """
+    now = now_jst or datetime.now(JST)
+    explicit = parse_explicit_calendar_date(user_input, default_year=now.year)
+    if explicit:
+        return explicit
+    if market == "us":
+        return last_us_equity_session_date(now)
+    return now.date()
+
+
+def format_anchor_date_en(d: date) -> str:
+    """July 29, 2026 形式。"""
+    return d.strftime("%B %d, %Y").replace(" 0", " ")
 
 
 def store_search_carryover(
@@ -123,45 +208,21 @@ def sanitize_conversational_query(q_text: str) -> str:
 
 
 def _is_todayish_market_query(user_input: str, *, now_jst: datetime | None = None) -> bool:
-    """今日の市況・前場/後場・『どんな感じだった』等を今日系として扱う。"""
+    """今日系キーワード、または明示日付付き市況質問を日付正規化対象にする。"""
     text = user_input or ""
-    if any(
-        k in text
-        for k in (
-            "今日",
-            "本日",
-            "大引け",
-            "終値",
-            "today",
-            "どうだった",
-            "どう動",
-            "前場",
-            "後場",
-            "寄り",
-            "昼休み",
-            "どんな感じ",
-        )
-    ):
+    if any(k in text for k in _TODAYISH_KW):
         return True
-    # 「7/29の日本市場」など、日付が今日そのものなら今日系
-    now = now_jst or datetime.now(timezone(timedelta(hours=9)))
-    m = re.search(r"(?:(\d{4})[年/\-])?(\d{1,2})[月/\-](\d{1,2})", text)
-    if not m:
-        return False
-    year = int(m.group(1)) if m.group(1) else now.year
-    try:
-        return year == now.year and int(m.group(2)) == now.month and int(m.group(3)) == now.day
-    except ValueError:
-        return False
+    return parse_explicit_calendar_date(text) is not None
 
 
 def balance_search_queries(user_input: str, search_needed: bool, search_queries: list) -> tuple[bool, list]:
     """市場・ネガティブ問いに対するクエリバランス補完（地域スコープ付き）。"""
-    from datetime import datetime, timezone, timedelta
-
-    JST = timezone(timedelta(hours=9))
     now_jst = datetime.now(JST)
-    today = now_jst.strftime("%Y-%m-%d")
+    jp_anchor = resolve_market_anchor_date(user_input, market="jp", now_jst=now_jst)
+    us_anchor = resolve_market_anchor_date(user_input, market="us", now_jst=now_jst)
+    today_jp = jp_anchor.isoformat()
+    today_us = us_anchor.isoformat()
+    today_us_en = format_anchor_date_en(us_anchor)
 
     market_keywords = [
         "暴落", "下落", "懸念", "株", "相場", "市場", "半導体", "インテル", "AVGO", "ブロードコム",
@@ -194,18 +255,22 @@ def balance_search_queries(user_input: str, search_needed: bool, search_queries:
         search_needed = True
 
         # 今日系の日本/米国は地域特化クエリに正規化（最大4本）
+        # 明示日付（例: 7/29）があればその日を使い、JST今日で上書きしない
         if todayish and jp_scope and not us_scope:
             search_queries = [
-                f"日経平均 終値 {today}",
-                f"東京株式市場 市況 {today}",
-                f"TOPIX 終値 {today}",
-                f"業種別騰落率 東証 {today}",
+                f"日経平均 終値 {today_jp}",
+                f"東京株式市場 市況 {today_jp}",
+                f"TOPIX 終値 {today_jp}",
+                f"業種別騰落率 東証 {today_jp}",
             ]
             logger.info(f"🇯🇵 日本市場今日系クエリに正規化: {search_queries}")
             return search_needed, search_queries[:4]
 
         if todayish and us_scope and not jp_scope:
-            search_queries = [f"US stock market {today}", f"Dow S&P Nasdaq close {today}"]
+            search_queries = [
+                f"US stock market {today_us_en}",
+                f"Dow S&P Nasdaq close {today_us}",
+            ]
             logger.info(f"🇺🇸 米国市場今日系クエリに正規化: {search_queries}")
             return search_needed, search_queries[:2]
 
@@ -214,11 +279,11 @@ def balance_search_queries(user_input: str, search_needed: bool, search_queries:
         if soft_jp and not us_scope and (wants_topix or wants_sector or sector_finance):
             extras = []
             if wants_topix or wants_sector:
-                extras.append(f"TOPIX 終値 騰落 {today}")
+                extras.append(f"TOPIX 終値 騰落 {today_jp}")
             if sector_finance or wants_sector:
-                extras.append(f"東証 業種別騰落 銀行 保険 {today}")
+                extras.append(f"東証 業種別騰落 銀行 保険 {today_jp}")
             if sector_semi:
-                extras.append(f"半導体 関連株 騰落 東京市場 {today}")
+                extras.append(f"半導体 関連株 騰落 東京市場 {today_jp}")
             merged = list(search_queries or [])
             for e in extras:
                 if e not in merged:
@@ -249,9 +314,9 @@ def balance_search_queries(user_input: str, search_needed: bool, search_queries:
             if any(k in user_input for k in ["半導体", "SOX", "SOXX", "インテル", "AVGO", "200A", "2243"]):
                 search_queries.append("semiconductor ETF stock market outlook 2026")
             elif jp_scope and not us_scope:
-                search_queries.append(f"日経平均 市況 見通し {today}")
+                search_queries.append(f"日経平均 市況 見通し {today_jp}")
             elif us_scope and not jp_scope:
-                search_queries.append(f"US stock market outlook {today}")
+                search_queries.append(f"US stock market outlook {today_us}")
             else:
                 search_queries.append("US Japan stock dividend ETF market outlook 2026")
             logger.info(f"📈 市場調査クエリに補完クエリを追加: {search_queries[-1]}")
@@ -265,6 +330,10 @@ def balance_search_queries(user_input: str, search_needed: bool, search_queries:
 def should_skip_deep_fetch(user_input: str) -> bool:
     """終値・大引け・今日の市況はスニペットで足りるのでディープフェッチ省略。"""
     text = user_input or ""
+    if parse_explicit_calendar_date(text) and any(
+        k in text for k in ("市場", "市況", "前場", "後場", "終値", "どうだった", "どんな感じ")
+    ):
+        return True
     return any(
         k in text
         for k in (
@@ -278,6 +347,40 @@ def should_skip_deep_fetch(user_input: str) -> bool:
             "後場",
         )
     )
+
+
+def _format_us_market_snapshot_for_prompt(user_input: str = "") -> str:
+    """米国主要指数の確定値ブロック（Yahoo）。検索より優先してハルシネーションを防ぐ。"""
+    from app.core.tools.market_data import _quotes_batch
+
+    tickers = [
+        ("DIA", "ダウ (DIA)"),
+        ("SPY", "S&P500 (SPY)"),
+        ("QQQ", "ナスダック100 (QQQ)"),
+        ("SOXX", "半導体 SOXX"),
+    ]
+    anchor = resolve_market_anchor_date(user_input, market="us")
+    batch = _quotes_batch([t for t, _ in tickers], prefer_yfinance=True, enrich_vol_atr=False)
+    quotes = (batch or {}).get("quotes") or {}
+    src = (batch or {}).get("source") or "yfinance"
+    lines = [
+        f"【米国市場スナップショット anchor={anchor.isoformat()} source={src}（推測禁止・この数値を優先）】",
+        "※ 個別セッション終値の歴史値が無い場合は直近取得値。日付記事と食い違う場合は記事の日付を優先し、ここは参考とする。",
+    ]
+    for ticker, label in tickers:
+        q = quotes.get(ticker) or {}
+        price = q.get("current_price")
+        chg = q.get("change")
+        pct = q.get("change_pct")
+        if price is None:
+            lines.append(f"- {label}: 取得失敗")
+            continue
+        parts = [f"{float(price):,.2f}"]
+        if chg is not None and pct is not None:
+            sign = "+" if chg >= 0 else ""
+            parts.append(f"{sign}{chg:,.2f}（{sign}{pct:.2f}%）")
+        lines.append(f"- {label}: {' '.join(parts)}")
+    return "\n".join(lines)
 
 
 async def run_web_search(
@@ -299,6 +402,10 @@ async def run_web_search(
         k in (user_input or "")
         for k in ("日本市場", "日経", "東証", "TOPIX", "東京株式", "日本株", "国内市場")
     ) or any(k in qblob for k in ("日経", "TOPIX", "東証", "東京株式"))
+    us_market = any(
+        k in (user_input or "")
+        for k in ("米国市場", "アメリカ市場", "NY", "ナスダック", "Nasdaq", "S&P", "ダウ", "Dow", "Wall Street", "米国株")
+    ) or any(k in qblob.lower() for k in ("dow", "nasdaq", "s&p", "us stock"))
     max_queries = 4 if jp_market else 2
     for q in search_queries[:max_queries]:
         yield {"type": "status", "status": "searching", "query": q}
@@ -320,7 +427,7 @@ async def run_web_search(
                 direct_url_fallback_texts.append(text)
             all_raw_sources.extend(sources)
 
-    # 日本市況: yfinance スナップショットを検索より先に置く
+    # 日本/米国市況: yfinance スナップショットを検索より先に置く（推測禁止の確定値）
     snapshot_block = ""
     if jp_market:
         try:
@@ -328,6 +435,11 @@ async def run_web_search(
             snapshot_block = format_jp_market_snapshot_for_prompt(user_input)
         except Exception as e:
             logger.warning(f"JP market snapshot failed: {e}")
+    elif us_market:
+        try:
+            snapshot_block = _format_us_market_snapshot_for_prompt(user_input)
+        except Exception as e:
+            logger.warning(f"US market snapshot failed: {e}")
 
     combined_texts = list(direct_url_fallback_texts)
     if snapshot_block:

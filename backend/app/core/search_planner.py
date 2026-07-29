@@ -10,27 +10,20 @@ logger = get_logger(__name__)
 def _market_today_shortcut(user_input: str, current_date: str, current_date_en: str) -> dict[str, Any] | None:
     """
     「今日の日本/米国市場」系は LLM planner を飛ばして固定クエリを返す。
+    明示日付（7/29 等）があればその日を使い、JST今日で上書きしない。
     """
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime
+    from app.core.chat_search import (
+        _TODAYISH_KW,
+        format_anchor_date_en,
+        parse_explicit_calendar_date,
+        resolve_market_anchor_date,
+        JST,
+    )
 
     text = user_input or ""
-    JST = timezone(timedelta(hours=9))
     now = datetime.now(JST)
-    todayish = any(
-        k in text
-        for k in (
-            "今日", "本日", "大引け", "終値", "today", "どうだった", "どう動",
-            "前場", "後場", "寄り", "昼休み", "どんな感じ",
-        )
-    )
-    if not todayish:
-        m = re.search(r"(?:(\d{4})[年/\-])?(\d{1,2})[月/\-](\d{1,2})", text)
-        if m:
-            year = int(m.group(1)) if m.group(1) else now.year
-            try:
-                todayish = year == now.year and int(m.group(2)) == now.month and int(m.group(3)) == now.day
-            except ValueError:
-                todayish = False
+    todayish = any(k in text for k in _TODAYISH_KW) or parse_explicit_calendar_date(text) is not None
     if not todayish:
         return None
 
@@ -44,30 +37,36 @@ def _market_today_shortcut(user_input: str, current_date: str, current_date_en: 
             jp = True
 
     session = "前場" if "前場" in text else ("後場" if "後場" in text else "")
+    providers = ["tavily", "brave", "news"]
 
     if jp and not us:
+        jp_d = resolve_market_anchor_date(text, market="jp", now_jst=now)
+        d = jp_d.isoformat()
         q_extra = f" {session}".rstrip()
         return {
             "needs_search": True,
             "search_queries": [
-                f"日経平均{q_extra} 終値 {current_date}".replace("  ", " ").strip(),
-                f"東京株式市場 市況{q_extra} {current_date}".replace("  ", " ").strip(),
-                f"TOPIX 終値 {current_date}",
-                f"業種別騰落率 東証 {current_date}",
+                f"日経平均{q_extra} 終値 {d}".replace("  ", " ").strip(),
+                f"東京株式市場 市況{q_extra} {d}".replace("  ", " ").strip(),
+                f"TOPIX 終値 {d}",
+                f"業種別騰落率 東証 {d}",
             ],
-            "providers": ["brave", "news"],
+            "providers": providers,
             "needs_deep_search": False,
             "recommended_mode": "chat",
             "category": "finance",
         }
     if us and not jp:
+        us_d = resolve_market_anchor_date(text, market="us", now_jst=now)
+        d = us_d.isoformat()
+        d_en = format_anchor_date_en(us_d)
         return {
             "needs_search": True,
             "search_queries": [
-                f"US stock market {current_date_en}",
-                f"Dow S&P Nasdaq {current_date}",
+                f"US stock market {d_en}",
+                f"Dow S&P Nasdaq close {d}",
             ],
-            "providers": ["brave", "news"],
+            "providers": providers,
             "needs_deep_search": False,
             "recommended_mode": "chat",
             "category": "finance",
@@ -259,6 +258,13 @@ async def plan_search(user_input: str, history_messages: list[dict]) -> dict[str
             if not search_queries:
                 search_queries = [user_input[:80]]
 
+
+    # Brave 月額枯渇時でも市況が動くよう、finance は Tavily を先頭に足す
+    if needs_search and (
+        category == "finance"
+        or any(k in (user_input or "") for k in ("市場", "株", "市況", "日経", "ダウ", "ナスダック", "S&P"))
+    ):
+        providers = ["tavily"] + [p for p in (providers or []) if p != "tavily"]
 
     return {
         "needs_search": needs_search,

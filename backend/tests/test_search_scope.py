@@ -72,7 +72,59 @@ def test_market_today_shortcut_morning():
     )
     assert out is not None
     assert any("前場" in q for q in out["search_queries"])
-    assert out["providers"] == ["brave", "news"]
+    assert "tavily" in out["providers"]
+    assert "brave" in out["providers"]
+    assert "news" in out["providers"]
+
+
+def test_explicit_us_date_not_overwritten_by_jst_today(monkeypatch):
+    """JSTが7/30でも『7/29の米国市場』は7/29クエリになる。"""
+    from datetime import datetime
+    from app.core.chat_search import JST, balance_search_queries
+    from app.core import chat_search as cs
+
+    fake_now = datetime(2026, 7, 30, 6, 48, tzinfo=JST)
+
+    class _FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                return fake_now.replace(tzinfo=None)
+            return fake_now.astimezone(tz)
+
+    monkeypatch.setattr(cs, "datetime", _FixedDatetime)
+
+    needed, queries = balance_search_queries(
+        "7/29の米国市場ってどうだった？",
+        search_needed=True,
+        search_queries=["junk"],
+    )
+    assert needed is True
+    blob = " ".join(queries)
+    assert "2026-07-29" in blob or "July 29" in blob
+    assert "2026-07-30" not in blob
+    assert "July 30" not in blob
+
+    out = _market_today_shortcut(
+        "7/29の米国市場ってどうだった？",
+        "2026-07-30",
+        "July 30, 2026",
+    )
+    assert out is not None
+    qblob = " ".join(out["search_queries"])
+    assert "2026-07-29" in qblob or "July 29" in qblob
+    assert "2026-07-30" not in qblob
+    assert "tavily" in out["providers"]
+
+
+def test_us_anchor_without_date_uses_last_et_session():
+    from datetime import datetime
+    from app.core.chat_search import JST, resolve_market_anchor_date
+
+    # JST 7/30 06:48 = ET 7/29 17:48 after hours → last session 7/29
+    now = datetime(2026, 7, 30, 6, 48, tzinfo=JST)
+    d = resolve_market_anchor_date("米国市場どうだった？", market="us", now_jst=now)
+    assert d.isoformat() == "2026-07-29"
 
 
 def test_skip_deep_fetch_for_close():

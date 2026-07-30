@@ -257,12 +257,21 @@ def balance_search_queries(user_input: str, search_needed: bool, search_queries:
         # 今日系の日本/米国は地域特化クエリに正規化（最大4本）
         # 明示日付（例: 7/29）があればその日を使い、JST今日で上書きしない
         if todayish and jp_scope and not us_scope:
+            from app.core.market_session import get_jp_session_bucket, jp_cash_price_query_word
+
+            price_word = jp_cash_price_query_word(now_jst)
+            # 過去日の明示質問は終値記事が正しい
+            explicit = parse_explicit_calendar_date(user_input)
+            if explicit is not None and jp_anchor < now_jst.date():
+                price_word = "終値"
             search_queries = [
-                f"日経平均 終値 {today_jp}",
+                f"日経平均 {price_word} {today_jp}",
                 f"東京株式市場 市況 {today_jp}",
-                f"TOPIX 終値 {today_jp}",
+                f"TOPIX {price_word} {today_jp}",
                 f"業種別騰落率 東証 {today_jp}",
             ]
+            if get_jp_session_bucket(now_jst) == "closed" and now_jst.hour >= 16:
+                search_queries[3] = f"日経225先物 夜間取引 {today_jp}"
             logger.info(f"🇯🇵 日本市場今日系クエリに正規化: {search_queries}")
             return search_needed, search_queries[:4]
 

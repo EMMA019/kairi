@@ -477,30 +477,21 @@ def get_stock_quotes(
 
 def _jp_session_bucket(now: Any | None = None) -> str:
     """東証セッション粗い区分: preopen / morning / lunch / afternoon / closed."""
-    from datetime import datetime, timezone, timedelta
+    from app.core.market_session import get_jp_session_bucket
 
-    if now is None:
-        now = datetime.now(timezone(timedelta(hours=9)))
-    mins = now.hour * 60 + now.minute
-    if mins < 9 * 60:
-        return "preopen"
-    if mins < 11 * 60 + 30:
-        return "morning"
-    if mins < 12 * 60 + 30:
-        return "lunch"
-    if mins < 15 * 60:
-        return "afternoon"
-    return "closed"
+    return get_jp_session_bucket(now)
 
 
 def _n225_intraday_levels() -> dict[str, Any]:
     """
     日経平均の当日5分足から前場レンジ／前場終値を抽出。
     後場中に『直近値＝前場終値』と誤認させないための根拠データ。
+    前場中は morning_close を確定させない（最終バー＝直近値のため）。
     """
+    session = _jp_session_bucket()
     out: dict[str, Any] = {
         "ok": False,
-        "session": _jp_session_bucket(),
+        "session": session,
         "open": None,
         "morning_high": None,
         "morning_low": None,
@@ -545,8 +536,10 @@ def _n225_intraday_levels() -> dict[str, Any]:
         if morning_rows:
             out["morning_high"] = max(r[2] for r in morning_rows)
             out["morning_low"] = min(r[3] for r in morning_rows)
-            out["morning_close"] = morning_rows[-1][4]
-            out["morning_close_at"] = morning_rows[-1][0].isoformat()
+            # 前場終了後のみ morning_close を確定（場中は直近バー＝未確定）
+            if session in ("lunch", "afternoon", "closed"):
+                out["morning_close"] = morning_rows[-1][4]
+                out["morning_close_at"] = morning_rows[-1][0].isoformat()
             if out["open"] is None:
                 out["open"] = morning_rows[0][1]
             out["ok"] = True
@@ -565,7 +558,7 @@ def get_jp_market_snapshot(
     prefer_yfinance: bool = False,
 ) -> dict[str, Any]:
     """
-    日経・TOPIX・主要業種ETFの終値と前日比をまとめて返す。
+    日経・TOPIX・主要業種ETFの直近値（場中）または終値（引け後）と前日比をまとめて返す。
     既定は IBKR バッチ優先、欠けた銘柄は yfinance。
     prefer_yfinance=True または IBKR_MARKET_DATA=0 なら Yahoo のみ（Error 10089 回避）。
     """
@@ -639,8 +632,8 @@ def get_jp_market_snapshot(
 @tool_registry.register(
     name="get_jp_market_snapshot",
     description=(
-        "日本市場の日経平均・TOPIX・主要業種ETF（銀行/金融/電機/医薬）の終値と前日比を一括取得。"
-        "IBKR 優先（TWS 接続時）、不足分は Yahoo。"
+        "日本市場の日経平均・TOPIX・主要業種ETF（銀行/金融/電機/医薬）の直近値/終値と前日比を一括取得。"
+        "場中は終値ではない（session を確認）。IBKR 優先（TWS 接続時）、不足分は Yahoo。"
         "prefer_yfinance=true で IBKR をスキップ（購読エラー 10089 回避・Market Desk 向け）。"
     ),
 )
@@ -696,8 +689,15 @@ def format_jp_market_snapshot_for_prompt(user_input: str = "") -> str:
     lines = [
         f"【市場スナップショット source={src} session={session}（推測禁止・この数値を優先）】",
         "※ TOPIX・業種別騰落がここに無い／取得失敗の場合は推測で埋めず『未確認』と書くこと。",
-        "※ 『直近値』を『前場終値』と言い換えてはいけない。前場質問には morning_close のみを前場終値として使うこと。",
     ]
+    if session in ("morning", "preopen"):
+        lines.append(
+            "※【P0】場中/寄り前: 『終値』『前場終値』『大引け』禁止。数値は直近値/現在値として述べよ。"
+        )
+    else:
+        lines.append(
+            "※ 『直近値』を『前場終値』と言い換えてはいけない。前場質問には morning_close のみを前場終値として使うこと。"
+        )
 
     if intra.get("ok"):
         prev = intra.get("previous_close")
@@ -713,25 +713,33 @@ def format_jp_market_snapshot_for_prompt(user_input: str = "") -> str:
         lines.append(
             f"- 前場高値/安値: {_fmt_px(intra.get('morning_high'))} / {_fmt_px(intra.get('morning_low'))}"
         )
-        m_line = f"- 前場終値 (morning_close @{intra.get('morning_close_at')}): {_fmt_px(m_close)}"
-        if m_chg is not None and m_pct is not None:
-            sign = "+" if m_chg >= 0 else ""
-            m_line += f" {sign}{m_chg:,.2f}（{sign}{m_pct:.2f}%）"
-        lines.append(m_line)
+        # 前場終値は lunch 以降かつ morning_close が確定しているときだけ
+        if m_close is not None and session in ("lunch", "afternoon", "closed"):
+            m_line = f"- 前場終値 (morning_close @{intra.get('morning_close_at')}): {_fmt_px(m_close)}"
+            if m_chg is not None and m_pct is not None:
+                sign = "+" if m_chg >= 0 else ""
+                m_line += f" {sign}{m_chg:,.2f}（{sign}{m_pct:.2f}%）"
+            lines.append(m_line)
         if session in ("afternoon", "closed"):
-            lines.append(
-                f"- 直近値 (後場以降・前場終値ではない @{intra.get('last_at')}): {_fmt_px(intra.get('last'))}"
+            last_label = (
+                f"- 終値 (大引け確定 @{intra.get('last_at')}): {_fmt_px(intra.get('last'))}"
+                if session == "closed"
+                else f"- 直近値 (後場取引中・本日終値ではない @{intra.get('last_at')}): {_fmt_px(intra.get('last'))}"
             )
-            lines.append("※ 後場中は直近値≠前場終値。前場の話では morning_close を使え。")
+            lines.append(last_label)
+            if session == "afternoon":
+                lines.append("※ 後場中は直近値≠前場終値≠本日終値。前場の話では morning_close を使え。")
         elif session == "lunch":
-            lines.append("※ 昼休み中。morning_close を前場終値の確定値として明示してよい。")
-        elif session == "morning":
+            lines.append("※ 昼休み中。morning_close を前場終値の確定値として明示してよい。本日終値は未確定。")
+        elif session in ("morning", "preopen"):
             lines.append(
-                f"- 直近値 (前場取引中 @{intra.get('last_at')}): {_fmt_px(intra.get('last'))}"
+                f"- 直近値 (前場取引中・終値でも前場終値でもない @{intra.get('last_at')}): {_fmt_px(intra.get('last'))}"
             )
-            lines.append("※ 前場中はまだ前場終値未確定。直近値として述べよ。")
+            lines.append(
+                "※【P0】前場中/寄り前は『終値』『前場終値』『大引け』と呼ぶな。必ず直近値/現在値。"
+            )
     else:
-        lines.append("日経平均の前場終値抽出に失敗。指数の直近のみ参考（前場終値としては使わない）:")
+        lines.append("日経平均のセッション別価格抽出に失敗。指数の直近のみ参考（終値としては使わない）:")
 
     for ticker, q in (snap.get("indices") or {}).items():
         label = q.get("label") or ticker

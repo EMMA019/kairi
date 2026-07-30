@@ -395,3 +395,77 @@ def strip_excuse_hallucinations(text: str) -> str:
         cleaned.append(line)
     return "\n".join(cleaned)
 
+
+_FALSE_ATTR_PHRASE_RE = re.compile(
+    r"(ご指摘いただいた通り|ご指摘の通り|おっしゃる通り|おっしゃるとおり|"
+    r"仰る通り|仰るとおり|ご案内の通り|ご案内のとおり)"
+    r"[、,]?\s*"
+)
+
+# 誤帰属判定用: ユーザー発話に無いと「ご指摘の通り」が不正になりやすい固有主張
+_CLAIM_TOKEN_PATTERNS = [
+    re.compile(r"\d{1,2}/\d{1,2}"),
+    re.compile(r"\d{1,2}月\d{1,2}日"),
+    re.compile(r"未明"),
+    re.compile(r"引け後"),
+    re.compile(r"アフターアワー"),
+    re.compile(r"after[\s-]?hours?", re.IGNORECASE),
+    re.compile(r"日本時間"),
+    re.compile(r"JST", re.IGNORECASE),
+]
+
+
+def _extract_claim_tokens(fragment: str) -> list[str]:
+    tokens: list[str] = []
+    for pat in _CLAIM_TOKEN_PATTERNS:
+        tokens.extend(pat.findall(fragment))
+    # findall がタプルを返すことはないが、念のため正規化
+    return [t if isinstance(t, str) else t[0] for t in tokens if t]
+
+
+def strip_false_user_attribution(text: str, user_input: str = "") -> str:
+    """
+    ユーザーが言っていない内容を「ご指摘いただいた通り／おっしゃる通り」で回収する誤帰属を除去する。
+    後続文の固有主張（日付・未明・引け後等）が user_input に無いときだけフレーズを置換する。
+    """
+    if not text or not isinstance(text, str):
+        return text
+    if not _FALSE_ATTR_PHRASE_RE.search(text):
+        return text
+
+    user = user_input or ""
+    neutral = "検索結果によれば、"
+
+    def _replace(match: re.Match) -> str:
+        # マッチ以降〜文末（。！？または改行）までを主張断片とみなす
+        tail = text[match.end() :]
+        end_m = re.search(r"[。！？\n]", tail)
+        fragment = tail[: end_m.start()] if end_m else tail[:160]
+        claim_tokens = _extract_claim_tokens(fragment)
+
+        if claim_tokens:
+            # いずれかの固有主張がユーザー文にあれば、本当に指摘された可能性 → 残す
+            if any(tok.lower() in user.lower() for tok in claim_tokens):
+                return match.group(0)
+            logger.info(
+                "🧹 ユーザー誤帰属フレーズを中立化しました: %r (claims=%s)",
+                match.group(1),
+                claim_tokens,
+            )
+            return neutral
+
+        # 固有主張が無い場合でも、ユーザーが指摘・同意文脈を書いていなければ除去
+        user_ack = any(
+            k in user for k in ("指摘", "だよね", "でしょ", "だろ", "通り", "よね？", "よね?")
+        )
+        if user_ack:
+            return match.group(0)
+        logger.info("🧹 ユーザー誤帰属フレーズを除去しました: %r", match.group(1))
+        return ""
+
+    cleaned = _FALSE_ATTR_PHRASE_RE.sub(_replace, text)
+    # 「、」が二重になったり先頭カンマが残るのを軽く整える
+    cleaned = re.sub(r"^[、,\s]+", "", cleaned)
+    cleaned = re.sub(r"([。！？\n])[、,\s]+", r"\1", cleaned)
+    return cleaned
+

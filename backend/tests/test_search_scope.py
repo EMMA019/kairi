@@ -127,6 +127,58 @@ def test_us_anchor_without_date_uses_last_et_session():
     assert d.isoformat() == "2026-07-29"
 
 
+def test_jp_today_queries_use_live_price_word_during_morning(monkeypatch):
+    """場中は検索クエリに『終値』を硬直指定しない。"""
+    from datetime import datetime
+    from app.core.chat_search import JST, balance_search_queries
+    from app.core import chat_search as cs
+
+    fake_now = datetime(2026, 7, 30, 11, 0, tzinfo=JST)
+
+    class _FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                return fake_now.replace(tzinfo=None)
+            return fake_now.astimezone(tz)
+
+    monkeypatch.setattr(cs, "datetime", _FixedDatetime)
+    needed, queries = balance_search_queries(
+        "日本市場今日はどう？",
+        search_needed=True,
+        search_queries=["junk"],
+    )
+    assert needed is True
+    blob = " ".join(queries)
+    assert "現在値" in blob
+    assert "日経平均 終値" not in blob
+
+
+def test_jp_evening_queries_include_night_futures(monkeypatch):
+    from datetime import datetime
+    from app.core.chat_search import JST, balance_search_queries
+    from app.core import chat_search as cs
+
+    fake_now = datetime(2026, 7, 30, 18, 42, tzinfo=JST)
+
+    class _FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                return fake_now.replace(tzinfo=None)
+            return fake_now.astimezone(tz)
+
+    monkeypatch.setattr(cs, "datetime", _FixedDatetime)
+    _, queries = balance_search_queries(
+        "日本市場今日はどうだった?",
+        search_needed=True,
+        search_queries=["junk"],
+    )
+    blob = " ".join(queries)
+    assert "終値" in blob
+    assert "日経225先物 夜間取引" in blob
+
+
 def test_skip_deep_fetch_for_close():
     assert should_skip_deep_fetch("今日の日本市場はどうだった？") is True
     assert should_skip_deep_fetch("7/29の日本市場前場") is True

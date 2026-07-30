@@ -31,7 +31,12 @@ def apply_grounding_pipeline(
         return text
 
     from .currency import check_currency_consistency
-    from .financial import verify_numbers_exist_in_source
+    from .financial import (
+        verify_numbers_exist_in_source,
+        soften_ungrounded_earnings_timing,
+        correct_jp_session_price_labels,
+        soften_stale_night_futures_claims,
+    )
     from .temporal import (
         verify_chronological_rationalization,
         strip_outdated_past_event_predictions,
@@ -59,6 +64,7 @@ def apply_grounding_pipeline(
         strip_unrequested_yahoo_finance,
         clean_broken_markdown_tables,
         strip_excuse_hallucinations,
+        strip_false_user_attribution,
         trim_incomplete_trailing_sentence,
         strip_dangling_tool_promises,
     )
@@ -88,6 +94,10 @@ def apply_grounding_pipeline(
     text = verify_holiday_and_weekend_claims(text)
     text = fix_relative_date_labels(text)
     text = strip_excuse_hallucinations(text)
+    text = strip_false_user_attribution(text, user_input=user_input or "")
+    text = soften_ungrounded_earnings_timing(text, source_text or "")
+    text = correct_jp_session_price_labels(text, source_text or "")
+    text = soften_stale_night_futures_claims(text, source_text or "")
     text = sanitize_buffer_contamination(text)
     text = strip_unverified_day_of_week(text, source_text=source_text or "", strip_if_no_source=True)
 

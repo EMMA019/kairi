@@ -142,6 +142,18 @@ def _freshness_score(query: str, title: str, snippet: str) -> float:
         if re.search(r"前場|市況|日経", query or ""):
             score -= 15.0
 
+    # 引け後の先物/夜間クエリ: 朝の『0時＝』『夜間取引終値』記事を降格（今夜スタートと誤認しやすい）
+    q = query or ""
+    if re.search(r"先物|夜間", q) and re.search(r"夜間取引終値|0時＝|0時=", blob):
+        try:
+            from zoneinfo import ZoneInfo
+
+            hour = datetime.now(ZoneInfo("Asia/Tokyo")).hour
+        except Exception:
+            hour = datetime.now().hour
+        if hour >= 16 or hour < 6:
+            score -= 35.0
+
     return max(-80.0, min(40.0, score))
 
 

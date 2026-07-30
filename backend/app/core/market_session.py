@@ -24,6 +24,73 @@ except Exception:
 # 固定祝日・年末年始の簡易チェックおよびjpholidayによる判定
 NEW_YEAR_HOLIDAYS = {(12, 31), (1, 1), (1, 2), (1, 3)}
 
+# 大阪取引所 日経225先物 夜間（概略・カレンダー日をまたぐ）
+# 日中終了後 ~16:30 開始 → 翌 ~05:55 終了（祝日・臨時変更あり）
+_OSE_NIGHT_START_MIN = 16 * 60 + 30  # 16:30
+_OSE_NIGHT_END_MIN = 5 * 60 + 55  # 05:55
+
+
+def get_jp_session_bucket(now: Optional[datetime] = None) -> str:
+    """東証セッション粗い区分: preopen / morning / lunch / afternoon / closed."""
+    if now is None:
+        now = datetime.now(JST)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=JST)
+    else:
+        now = now.astimezone(JST)
+    mins = now.hour * 60 + now.minute
+    if mins < 9 * 60:
+        return "preopen"
+    if mins < 11 * 60 + 30:
+        return "morning"
+    if mins < 12 * 60 + 30:
+        return "lunch"
+    if mins < 15 * 60:
+        return "afternoon"
+    return "closed"
+
+
+def jp_cash_price_query_word(now: Optional[datetime] = None) -> str:
+    """
+    検索クエリ用の価格語。場中に『終値』を硬直指定すると記事・回答が誤認する。
+    preopen/morning/afternoon → 現在値 / 市況
+    lunch → 前場終値
+    closed → 終値
+    """
+    bucket = get_jp_session_bucket(now)
+    if bucket == "lunch":
+        return "前場終値"
+    if bucket == "closed":
+        return "終値"
+    return "現在値"
+
+
+def get_ose_night_futures_phase(now: Optional[datetime] = None) -> str:
+    """
+    日経225先物・夜間セッションの粗い位相。
+    - night_active: 夜間ザラ場中（夕方〜翌朝）
+    - night_just_ended: 夜間終了直後〜現金寄り前（朝の『夜間終値』記事が正当）
+    - day_cash: 現金市場中心の時間帯（夜間は非アクティブ）
+    - evening_pre_night: 大引け後〜夜間寄り前
+    """
+    if now is None:
+        now = datetime.now(JST)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=JST)
+    else:
+        now = now.astimezone(JST)
+    mins = now.hour * 60 + now.minute
+    if mins <= _OSE_NIGHT_END_MIN:
+        return "night_active"  # 0:00–05:55 は前日夕方開始の夜間の続き
+    if mins < 9 * 60:
+        return "night_just_ended"
+    if mins < _OSE_NIGHT_START_MIN:
+        if mins >= 15 * 60:
+            return "evening_pre_night"
+        return "day_cash"
+    return "night_active"  # 16:30–23:59
+
+
 def is_tse_holiday(target_date: date) -> bool:
     """東証の休場日（土日・祝日・年末年始）を機械判定"""
     # 土日チェック (5: 土曜日, 6: 日曜日)
@@ -99,6 +166,7 @@ def get_tse_market_session_context(user_input: str = "") -> str:
         session_label = "寄り付き直後（価格形成期・特別気配）セッション"
         instruction = (
             "東証は現在寄り付き直後（価格形成期）です。特別気配や板寄せによって一部銘柄の初値が未確定であり、指数が不安定に乱高下しやすい時間帯です。\n"
+            "【🔴 P0】この時点の値を『終値』『前場終値』と呼ぶことは禁止。\n"
             "始値気配と寄り付きからの大まかな流れを中心に慎重に解説し、単一瞬間の乱高下値を確定的な日中トレンドとして言い切ることは避けてください。"
         )
     elif 9 * 60 + 6 <= time_minutes < 11 * 60 + 30:
@@ -106,6 +174,9 @@ def get_tse_market_session_context(user_input: str = "") -> str:
         session_label = "前場（ザラ場）セッション"
         instruction = (
             "東証は現在、前場の取引中です。寄り付きからの株価推移とセクター動向、直近の材料を定性的に解説してください。\n"
+            "【🔴 P0: 場中の終値誤認禁止】前場はまだ終了していない。"
+            "スナップショットの直近値を『終値』『前場終値』『大引け』と呼ぶことは厳格に禁止。"
+            "必ず『直近値（前場取引中）』『現在値』と明示すること。\n"
             "ニュース記事中の古いタイムスタンプの数値を今の瞬間値として断言するリスクを避け、寄り付きからの全体のトレンド・方向性に注目して解説すること。"
         )
     elif 11 * 60 + 30 <= time_minutes < 12 * 60 + 30:
@@ -120,6 +191,7 @@ def get_tse_market_session_context(user_input: str = "") -> str:
         session_label = "後場（ザラ場）セッション"
         instruction = (
             "東証は現在、後場の取引中です。前場終値からの推移および日中全体のトレンド、セクター資金の流入・流出動向を解説してください。\n"
+            "【🔴 P0: 場中の終値誤認禁止】後場中の直近値を『本日の終値』『大引け』と呼ぶことは禁止。『直近値（後場取引中）』と明示せよ。\n"
             "※『前場どうだった』と聞かれても、スナップショットの直近値（後場）を前場終値として使ってはいけない。"
             "前場終値は morning_close（または明示された前場終値）のみ。無い場合は『前場終値は未確認』とし、直近値と混同しないこと。\n"
             "※記事中の午前終値などを現在の取引値として混同しないよう注意し、定性的な相場の流れと構造を解説すること。"
@@ -147,11 +219,43 @@ def get_tse_market_session_context(user_input: str = "") -> str:
             "今夜の欧米市場（米国株・為替動向）の注目ポイントや日経平均先物等の動きについて解説してください。"
         )
 
+    futures_note = _ose_night_futures_instruction(now_jst)
+
     full_context = (
         f"【東証市場セッション機械判定 (現在時刻 JST {current_time_str} - {session_label})】\n"
-        f"{instruction}\n\n"
+        f"{instruction}\n"
+        f"{futures_note}\n\n"
         f"《役割分担原則》数値・価格・高安は構造化ファクトまたは信頼できる検索結果の数値に正確に基づき、"
         f"ニュース記事は「相場が動いた理由・セクター分析・文脈解説」を担当するものとして厳格に使い分けること。"
     )
     logger.info(f"📈 東証セッション判定: {session_label} ({current_time_str})")
     return "\n\n" + full_context
+
+
+def _ose_night_futures_instruction(now_jst: datetime) -> str:
+    """日経225先物・夜間セッションの時間軸誤認を防ぐ機械指示。"""
+    phase = get_ose_night_futures_phase(now_jst)
+    d = now_jst.strftime("%Y-%m-%d")
+    if phase == "night_just_ended":
+        return (
+            f"【日経225先物・夜間セッション (JST {now_jst.strftime('%H:%M')} / {phase})】\n"
+            f"直前の夜間取引は終了済み（概ね05:55頃）。朝の『{d} 夜間取引終値』記事はこの確定値として引用してよい。\n"
+            "ただし現金寄り前の気配と混同しないこと。"
+        )
+    if phase in ("evening_pre_night", "night_active") and now_jst.hour >= 15:
+        return (
+            f"【🔴 P0: 日経225先物・夜間時間軸 (JST {now_jst.strftime('%H:%M')} / {phase})】\n"
+            "大阪取引所の夜間取引は概ね16:30開始→翌05:55終了でカレンダー日をまたぐ。\n"
+            "早朝〜午前に出た『○日夜間取引終値』『○日0時＝…円』記事は【直前夜間セッションの確定値】であり、\n"
+            "本日夕方の『今夜の夜間がスタートした水準』ではない。\n"
+            "それを『本日夜間取引では…でスタートしています』と書いてはならない。"
+            "言及するなら『直前夜間セッション終値（朝時点）』と明示し、今夜の気配・寄りは別ソースで確認すること。"
+        )
+    if phase == "night_active" and now_jst.hour < 9:
+        return (
+            f"【日経225先物・夜間セッション進行中 (JST {now_jst.strftime('%H:%M')})】\n"
+            "現在は夜間ザラ場中。直近の先物价を『現金の終値』や『大引け』と混同しないこと。"
+        )
+    return (
+        f"【日経225先物メモ (phase={phase})】夜間と現金セッションの日付・時刻を混同しないこと。"
+    )

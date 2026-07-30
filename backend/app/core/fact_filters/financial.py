@@ -194,6 +194,128 @@ def verify_actual_vs_guidance_hallucination(text: str, source_text: Optional[str
 
 
 
+_EARNINGS_TIMING_CLAIM_RE = re.compile(
+    r"(?:"
+    r"(?:日本時間|JST)\s*\d{1,2}/\d{1,2}\s*未明に(?:決算を)?発表(?:しています|した|済み)?"
+    r"|"
+    r"\d{1,2}/\d{1,2}\s*未明に(?:決算を)?発表(?:しています|した|済み)?"
+    r"|"
+    r"未明に(?:決算を)?発表(?:しています|した|済み)?"
+    r"|"
+    r"引け後に発表済み"
+    r"|"
+    r"引け後に(?:決算を)?発表(?:しています|した|済み)?"
+    r")"
+)
+
+_TIMING_SOURCE_MARKERS = (
+    "after the close",
+    "after-hours",
+    "after hours",
+    "after close",
+    "引け後",
+    "時間外",
+    "未明",
+    "early morning",
+    "reported",
+    "results",
+    "earnings release",
+    "press release",
+    "発表済み",
+    "を発表した",
+    "発表した",
+)
+
+
+def soften_ungrounded_earnings_timing(text: str, source_text: Optional[str] = None) -> str:
+    """
+    ソースに無い決算発表時刻（JST未明／引け後など）の断定をフレーズ単位で「要確認」化する。
+    過剰除去を避けるため、時刻・発表タイミング句のみ置換する。
+    """
+    if not text or not isinstance(text, str):
+        return text
+    if not _EARNINGS_TIMING_CLAIM_RE.search(text):
+        return text
+
+    src_l = (source_text or "").lower()
+    has_support = any(m in src_l for m in _TIMING_SOURCE_MARKERS) or any(
+        m in (source_text or "") for m in ("未明", "引け後", "時間外", "発表済み", "を発表した", "発表した")
+    )
+    if has_support:
+        return text
+
+    def _soft(m: re.Match) -> str:
+        logger.info("🧹 ソース未確認の決算発表時刻断定を緩和: %r", m.group(0))
+        return "発表時刻はソース未確認"
+
+    return _EARNINGS_TIMING_CLAIM_RE.sub(_soft, text)
+
+
+_SESSION_IN_SOURCE_RE = re.compile(r"session=(preopen|morning|lunch|afternoon|closed)")
+
+
+def correct_jp_session_price_labels(text: str, source_text: Optional[str] = None) -> str:
+    """
+    スナップショット session=morning/preopen/afternoon なのに『前場終値』『本日の終値』と書く誤認を直す。
+    """
+    if not text or not isinstance(text, str):
+        return text
+    m = _SESSION_IN_SOURCE_RE.search(source_text or "")
+    if not m:
+        return text
+    session = m.group(1)
+    out = text
+    if session in ("morning", "preopen"):
+        if "前場終値" in out:
+            out = out.replace("前場終値", "直近値（前場取引中）")
+            logger.info("🧹 場中の『前場終値』誤認を直近値へ置換")
+        # 『本日の終値』『日経平均終値』など（前日終値は除外）
+        out2 = re.sub(r"(?<!前)(?<!日)日経平均(?:の)?終値", "日経平均の直近値（取引中）", out)
+        out2 = re.sub(r"本日の(?:大引け)?終値", "本日の直近値（取引中）", out2)
+        if out2 != out:
+            logger.info("🧹 場中の『終値』誤認を直近値へ置換")
+            out = out2
+    elif session == "afternoon":
+        if re.search(r"本日の(?:大引け)?終値|大引け確定", out):
+            out = re.sub(r"本日の(?:大引け)?終値", "本日の直近値（後場取引中）", out)
+            out = out.replace("大引け確定", "後場取引中（終値未確定）")
+            logger.info("🧹 後場中の『本日終値』誤認を緩和")
+    return out
+
+
+_NIGHT_FUTURES_START_CLAIM_RE = re.compile(
+    r"(?:本日|今日)\d{0,2}日?夜間取引(?:（[^）]*）)?では[、,]?"
+    r"[^。\n]{0,40}(?:でスタート|で始ま|寄り付)"
+)
+
+
+def soften_stale_night_futures_claims(text: str, source_text: Optional[str] = None) -> str:
+    """
+    朝の『夜間取引終値/0時』記事を、夕方に『本日夜間がスタート』と誤読する断定を緩和する。
+    """
+    if not text or not isinstance(text, str):
+        return text
+    if not _NIGHT_FUTURES_START_CLAIM_RE.search(text):
+        return text
+    src = source_text or ""
+    # ソースに早朝・0時の夜間終値痕跡があり、今夜寄り直後の裏付けが薄い
+    stale_morning = bool(
+        re.search(r"夜間取引終値|0時＝|0時=|05?:|06?:", src)
+        or re.search(r"夜間取引終値|0時", text)
+    )
+    fresh_evening = bool(
+        re.search(r"(?:16|17|18|19|20|21)[:：時]", src)
+        and re.search(r"先物|夜間", src)
+    )
+    if stale_morning and not fresh_evening:
+        def _soft(m: re.Match) -> str:
+            logger.info("🧹 古い夜間先物を『今夜スタート』とする誤認を緩和: %r", m.group(0)[:60])
+            return "直前の夜間セッション終値（朝時点の参考値・今夜のスタート水準ではない）として"
+
+        return _NIGHT_FUTURES_START_CLAIM_RE.sub(_soft, text)
+    return text
+
+
 def check_financial_arithmetic_consistency(text: str) -> str:
     """
     株価・指数に関する記述で、同一回答内における価格差と変動幅の算術的矛盾を検知・警告する。

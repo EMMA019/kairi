@@ -40,17 +40,30 @@ def _market_today_shortcut(user_input: str, current_date: str, current_date_en: 
     providers = ["tavily", "brave", "news"]
 
     if jp and not us:
+        from app.core.market_session import get_jp_session_bucket, jp_cash_price_query_word
+
         jp_d = resolve_market_anchor_date(text, market="jp", now_jst=now)
         d = jp_d.isoformat()
+        # 明示セッションが無いときは時計セッションで価格語を選ぶ（場中に『終値』固定しない）
+        price_word = jp_cash_price_query_word(now) if not session else (
+            "前場終値" if session == "前場" else ("現在値" if session == "後場" else "終値")
+        )
+        # 過去日の明示質問は終値記事が正しい
+        if parse_explicit_calendar_date(text) is not None and jp_d < now.date():
+            price_word = "終値"
         q_extra = f" {session}".rstrip()
+        queries = [
+            f"日経平均{q_extra} {price_word} {d}".replace("  ", " ").strip(),
+            f"東京株式市場 市況{q_extra} {d}".replace("  ", " ").strip(),
+            f"TOPIX {price_word} {d}",
+            f"業種別騰落率 東証 {d}",
+        ]
+        # 引け後は夜間先物クエリに差し替え（朝の夜間終値記事との混同を減らす）
+        if get_jp_session_bucket(now) == "closed" and now.hour >= 16:
+            queries[3] = f"日経225先物 夜間取引 {d}"
         return {
             "needs_search": True,
-            "search_queries": [
-                f"日経平均{q_extra} 終値 {d}".replace("  ", " ").strip(),
-                f"東京株式市場 市況{q_extra} {d}".replace("  ", " ").strip(),
-                f"TOPIX 終値 {d}",
-                f"業種別騰落率 東証 {d}",
-            ],
+            "search_queries": queries[:4],
             "providers": providers,
             "needs_deep_search": False,
             "recommended_mode": "chat",

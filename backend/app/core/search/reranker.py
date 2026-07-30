@@ -154,6 +154,25 @@ def _freshness_score(query: str, title: str, snippet: str) -> float:
         if hour >= 16 or hour < 6:
             score -= 35.0
 
+    # 米市況の終値クエリ: 朝ラップ（前日終値要約）を降格、引け後記事を昇格
+    us_close_query = bool(
+        re.search(r"close|closes|wall street|dow|nasdaq|s&p|米国市場|米国株", q, re.I)
+    ) and bool(re.search(r"close|closes|end|ends|終値|どうだった", q, re.I))
+    if us_close_query:
+        if re.search(
+            r"stock market news for|premarket movers|before the (?:stock )?market opens|"
+            r"5 things to know before|what to know before|opening bell",
+            blob,
+            re.I,
+        ):
+            score -= 40.0
+        if re.search(
+            r"\bends?\b|\bcloses?\b|closing bell|wall street.*(higher|lower|fall|rise|mixed)",
+            blob,
+            re.I,
+        ):
+            score += 22.0
+
     return max(-80.0, min(40.0, score))
 
 

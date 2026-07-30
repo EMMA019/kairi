@@ -289,6 +289,65 @@ _NIGHT_FUTURES_START_CLAIM_RE = re.compile(
 )
 
 
+_US_MORNING_WRAP_RE = re.compile(
+    r"Stock Market News for|Premarket Movers|Before the Stock Market Opens|"
+    r"5 Things to Know Before|what to know before the",
+    re.IGNORECASE,
+)
+_US_CLOSE_ARTICLE_RE = re.compile(
+    r"Wall Street ends|stocks?\s+(?:end|close)|closing bell|"
+    r"ends?\s+(?:sharply\s+)?(?:higher|lower|mixed)|closes?\s+(?:sharply\s+)?(?:higher|lower)",
+    re.IGNORECASE,
+)
+
+
+def soften_us_morning_wrap_as_close(text: str, source_text: Optional[str] = None) -> str:
+    """
+    『Stock Market News for DATE』朝ラップの数値を DATE 終値として断定する誤認を緩和する。
+    引け後記事と矛盾する大幅下落断定には要確認注記を付与。
+    """
+    if not text or not isinstance(text, str):
+        return text
+    src = source_text or ""
+    if not _US_MORNING_WRAP_RE.search(src):
+        return text
+
+    has_close_article = bool(_US_CLOSE_ARTICLE_RE.search(src))
+    claims_close = bool(re.search(r"の終値|で終了|で引け|終値）", text))
+    if not claims_close:
+        return text
+
+    # 朝ラップ下落 vs 引け後上昇の矛盾
+    wrap_down = bool(
+        re.search(r"(?:News for|Premarket).{0,200}(?:down|fall|drop|%安|ポイント安)", src, re.I | re.S)
+        or re.search(r"2\.2%\s*安|1\.5%\s*安|大幅下落", text)
+    )
+    close_up = bool(re.search(r"ends?\s+(?:sharply\s+)?higher|closes?\s+higher|大幅高", src, re.I))
+
+    if has_close_article and wrap_down and close_up:
+        note = (
+            "\n\n⚠️ **[終値日付の要確認]** 『Stock Market News for DATE』等の朝記事は"
+            "前日終値の要約であることが多い。引け後の『Wall Street ends…』記事と"
+            "スナップショットの as_of 日付を優先して照合してください。"
+        )
+        if "終値日付の要確認" not in text:
+            logger.info("🧹 米朝ラップと引け後記事の終値矛盾を注記")
+            text = text.rstrip() + note
+        return text
+
+    if not has_close_article and re.search(r"(?:確定)?終値|で終了|で引け", text):
+        text2 = re.sub(
+            r"(?<!前)(?<!日)(?<!の要確認】『)終値",
+            "終値（朝記事由来・前日終値の可能性）",
+            text,
+            count=4,
+        )
+        if text2 != text:
+            logger.info("🧹 米朝ラップのみの『終値』断定を緩和")
+            text = text2
+    return text
+
+
 def soften_stale_night_futures_claims(text: str, source_text: Optional[str] = None) -> str:
     """
     朝の『夜間取引終値/0時』記事を、夕方に『本日夜間がスタート』と誤読する断定を緩和する。

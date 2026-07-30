@@ -76,8 +76,10 @@ def _market_today_shortcut(user_input: str, current_date: str, current_date_en: 
         return {
             "needs_search": True,
             "search_queries": [
-                f"US stock market {d_en}",
+                # 朝ラップ（News for DATE＝前日終値）を避け、引け後記事を優先
+                f"Wall Street closes {d_en}",
                 f"Dow S&P Nasdaq close {d}",
+                f"stocks end higher OR lower {d_en}",
             ],
             "providers": providers,
             "needs_deep_search": False,

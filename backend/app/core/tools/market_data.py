@@ -216,8 +216,16 @@ def _quote_dict_yf(ticker: str, *, enrich_vol_atr: bool = False) -> dict[str, An
         day_high = float(history["High"].iloc[-1]) if "High" in history.columns else None
         day_low = float(history["Low"].iloc[-1]) if "Low" in history.columns else None
 
+    price_kind = "session_close_or_last"
     if current_price is None:
-        current_price = info.get("currentPrice") or info.get("regularMarketPrice") or info.get("previousClose")
+        live = info.get("currentPrice") or info.get("regularMarketPrice")
+        if live is not None:
+            current_price = live
+            price_kind = "live_or_regular"
+        elif info.get("previousClose") is not None:
+            # previousClose を current に入れるのは最終手段。ラベル無しで終値扱いしないこと。
+            current_price = info.get("previousClose")
+            price_kind = "previous_close_fallback"
     if previous_close is None:
         previous_close = info.get("previousClose")
 
@@ -278,6 +286,7 @@ def _quote_dict_yf(ticker: str, *, enrich_vol_atr: bool = False) -> dict[str, An
         "name": info.get("shortName", ticker),
         "current_price": current_price,
         "previous_close": previous_close,
+        "price_kind": price_kind,
         "change": change,
         "change_pct": change_pct,
         "open": day_open if day_open is not None else info.get("open"),
@@ -299,6 +308,107 @@ def _quote_dict_yf(ticker: str, *, enrich_vol_atr: bool = False) -> dict[str, An
         "currency": info.get("currency", "USD"),
         "source": "yfinance",
     }
+
+
+def fetch_us_etf_session_closes(
+    session_date: Any,
+    tickers: list[str],
+) -> dict[str, Any]:
+    """
+    指定セッション日（ET カレンダー日）の ETF 日足終値を取得。
+    朝の『Stock Market News for DATE』が前日終値を要約する問題への対抗として、
+    as_of 日付付きの確定バーを返す。
+    """
+    from datetime import date as date_cls, timedelta
+
+    if not isinstance(session_date, date_cls):
+        session_date = date_cls.fromisoformat(str(session_date)[:10])
+
+    out: dict[str, Any] = {
+        "session_date": session_date.isoformat(),
+        "quotes": {},
+        "all_matched": True,
+        "source": "yfinance",
+    }
+    start = (session_date - timedelta(days=10)).isoformat()
+    end = (session_date + timedelta(days=3)).isoformat()
+
+    for ticker in tickers:
+        entry: dict[str, Any] = {
+            "ticker": ticker,
+            "ok": False,
+            "close": None,
+            "previous_close": None,
+            "change": None,
+            "change_pct": None,
+            "as_of": None,
+            "matched_session": False,
+        }
+        try:
+            hist = yf.Ticker(ticker).history(start=start, end=end)
+            if hist is None or hist.empty:
+                out["quotes"][ticker] = entry
+                out["all_matched"] = False
+                continue
+            bars: list[tuple[Any, float]] = []
+            for ts, row in hist.iterrows():
+                try:
+                    if getattr(ts, "tzinfo", None) is not None:
+                        try:
+                            from zoneinfo import ZoneInfo
+
+                            d = ts.tz_convert(ZoneInfo("America/New_York")).date()
+                        except Exception:
+                            d = ts.date()
+                    else:
+                        d = ts.date() if hasattr(ts, "date") else ts
+                    bars.append((d, float(row["Close"])))
+                except Exception:
+                    continue
+            if not bars:
+                out["quotes"][ticker] = entry
+                out["all_matched"] = False
+                continue
+
+            chosen_i = None
+            for i, (d, _) in enumerate(bars):
+                if d == session_date:
+                    chosen_i = i
+                    break
+            if chosen_i is None:
+                # 指定日のバーが無い（祝日等）→ それ以前の直近バー（前日終値扱い）
+                for i in range(len(bars) - 1, -1, -1):
+                    if bars[i][0] <= session_date:
+                        chosen_i = i
+                        break
+                out["all_matched"] = False
+            else:
+                entry["matched_session"] = True
+
+            if chosen_i is None:
+                out["quotes"][ticker] = entry
+                out["all_matched"] = False
+                continue
+
+            close = bars[chosen_i][1]
+            as_of = bars[chosen_i][0]
+            prev = bars[chosen_i - 1][1] if chosen_i > 0 else None
+            entry["ok"] = True
+            entry["close"] = close
+            entry["as_of"] = as_of.isoformat() if hasattr(as_of, "isoformat") else str(as_of)
+            entry["previous_close"] = prev
+            if prev not in (None, 0):
+                chg = close - prev
+                entry["change"] = chg
+                entry["change_pct"] = (chg / prev) * 100.0
+            if not entry["matched_session"]:
+                out["all_matched"] = False
+            out["quotes"][ticker] = entry
+        except Exception as e:
+            logger.warning(f"US session close fetch failed {ticker}: {e}")
+            out["quotes"][ticker] = entry
+            out["all_matched"] = False
+    return out
 
 
 def _try_ibkr_quote(ticker: str) -> dict[str, Any] | None:

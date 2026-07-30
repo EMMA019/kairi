@@ -277,11 +277,12 @@ def balance_search_queries(user_input: str, search_needed: bool, search_queries:
 
         if todayish and us_scope and not jp_scope:
             search_queries = [
-                f"US stock market {today_us_en}",
+                f"Wall Street closes {today_us_en}",
                 f"Dow S&P Nasdaq close {today_us}",
+                f"stocks end higher OR lower {today_us_en}",
             ]
             logger.info(f"🇺🇸 米国市場今日系クエリに正規化: {search_queries}")
-            return search_needed, search_queries[:2]
+            return search_needed, search_queries[:3]
 
         # 日本市場フォロー（金融/TOPIX/セクター）— 今日でなくても補強
         soft_jp = jp_scope or (sector_finance and not us_scope) or (wants_sector and not us_scope and "ローテーション" in user_input)
@@ -359,8 +360,11 @@ def should_skip_deep_fetch(user_input: str) -> bool:
 
 
 def _format_us_market_snapshot_for_prompt(user_input: str = "") -> str:
-    """米国主要指数の確定値ブロック（Yahoo）。検索より優先してハルシネーションを防ぐ。"""
-    from app.core.tools.market_data import _quotes_batch
+    """
+    米国主要指数ETFのセッション日付き終値ブロック。
+    『Stock Market News for DATE』朝ラップ（＝前日終値要約）を DATE 終値と混同させない。
+    """
+    from app.core.tools.market_data import fetch_us_etf_session_closes
 
     tickers = [
         ("DIA", "ダウ (DIA)"),
@@ -369,26 +373,41 @@ def _format_us_market_snapshot_for_prompt(user_input: str = "") -> str:
         ("SOXX", "半導体 SOXX"),
     ]
     anchor = resolve_market_anchor_date(user_input, market="us")
-    batch = _quotes_batch([t for t, _ in tickers], prefer_yfinance=True, enrich_vol_atr=False)
+    batch = fetch_us_etf_session_closes(anchor, [t for t, _ in tickers])
     quotes = (batch or {}).get("quotes") or {}
     src = (batch or {}).get("source") or "yfinance"
     lines = [
-        f"【米国市場スナップショット anchor={anchor.isoformat()} source={src}（推測禁止・この数値を優先）】",
-        "※ 個別セッション終値の歴史値が無い場合は直近取得値。日付記事と食い違う場合は記事の日付を優先し、ここは参考とする。",
+        f"【米国市場スナップショット session_date={anchor.isoformat()} source={src}（推測禁止・指数はここを優先）】",
+        "※【P0】『Stock Market News for DATE』『Premarket』『Before the Open』は前日終値＋当日見通しの朝ラップであることが多い。",
+        "  それを DATE の確定終値として書いてはならない。引け後記事（Wall Street ends / stocks close）と下記 as_of を優先。",
+        "※ 指数レベルは ETF 日足の近似。記事の物語と数値は as_of 日付で照合すること。",
     ]
     for ticker, label in tickers:
         q = quotes.get(ticker) or {}
-        price = q.get("current_price")
+        if not q.get("ok") or q.get("close") is None:
+            lines.append(f"- {label}: 当該日終値バー未取得")
+            continue
+        close = float(q["close"])
+        as_of = q.get("as_of") or "?"
+        prev = q.get("previous_close")
         chg = q.get("change")
         pct = q.get("change_pct")
-        if price is None:
-            lines.append(f"- {label}: 取得失敗")
-            continue
-        parts = [f"{float(price):,.2f}"]
+        matched = bool(q.get("matched_session"))
+        parts = [f"{close:,.2f}"]
         if chg is not None and pct is not None:
             sign = "+" if chg >= 0 else ""
             parts.append(f"{sign}{chg:,.2f}（{sign}{pct:.2f}%）")
-        lines.append(f"- {label}: {' '.join(parts)}")
+        prev_s = f"{float(prev):,.2f}" if prev is not None else "未確認"
+        if matched:
+            lines.append(
+                f"- {label} 終値 as_of={as_of}: {' '.join(parts)} | 前日終値: {prev_s}"
+            )
+        else:
+            lines.append(
+                f"- {label}: session_date={anchor.isoformat()} のバー無し。"
+                f"直近バー as_of={as_of} 終値 {' '.join(parts)} "
+                f"（前日終値扱い・{anchor.isoformat()}終値として断定するな）| その前: {prev_s}"
+            )
     return "\n".join(lines)
 
 

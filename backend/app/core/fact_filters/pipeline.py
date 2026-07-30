@@ -36,6 +36,7 @@ def apply_grounding_pipeline(
         soften_ungrounded_earnings_timing,
         correct_jp_session_price_labels,
         soften_stale_night_futures_claims,
+        soften_us_morning_wrap_as_close,
     )
     from .temporal import (
         verify_chronological_rationalization,
@@ -98,6 +99,7 @@ def apply_grounding_pipeline(
     text = soften_ungrounded_earnings_timing(text, source_text or "")
     text = correct_jp_session_price_labels(text, source_text or "")
     text = soften_stale_night_futures_claims(text, source_text or "")
+    text = soften_us_morning_wrap_as_close(text, source_text or "")
     text = sanitize_buffer_contamination(text)
     text = strip_unverified_day_of_week(text, source_text=source_text or "", strip_if_no_source=True)
 

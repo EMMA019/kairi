@@ -124,6 +124,11 @@ def store_search_carryover(
     }
 
 
+def clear_search_carryover(session_id: str) -> None:
+    """セッション削除時に検索キャリーを捨てる。"""
+    _last_search_by_session.pop(session_id, None)
+
+
 def maybe_carry_search_results(
     session_id: str,
     user_input: str,
@@ -131,17 +136,28 @@ def maybe_carry_search_results(
     search_needed: bool,
     search_results_text: str | None,
 ) -> str | None:
-    """今ターン検索なしでも、直前ターンが検索済みかつ同一トピックなら結果を再注入する。"""
+    """今ターン検索なしでも、直前ターンが検索済みかつ同一トピックなら結果を再注入する。
+
+    overlap は **現在の user_input のみ** で判定（history 内の旧トピック語で誤発火しない）。
+    閾値は 2 語以上。新トピック語（介入・円安等）だけの発話はキャリーしない。
+    """
     if search_needed or search_results_text:
         return search_results_text
     prev = _last_search_by_session.get(session_id)
     if not prev or not prev.get("text"):
         return search_results_text
 
+    # 明示の新トピック（前ターン銘柄に引きずられない）
+    _TOPIC_RESET_KW = ("介入", "円安", "円高", "利上げ", "利下げ")
+    current = user_input or ""
+    if any(kw in current for kw in _TOPIC_RESET_KW):
+        return search_results_text
+
     stop = {
         "それ", "これ", "あれ", "どう", "そう", "けど", "だけど", "って", "感じ",
         "思う", "教えて", "ください", "です", "ます", "した", "いる", "ある",
         "だった", "よね", "なに", "何が", "the", "and", "was", "for", "about",
+        "かな", "する", "して", "ってか",
     }
 
     def _tokens(text: str) -> set[str]:
@@ -154,13 +170,9 @@ def maybe_carry_search_results(
     if not topic_tokens:
         return search_results_text
 
-    context_parts = [user_input or ""]
-    for m in (history_messages or [])[-4:]:
-        context_parts.append(str(m.get("content", ""))[:500])
-    context = "\n".join(context_parts)
-
-    overlap = [t for t in topic_tokens if t in context]
-    if len(overlap) >= 1:
+    # history は使わない（旧トピック語の自己一致で誤キャリーするため）
+    overlap = [t for t in topic_tokens if t in current]
+    if len(overlap) >= 2:
         logger.info(f"🔁 フォローアップへ前ターン検索結果を再注入 (overlap={overlap[:5]})")
         return prev["text"]
     return search_results_text

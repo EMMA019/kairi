@@ -63,12 +63,28 @@ def apply_omakase_hearing_ban(user_input: str, mode: str, supervisor_json: dict)
 def resolve_memory_inject(
     supervisor_json: dict,
     filtered_kv_text: str,
+    user_input: str = "",
 ) -> tuple[dict, Optional[str]]:
-    """memory_inject をスコープ付き KV に合わせて正規化し、注入テキストを返す。"""
+    """memory_inject をスコープ付き KV に合わせて正規化し、注入テキストを返す。
+
+    Executor への注入は次のいずれかでのみ許可:
+    - 明示的な記憶参照（「記憶を使って」等）
+    - 保有・ポジション・含み等の文脈
+    単なる銘柄ニュース質問ではスコープに保有が残っていても落とす。
+    """
+    from app.core.memory_policy import user_allows_memory_use, user_in_holdings_context
+
     if not filtered_kv_text:
         if supervisor_json.get("memory_inject"):
             logger.warning("memory_inject=true を拒否（スコープ内の記憶なし）")
         supervisor_json["memory_inject"] = False
+    elif supervisor_json.get("memory_inject"):
+        allowed = user_allows_memory_use(user_input) or user_in_holdings_context(user_input)
+        if not allowed:
+            logger.warning(
+                "memory_inject=true を拒否（明示記憶参照/保有文脈なし — ニュース質問の保有パーソナライズ防止）"
+            )
+            supervisor_json["memory_inject"] = False
     memory_to_inject = (
         filtered_kv_text if supervisor_json.get("memory_inject") and filtered_kv_text else None
     )

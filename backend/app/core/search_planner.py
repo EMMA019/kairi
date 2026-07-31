@@ -150,9 +150,18 @@ async def plan_search(user_input: str, history_messages: list[dict]) -> dict[str
     """
     高速な実行モデル (LLM) を呼び出し、検索の必要性と最適なクエリを判定する。
     """
+    from datetime import datetime, timezone, timedelta
+    from app.core.prompt_builder.entity_resolution import is_finance_jargon_topic_shift
+
     recent_history = history_messages[-3:] if len(history_messages) >= 3 else history_messages
 
-    from datetime import datetime, timezone, timedelta
+    # 金融ジャーゴン短文（介入/円安等）は前ターンの企業・銘柄履歴を planner に渡さない
+    # （履歴バイアスで「前の銘柄の規制」等にクエリが吸着するのを防ぐ。特定企業向けではない）
+    topic_reset = is_finance_jargon_topic_shift(user_input or "")
+    if topic_reset:
+        recent_history = []
+        logger.info("Search Planner: 金融ジャーゴン話題転換のため会話履歴を検索計画から除外")
+
     JST = timezone(timedelta(hours=9))
     now = datetime.now(JST)
     current_date = now.strftime("%Y-%m-%d")
@@ -178,6 +187,11 @@ async def plan_search(user_input: str, history_messages: list[dict]) -> dict[str
 
     context_text += f"\n【最新のユーザー入力】\n{user_input}\n"
     context_text += "\nこの入力に答えるために外部Web検索が必要か判定し、**JSONのみ**を出力してください。"
+    if topic_reset:
+        context_text += (
+            "\n※本入力は市場マクロ系の短い話題転換です。"
+            "直前の個別銘柄・企業名を検索クエリに引き継がないこと。"
+        )
 
     try:
         from app.routers.settings import app_settings
@@ -273,11 +287,32 @@ async def plan_search(user_input: str, history_messages: list[dict]) -> dict[str
             if not search_queries:
                 search_queries = [user_input[:80]]
 
+    # 【強制ハードコード】単独の「介入」は日本語市況では為替介入が既定読み
+    # （規制・独禁・DMA・EU 等が明示されたときだけスキップ。個別銘柄名は条件に使わない）
+    _REGULATORY_INTERVENTION_RE = re.compile(
+        r"規制|独禁|独占|DMA|反トラスト|antitrust|EU罰金|独占禁止|当局|欧州委|"
+        r"(?<![A-Za-z])EU(?![A-Za-z])",
+        re.IGNORECASE,
+    )
+    if "介入" in (user_input or "") and not _REGULATORY_INTERVENTION_RE.search(user_input or ""):
+        from app.core.chat_search import format_anchor_date_en
+
+        d_iso = current_date
+        d_en = format_anchor_date_en(now.date())
+        needs_search = True
+        search_queries = [
+            f"為替介入 {d_iso}",
+            f"日銀 ドル円 介入 {d_iso}",
+            f"BOJ dollar yen intervention {d_en}",
+        ]
+        providers = ["tavily", "brave", "news"]
+        category = "finance"
+        logger.info("強制ルール適用: 単独『介入』→ 為替介入クエリ（銘柄非依存）")
 
     # Brave 月額枯渇時でも市況が動くよう、finance は Tavily を先頭に足す
     if needs_search and (
         category == "finance"
-        or any(k in (user_input or "") for k in ("市場", "株", "市況", "日経", "ダウ", "ナスダック", "S&P"))
+        or any(k in (user_input or "") for k in ("市場", "株", "市況", "日経", "ダウ", "ナスダック", "S&P", "介入", "為替"))
     ):
         providers = ["tavily"] + [p for p in (providers or []) if p != "tavily"]
 

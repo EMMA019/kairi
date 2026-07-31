@@ -99,10 +99,12 @@ async def delete_session(session_id: str):
         await db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
         await db.commit()
 
-    # メモリリーク防止: クールダウン履歴から削除
+    # メモリリーク防止: クールダウン履歴・検索キャリーから削除
     from app.routers.chat import _followup_histories
     if session_id in _followup_histories:
         del _followup_histories[session_id]
+    from app.core.chat_search import clear_search_carryover
+    clear_search_carryover(session_id)
 
     # Docker サンドボックスのコンテナも削除
     from app.core.sandbox import cleanup_sandbox

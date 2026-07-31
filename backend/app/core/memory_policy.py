@@ -107,6 +107,43 @@ def user_allows_memory_use(user_input: str) -> bool:
     return any(re.search(p, text, re.IGNORECASE) for p in _MEMORY_USE_PATTERNS)
 
 
+# 保有・ポジション文脈（ニュース質問だけでは inject しない）
+_HOLDINGS_CONTEXT_RE = re.compile(
+    r"保有|ポジション|含み|取得価|何株|自分の銘柄|ポートフォリオ|持ってる株|持株"
+)
+
+
+def user_in_holdings_context(user_input: str) -> bool:
+    """保有・ポジション・含み損など、プロファイル注入が妥当な発話か。"""
+    return bool(_HOLDINGS_CONTEXT_RE.search(user_input or ""))
+
+
+def _is_ascii_ticker_token(token: str) -> bool:
+    return bool(re.fullmatch(r"[A-Za-z][A-Za-z0-9._^]{0,11}", token or ""))
+
+
+def _ascii_token_in_text(token: str, text_lower: str) -> bool:
+    """ASCII トークンは単語境界で照合（googl ⊆ google を防ぐ）。"""
+    if not _is_ascii_ticker_token(token):
+        return False
+    return (
+        re.search(
+            rf"(?<![A-Za-z0-9]){re.escape(token.lower())}(?![A-Za-z0-9])",
+            text_lower,
+        )
+        is not None
+    )
+
+
+def _token_matches_user_text(token: str, text: str, text_lower: str) -> bool:
+    tok = (token or "").strip()
+    if len(tok) < 2:
+        return False
+    if _is_ascii_ticker_token(tok):
+        return _ascii_token_in_text(tok, text_lower)
+    return tok in text
+
+
 def user_requests_memory_save(user_input: str) -> bool:
     text = (user_input or "").strip()
     if not text:
@@ -335,14 +372,20 @@ def entry_matches_user_input(entry: dict, user_input: str) -> bool:
     if target and len(target) >= 2 and target in text:
         return True
     for tok in re.split(r"[\s　/／・、,（）()]+", target):
-        if len(tok) >= 2 and tok in text:
+        if _token_matches_user_text(tok, text, text_lower):
             return True
+    # target 内の ASCII ティッカー断片（例: MSFT保有状況 → MSFT）。社名エイリアス表は持たない。
+    for m in re.finditer(r"[A-Za-z][A-Za-z0-9]{1,9}", target):
+        if _ascii_token_in_text(m.group(0), text_lower):
+            return True
+
     for tag in tags:
-        tag_s = str(tag)
-        if len(tag_s) >= 2 and tag_s.lower() in text_lower:
+        tag_s = str(tag).strip()
+        if _token_matches_user_text(tag_s, text, text_lower):
             return True
-    # note の固有っぽい単語（長め）
+
+    # note の固有っぽい単語（長め）。ASCII は境界照合。
     for tok in re.findall(r"[A-Za-z]{3,}|\d{2,}|[一-龥ぁ-んァ-ン]{3,}", note):
-        if tok in text:
+        if _token_matches_user_text(tok, text, text_lower):
             return True
     return False

@@ -12,6 +12,20 @@ PROMPTS_DIR = BASE_DIR / "prompts"
 HIGH_CONFIDENCE_THRESHOLD = 0.75
 LOW_CONFIDENCE_THRESHOLD = 0.40
 
+# 金融ジャーゴン短文は前ターン話題へのゼロ照応を禁止（曖昧な「介入」を規制話に固定しない）
+_FINANCE_JARGON_TOPIC_RE = re.compile(r"介入|円安|円高|利上げ|利下げ|為替")
+_EXPLICIT_ANAPHORA_RE = re.compile(r"(それ|これ|そこ|あれ|あそこ)")
+
+
+def is_finance_jargon_topic_shift(user_input: str) -> bool:
+    """明示代名詞なしの金融ジャーゴン短文 → 前ターン主語を引き継がない。"""
+    text = user_input or ""
+    if not _FINANCE_JARGON_TOPIC_RE.search(text):
+        return False
+    if _EXPLICIT_ANAPHORA_RE.search(text):
+        return False
+    return True
+
 
 def fuzzy_match_entities(user_input: str, last_assistant_entities: list[dict]) -> list[dict]:
     """
@@ -95,6 +109,9 @@ def resolve_zero_anaphora(user_input: str, last_assistant_entities: list[dict]) 
     - disambiguate: 複数候補が拮抗 → 聞き返しを許可
     - no_anchor: 該当なし → 通常話題として処理
     """
+    if is_finance_jargon_topic_shift(user_input):
+        return {"mode": "no_anchor"}
+
     matches = fuzzy_match_entities(user_input, last_assistant_entities)
 
     high_matches = [m for m in matches if m["score"] > HIGH_CONFIDENCE_THRESHOLD]
@@ -119,6 +136,10 @@ def build_entity_registry_context(history_messages: list, current_input: str) ->
     確信度段階分岐 (`resolve_zero_anaphora`) による最適な文脈承継アンカーを生成・注入する。
     """
     if not history_messages or not current_input or not isinstance(current_input, str):
+        return ""
+
+    # 金融ジャーゴンの話題転換では前銘柄レジストリを注入しない
+    if is_finance_jargon_topic_shift(current_input):
         return ""
 
     candidate_map = []

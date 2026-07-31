@@ -88,7 +88,7 @@ def test_ends_with_valid_terminal():
 
 
 def test_carryover_overlap_logic():
-    """chat.py の同一トピック判定ヘルパーを直接検証。"""
+    """同一トピック判定: user_input のみ・閾値2。history 自己一致では発火しない。"""
     from app.routers.chat import (
         _store_search_carryover,
         _maybe_carry_search_results,
@@ -105,10 +105,10 @@ def test_carryover_overlap_logic():
         "カルパナに賭けて大当たりだった",
     )
 
-    # 同一トピックのフォローアップ → 再注入される
+    # 現発話に旧トピック語が2語以上 → 再注入
     carried = _maybe_carry_search_results(
         sid,
-        "でも直前まで13倍以上ついてたんだよね。競馬もアルゴ入ってるのかな",
+        "カルパナの大当たりのオッズって結局いくらだった？",
         [{"role": "user", "content": "カルパナに賭けて大当たりだった"},
          {"role": "assistant", "content": "カルパナの好配当でしたね"}],
         search_needed=False,
@@ -116,6 +116,19 @@ def test_carryover_overlap_logic():
     )
     assert carried is not None
     assert "カルパナ" in carried
+
+    # history に旧トピックがあっても、現発話に共有語がなければキャリーしない
+    history_only = _maybe_carry_search_results(
+        sid,
+        "介入するかな？ってかしてるのかな？",
+        [
+            {"role": "user", "content": "半導体の規制どう？"},
+            {"role": "assistant", "content": "カルパナも話題でした"},
+        ],
+        search_needed=False,
+        search_results_text=None,
+    )
+    assert history_only is None
 
     # 全く無関係な話題 → 再注入されない
     unrelated = _maybe_carry_search_results(

@@ -497,7 +497,7 @@ async def chat(request: ChatRequest):
                 supervisor_json, search_unsupported=search_unsupported
             )
             supervisor_json, memory_to_inject = resolve_memory_inject(
-                supervisor_json, filtered_kv_text
+                supervisor_json, filtered_kv_text, user_input=user_input
             )
             search_to_inject = note_search_inject(search_results_text, supervisor_json)
 

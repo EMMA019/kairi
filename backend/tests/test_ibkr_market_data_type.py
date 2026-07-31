@@ -84,7 +84,8 @@ def test_market_data_off_on_cloud_when_unset():
         assert ibkr_client.ibkr_market_data_enabled() is False
 
 
-def test_market_data_on_local_when_unset():
+def test_market_data_off_local_when_unset():
+    """未設定時は Yahoo 専属（API データ課金回避）。"""
     with patch.dict(os.environ, {"IBKR_ENABLED": "1"}, clear=False):
         os.environ.pop("IBKR_MARKET_DATA", None)
         os.environ.pop("RENDER", None)
@@ -92,7 +93,7 @@ def test_market_data_on_local_when_unset():
         os.environ.pop("RENDER_SERVICE_ID", None)
         os.environ.pop("KAIRI_CLOUD", None)
         assert ibkr_client.running_on_cloud() is False
-        assert ibkr_client.ibkr_market_data_enabled() is True
+        assert ibkr_client.ibkr_market_data_enabled() is False
 
 
 def test_market_data_explicit_overrides_cloud():

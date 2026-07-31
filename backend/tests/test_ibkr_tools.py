@@ -28,16 +28,16 @@ def test_fill_limits():
     assert FILL_LIMIT_MAX == 50
 
 
-def test_default_port_is_paper_tws():
+def test_default_port_is_live_tws():
     with patch.dict(
         os.environ,
         {"IBKR_HOST": "127.0.0.1", "IBKR_PORT": "", "IBKR_CLIENT_ID": "100"},
         clear=False,
     ):
-        # 空文字は int 失敗で DEFAULT に落ちる実装ではないので明示 7497
+        # 空文字は int 失敗で DEFAULT に落ちる実装ではないので明示 7496
         os.environ.pop("IBKR_PORT", None)
         s = connection_settings()
-        assert s["port"] == 7497
+        assert s["port"] == 7496
         assert s["host"] == "127.0.0.1"
 
 

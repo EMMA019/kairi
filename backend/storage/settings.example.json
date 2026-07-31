@@ -30,6 +30,6 @@
   "notify_on_complete": true,
   "ibkr_enabled": false,
   "ibkr_host": "127.0.0.1",
-  "ibkr_port": 7497,
+  "ibkr_port": 7496,
   "ibkr_client_id": 100
 }

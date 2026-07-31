@@ -435,7 +435,7 @@ CATALYST_KEYWORDS: Dict[str, Dict[str, Any]] = {
         ]
     },
     "EXPORT_CONTROL_SANCTIONS": {
-        "weight": 35,
+        "weight": 40,
         "label": "🚫 輸出規制・制裁・地政学制限",
         "patterns": [
             r"export control(s)?", r"export restriction(s)?", r"chip ban", r"trade ban", r"sanctions",
@@ -453,7 +453,8 @@ CATALYST_KEYWORDS: Dict[str, Dict[str, Any]] = {
         ]
     },
     "CENTRAL_BANK_MACRO": {
-        "weight": 25,
+        # 銘柄なしでも高信頼ソースなら通知ライン(75)に届くよう 40
+        "weight": 40,
         "label": "🏦 中銀金利決定・サプライズ政策",
         "patterns": [
             r"rate hike", r"rate cut", r"fomc surprise", r"boj decision", r"emergency cut",
@@ -462,7 +463,7 @@ CATALYST_KEYWORDS: Dict[str, Dict[str, Any]] = {
         ]
     },
     "TARIFF_TRADE_WAR": {
-        "weight": 25,
+        "weight": 40,
         "label": "⚔️ 関税・貿易摩擦・緊急関税",
         "patterns": [
             r"tariff(s)?", r"trade war", r"import duties", r"retaliatory tariff",
@@ -588,9 +589,11 @@ def systematic_screen_and_score(news_item: Dict[str, Any]) -> Dict[str, Any]:
 
     # 0. スパム・煽り・広告記事（Motley Fool等）の検知 (-100点)
     spam_keywords = [
-        r"10 best stocks", r"motley fool", r"stock advisor", r"don't miss the latest", 
+        r"10 best stocks", r"motley fool", r"stock advisor", r"don't miss the latest",
         r"monster returns", r"if you invested \$", r"market-crushing", r"before you buy",
-        r"buy right now\?", r"10銘柄", r"テンバガー", r"爆上げ", r"無料メルマガ"
+        r"buy right now\?", r"stocks to buy", r"top picks?", r"best stocks to",
+        r"\btop \d+ stocks\b", r"should you buy", r"where to invest",
+        r"10銘柄", r"テンバガー", r"爆上げ", r"無料メルマガ", r"今買うべき",
     ]
     if any(re.search(pat, full_text, re.IGNORECASE) for pat in spam_keywords):
         processed = dict(news_item)
@@ -598,6 +601,7 @@ def systematic_screen_and_score(news_item: Dict[str, Any]) -> Dict[str, Any]:
         processed["matched_targets"] = matched_targets
         processed["matched_entities"] = matched_entities
         processed["detected_catalysts"] = ["🗑️ SPAM / 広告記事"]
+        processed["detected_catalyst_ids"] = []
         processed["score_reasons"] = ["スパム・広告フィルターによる即時棄却(-100pt)"]
         return processed
 
@@ -612,15 +616,17 @@ def systematic_screen_and_score(news_item: Dict[str, Any]) -> Dict[str, Any]:
 
     # 2. カタリスト爆弾ワード検出加点 (+25〜40)
     detected_catalysts = []
+    detected_catalyst_ids: List[str] = []
     max_catalyst_weight = 0
     for c_id, c_info in CATALYST_KEYWORDS.items():
         for pat in c_info["patterns"]:
             if re.search(pat, full_text, re.IGNORECASE):
                 detected_catalysts.append(c_info["label"])
+                detected_catalyst_ids.append(c_id)
                 if c_info["weight"] > max_catalyst_weight:
                     max_catalyst_weight = c_info["weight"]
                 break
-    
+
     if detected_catalysts:
         score += max_catalyst_weight
         reasons.append(f"カタリスト検出({max_catalyst_weight}pt): {', '.join(detected_catalysts)}")
@@ -628,7 +634,15 @@ def systematic_screen_and_score(news_item: Dict[str, Any]) -> Dict[str, Any]:
     # 3. 1次情報・高信頼メディア加点 (+15)
     from app.core.source_evaluator import evaluate_source_authority
     eval_res = evaluate_source_authority(news_item.get("url", ""), title, source)
-    if eval_res.get("tier") == 1 or "prnewswire" in source.lower() or "businesswire" in source.lower() or "reuters" in source.lower() or "bloomberg" in source.lower():
+    source_l = source.lower()
+    is_high_trust = (
+        eval_res.get("tier") == 1
+        or "prnewswire" in source_l
+        or "businesswire" in source_l
+        or "reuters" in source_l
+        or "bloomberg" in source_l
+    )
+    if is_high_trust:
         score += 15
         reasons.append("1次・主要高信頼ソース(+15pt)")
 
@@ -651,6 +665,8 @@ def systematic_screen_and_score(news_item: Dict[str, Any]) -> Dict[str, Any]:
     processed["matched_targets"] = matched_targets
     processed["matched_entities"] = matched_entities
     processed["detected_catalysts"] = detected_catalysts
+    processed["detected_catalyst_ids"] = detected_catalyst_ids
+    processed["is_high_trust_source"] = is_high_trust
     processed["score_reasons"] = reasons
     return processed
 

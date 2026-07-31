@@ -286,28 +286,42 @@ class ToolHandler:
             current_response = re.sub(r'<search\s+query=[^>]+>', f"\n\n*[🔍 一般検索完了 ({len(queries)}件)]*\n\n", current_response)
             current_response = re.sub(r'<search>\s*<query>.*?</query>\s*</search>', f"\n\n*[🔍 一般検索完了 ({len(queries)}件)]*\n\n", current_response, flags=re.DOTALL)
 
-        # --- ニュースDB検索の実行 ---
+        # --- ニュース検索（プール優先 → ライブRSS） ---
         if news_queries:
             tasks = []
             for query in news_queries:
-                logger.info(f"📰 ニュースDB検索ツールを実行します: {query}")
+                logger.info(f"📰 ニュース検索ツールを実行します: {query}")
                 events.append({"type": "status", "status": "searching", "query": query})
                 tasks.append(web_search(query, providers=["news"]))
-                
+
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            
+            used_pool = False
+
             for i, res in enumerate(results):
                 q = news_queries[i]
                 if isinstance(res, Exception):
-                    logger.error(f"❌ ニュースDB検索エラー: {res}", exc_info=True)
-                    self.tool_results.append(f"【ニュースDB検索エラー: {q}】\n{str(res)}")
+                    logger.error(f"❌ ニュース検索エラー: {res}", exc_info=True)
+                    self.tool_results.append(f"【ニュース検索エラー: {q}】\n{str(res)}")
                 else:
                     results_text, sources = res
+                    this_pool = False
                     if sources:
                         events.append({"type": "sources", "data": sources})
-                    self.tool_results.append(f"【ニュースDB検索結果: {q}】\n{results_text}")
-                    
-            current_response = re.sub(r'<search_news\s+query=[^>]+>', f"\n\n*[📰 ニュースDB検索完了 ({len(news_queries)}件)]*\n\n", current_response)
+                        this_pool = any(
+                            str(s.get("source") or "").startswith("POOL")
+                            for s in sources
+                        )
+                        if this_pool:
+                            used_pool = True
+                    label = "ニュースDB検索結果" if this_pool else "ニュース検索結果"
+                    self.tool_results.append(f"【{label}: {q}】\n{results_text}")
+
+            status = (
+                f"\n\n*[📰 ニュースDB検索完了 ({len(news_queries)}件)]*\n\n"
+                if used_pool
+                else f"\n\n*[📰 ニュース検索完了 ({len(news_queries)}件)]*\n\n"
+            )
+            current_response = re.sub(r'<search_news\s+query=[^>]+>', status, current_response)
             if legacy_search:
                 current_response = current_response.replace(legacy_search.group(0), f"\n\n*[🔍 複数検索完了 ({len(queries)}件)]*\n\n")
 

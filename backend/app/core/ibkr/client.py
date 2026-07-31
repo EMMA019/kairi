@@ -31,9 +31,9 @@ logger = get_logger(__name__)
 
 T = TypeVar("T")
 
-# paper TWS 既定（ユーザー環境が TWS）。Gateway paper は 4002。
+# live TWS 既定。paper TWS は 7497、Gateway paper は 4002 / live は 4001。
 DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 7497
+DEFAULT_PORT = 7496
 DEFAULT_CLIENT_ID_BASE = 100
 CONNECT_TIMEOUT_SEC = 8.0
 CALL_TIMEOUT_SEC = 25.0
@@ -73,17 +73,15 @@ def ibkr_market_data_enabled() -> bool:
 
     - IBKR_ENABLED がオフなら False
     - IBKR_MARKET_DATA 明示時はそれに従う
-    - 未設定かつクラウド（Render）なら False（スマホ途切れ防止・Yahoo 即時）
-    - 未設定かつローカルなら True（TWS 同居の Live 優先）
+    - 未設定なら False（Yahoo 専属推奨。API データ課金・Error 10089 回避）
+    - 口座ツール（残高・ポジション）は IBKR_ENABLED のみで動く
     """
     if not ibkr_enabled():
         return False
     raw = os.getenv("IBKR_MARKET_DATA")
     if raw is not None and raw.strip() != "":
-        return _env_bool("IBKR_MARKET_DATA", True)
-    if running_on_cloud():
-        return False
-    return True
+        return _env_bool("IBKR_MARKET_DATA", False)
+    return False
 
 
 def market_data_type() -> int:

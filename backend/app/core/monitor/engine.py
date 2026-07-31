@@ -25,6 +25,58 @@ from app.core.notify.discord import send_discord_alert
 
 logger = get_logger(__name__)
 
+# 銘柄なしでも通知を許可するマクロ系カタリスト（高信頼ソース必須）
+_MACRO_CATALYST_IDS = frozenset({
+    "CENTRAL_BANK_MACRO",
+    "TARIFF_TRADE_WAR",
+    "EXPORT_CONTROL_SANCTIONS",
+})
+
+
+def passes_radar_alert_gate(scored_item: Dict[str, Any]) -> Tuple[bool, str]:
+    """
+    score≥75 に加え、Discord 通知前のハードゲート。
+    - カタリスト必須（銘柄＋急騰ワードだけでは通知しない）
+    - 銘柄/ターゲット必須。ただしマクロカタリスト＋高信頼ソースは例外
+    """
+    catalysts = scored_item.get("detected_catalysts") or []
+    catalyst_ids = scored_item.get("detected_catalyst_ids") or []
+    targets = scored_item.get("matched_targets") or []
+    entities = scored_item.get("matched_entities") or []
+
+    if not catalysts or any("SPAM" in str(c) for c in catalysts):
+        return False, "カタリスト未検出（銘柄＋急騰ワードのみは通知しない）"
+
+    if targets or entities:
+        return True, ""
+
+    macro_hit = bool(set(catalyst_ids) & _MACRO_CATALYST_IDS)
+    if not macro_hit:
+        return False, "銘柄なし・マクロカタリスト以外"
+
+    if scored_item.get("is_high_trust_source"):
+        return True, ""
+
+    from app.core.source_evaluator import evaluate_source_authority
+    source = scored_item.get("source") or ""
+    eval_res = evaluate_source_authority(
+        scored_item.get("url", "") or "",
+        scored_item.get("title", "") or "",
+        source,
+    )
+    source_l = source.lower()
+    is_high_trust = (
+        eval_res.get("tier") == 1
+        or "prnewswire" in source_l
+        or "businesswire" in source_l
+        or "reuters" in source_l
+        or "bloomberg" in source_l
+    )
+    if is_high_trust:
+        return True, ""
+    return False, "マクロ例外だが高信頼ソースではない"
+
+
 def verify_date_and_entity_attribution(
     text: str,
     source_raw: str,
@@ -33,37 +85,30 @@ def verify_date_and_entity_attribution(
 ) -> Tuple[bool, str]:
     """
     「数値は存在しても別の日付や別銘柄の数字を組み合わせてしまう」ハルシネーションを機械的に防ぐ。
-    
-    判定則:
-    1. テキストに含まれる数値（例: $34.20, -16% など）が source_raw の中にあるかをまず確認（verify_numbers_exist_in_source の補完）。
-    2. 主語銘柄 (target_symbols) または 日付 (target_date) が指定されている場合、
-       ソース原文中で該当数値が現れる文（センテンス）または前後行において、その主語銘柄や日付と共起しているかをチェック。
-    3. 別日の確定値や全く関係のない別の銘柄の数値を、今日の銘柄の価格として語っている文章をブロック・除外する。
+
+    Returns:
+        (ok, text) — ok=False のとき Discord アラートを棄却する。
     """
     if not text or not source_raw:
         return True, text
 
-    # まず基本の数字存在確認
     is_num_ok, num_checked_text = verify_numbers_exist_in_source(text, source_raw)
     if not is_num_ok:
         logger.warning("🚨 [VerifyDateEntity] ソースに実在しない数値が含まれていたため、該当数値を削除・置換しました。")
         text = num_checked_text
 
-    # 文中の金額・パーセント表記の抽出
     num_patterns = re.findall(r'(?:[\$￥€£]\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:%|％|ドル|円|ポイント|pt))', text)
     if not num_patterns or not target_symbols:
         return True, text
 
     source_sentences = re.split(r'[。！？!\?]|\.(?!\d)', source_raw)
-    
+
     for num_str in num_patterns:
         clean_num = num_str.strip()
-        # ソース中で clean_num が含まれる文を特定
         matching_sents = [s for s in source_sentences if clean_num in s]
         if not matching_sents:
             continue
-        
-        # マッチした文またはその前後の文に target_symbols または関連キーワードが含まれているか
+
         entity_co_occurs = False
         for s in matching_sents:
             s_lower = s.lower()
@@ -73,19 +118,18 @@ def verify_date_and_entity_attribution(
                     break
             if entity_co_occurs:
                 break
-        
-        # 日付チェック（明示的な target_date がある場合）
+
         if target_date and not entity_co_occurs:
             for s in matching_sents:
                 if target_date.lower() in s.lower() or "today" in s.lower() or "本日" in s.lower() or "今日" in s.lower():
                     entity_co_occurs = True
                     break
 
-        # 別エンティティの数値を勝手に結合している可能性がある場合はログのみ（Discord本文に警告を埋め込まない）
         if not entity_co_occurs and len(target_symbols) >= 1:
             logger.warning(
-                f"🚨 [VerifyDateEntity] 数値 {clean_num} と主語銘柄 {target_symbols} の乖離を検知（本文には挿入しない）"
+                f"🚨 [VerifyDateEntity] 数値 {clean_num} と主語銘柄 {target_symbols} の乖離を検知 — アラート棄却"
             )
+            return False, text
 
     return True, text
 
@@ -117,6 +161,13 @@ async def process_news_for_radar(
             rejected_items.append(scored_item)
             continue
 
+        # Tier 1.5: カタリスト必須ハードゲート（銘柄＋急騰だけでは通知しない）
+        gate_ok, gate_reason = passes_radar_alert_gate(scored_item)
+        if not gate_ok:
+            scored_item.setdefault("score_reasons", []).append(gate_reason)
+            rejected_items.append(scored_item)
+            continue
+
         # Tier 2: システマチック類似度・名寄せ判定 【APIコスト ¥0】
         is_dup, dup_reason = await systematic_deduplicate(scored_item, recent_alerts)
         if is_dup:
@@ -136,14 +187,18 @@ async def process_news_for_radar(
 
         # 1. 数値実在性チェック (verify_numbers_exist_in_source)
         is_num_ok, num_checked = verify_numbers_exist_in_source(raw_summary, source_raw)
-        
-        # 2. 日付×主語銘柄紐付けチェック (verify_date_and_entity_attribution)
-        _, entity_checked = verify_date_and_entity_attribution(
+
+        # 2. 日付×主語銘柄紐付けチェック（失敗時は Discord 棄却）
+        attr_ok, entity_checked = verify_date_and_entity_attribution(
             num_checked,
             source_raw,
             target_symbols=entities + targets,
             target_date=datetime.now().strftime("%Y-%m-%d")
         )
+        if not attr_ok:
+            scored_item.setdefault("score_reasons", []).append("属性紐付け不一致により棄却")
+            rejected_items.append(scored_item)
+            continue
 
         # 3. 投資断定・推測の純化 (filter_fact)
         clean_fact = filter_fact(entity_checked)

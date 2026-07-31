@@ -71,8 +71,13 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
     _date_filtered_query = f"{query} after:{_start_date}" if query and "after:" not in query else query
     if "news" in providers:
         from app.core.news.fetcher import fetch_primary_news
+        from app.core.news.database import (
+            search_news_ranked,
+            filter_news_by_freshness,
+            rank_news_items_for_chat,
+        )
         from app.core.cache_manager import get_search_cache, set_search_cache
-        
+
         # キャッシュチェック（30分TTL）
         cache_key = f"news_{query}" if query else "news_headlines"
         cached = await get_search_cache(cache_key, providers, max_age_seconds=1800)
@@ -80,43 +85,85 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
             logger.info(f"✅ ニュースキャッシュヒット: {cache_key}")
             combined_results.extend(cached.get("sources", []))
         else:
-            # オンデマンドで1次情報RSSを取得
-            logger.info(f"📡 オンデマンドニュース取得: {query or 'ヘッドライン'}")
-            news_items = await fetch_primary_news(query)
-            
             formatted_news = []
-            for r in news_items:
-                formatted_news.append({
-                    "title": r.get("title", ""),
-                    "snippet": r.get("summary", "")[:500],
-                    "url": r.get("url", ""),
-                    "source": f"PRIMARY ({r.get('source', 'RSS')})",
-                })
-            
+            seen_urls: set[str] = set()
+            pool_hits = 0
+
+            # 1) ローリングプール優先（レーダー蓄積・スコア済み）
+            try:
+                pool_items = await search_news_ranked(
+                    query, limit=10, max_age_days=_lookback
+                )
+                for r in pool_items:
+                    url = (r.get("url") or "").strip()
+                    if url and url in seen_urls:
+                        continue
+                    if url:
+                        seen_urls.add(url)
+                    formatted_news.append({
+                        "title": r.get("title", ""),
+                        "snippet": (r.get("summary") or r.get("verified_fact") or "")[:500],
+                        "url": url,
+                        "source": f"POOL ({r.get('source', 'news.db')})",
+                        "importance": r.get("importance", 0),
+                    })
+                    pool_hits += 1
+                if pool_hits:
+                    logger.info(f"✅ ニュースプールヒット: {pool_hits}件")
+            except Exception as e:
+                logger.warning(f"ニュースプール検索失敗（ライブRSSへ）: {e}")
+
+            # 2) 薄いときだけライブ RSS（鮮度フィルタ＋スコア）
+            if pool_hits < 5:
+                logger.info(f"📡 オンデマンドニュース取得: {query or 'ヘッドライン'}")
+                news_items = await fetch_primary_news(query)
+                news_items = filter_news_by_freshness(news_items, _lookback)
+                news_items = rank_news_items_for_chat(news_items, limit=15)
+                for r in news_items:
+                    url = (r.get("url") or "").strip()
+                    if url and url in seen_urls:
+                        continue
+                    if url:
+                        seen_urls.add(url)
+                    formatted_news.append({
+                        "title": r.get("title", ""),
+                        "snippet": (r.get("summary") or "")[:500],
+                        "url": url,
+                        "source": f"PRIMARY ({r.get('source', 'RSS')})",
+                        "importance": r.get("importance", 0),
+                    })
+
+            # 高スコア優先で上限
+            formatted_news.sort(key=lambda x: -(x.get("importance") or 0))
+            formatted_news = formatted_news[:12]
+
             if formatted_news:
-                # キャッシュに保存
-                await set_search_cache(cache_key, providers, 
+                await set_search_cache(
+                    cache_key,
+                    providers,
                     results="\n".join([f"- {n['title']} ({n['source']})" for n in formatted_news]),
                     sources=formatted_news,
-                    ttl_seconds=1800
+                    ttl_seconds=1800,
                 )
                 combined_results.extend(formatted_news)
-                logger.info(f"✅ オンデマンドニュース取得成功: {len(formatted_news)}件")
+                logger.info(
+                    f"✅ ニュース取得成功: {len(formatted_news)}件 (pool={pool_hits})"
+                )
             else:
                 # フォールバック: Tavily等で一般検索（日付フィルタ付き）
                 logger.info("⚠️ 1次情報取得失敗、フォールバック検索を実行")
                 _fallback_query = _date_filtered_query if _date_filtered_query else (query or "latest news 2026")
-                
+
                 results = await search_tavily(_fallback_query)
                 if not results:
                     logger.info("🔍 Tavily結果なし、Brave APIにフォールバックします")
                     results = await search_brave(_fallback_query)
-                
+
                 if not results:
                     _clean_query = re.sub(r'site:[^\s]+\s*', '', _fallback_query).strip()
                     logger.info("🔍 Tavily結果なし、Jina Searchにフォールバックします")
                     results = await search_jina(_clean_query)
-                
+
                 if results:
                     combined_results.extend(format_results(results, query))
 

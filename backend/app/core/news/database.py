@@ -335,8 +335,78 @@ async def get_unprocessed_news() -> list[dict]:
         return [dict(row) for row in rows]
 
 
+def _parse_news_datetime(item: dict) -> Optional[datetime]:
+    """published / fetched_at / created_at から日時を推定。"""
+    for key in ("published", "fetched_at", "created_at"):
+        raw = item.get(key)
+        if not raw:
+            continue
+        if isinstance(raw, datetime):
+            return raw.replace(tzinfo=None) if raw.tzinfo else raw
+        s = str(raw).strip()
+        try:
+            if s.endswith("Z"):
+                s = s[:-1] + "+00:00"
+            dt = datetime.fromisoformat(s)
+            return dt.replace(tzinfo=None) if dt.tzinfo else dt
+        except ValueError:
+            pass
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%a, %d %b %Y %H:%M:%S %z"):
+            try:
+                dt = datetime.strptime(s, fmt)
+                return dt.replace(tzinfo=None) if dt.tzinfo else dt
+            except ValueError:
+                continue
+    return None
+
+
+def filter_news_by_freshness(items: list[dict], max_age_days: int) -> list[dict]:
+    """max_age_days より古い記事を除外。日付不明は残す（RSS 要約のみ等）。"""
+    if max_age_days <= 0:
+        return items
+    cutoff = datetime.utcnow() - timedelta(days=max_age_days)
+    kept = []
+    for it in items:
+        dt = _parse_news_datetime(it)
+        if dt is None or dt >= cutoff:
+            kept.append(it)
+    return kept
+
+
+def _is_noise_news_source(item: dict) -> bool:
+    src = (item.get("source") or "").lower()
+    url = (item.get("url") or "").lower()
+    return (
+        "hacker news" in src
+        or "ycombinator" in url
+        or "hnrss" in url
+        or "news.ycombinator.com" in url
+    )
+
+
+def rank_news_items_for_chat(items: list[dict], limit: int = 15) -> list[dict]:
+    """スパム/HN除外のうえ systematic_screen_and_score で並べ替え。"""
+    from app.core.monitor.watchlist import systematic_screen_and_score
+
+    scored: list[dict] = []
+    for item in items:
+        if _is_noise_news_source(item):
+            continue
+        s = systematic_screen_and_score(item)
+        if (s.get("importance") or 0) <= 0:
+            continue
+        scored.append(s)
+    scored.sort(
+        key=lambda x: (
+            -(x.get("importance") or 0),
+            0 if x.get("is_high_trust_source") else 1,
+        )
+    )
+    return scored[:limit]
+
+
 async def search_news(query: str = None, limit: int = 15) -> list[dict]:
-    """チャットUIからの呼び出し用（後方互換）。"""
+    """チャットUIからの呼び出し用（後方互換）。キーワード OR 検索。"""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         sql = "SELECT * FROM news WHERE 1=1"
@@ -348,9 +418,11 @@ async def search_news(query: str = None, limit: int = 15) -> list[dict]:
             clean_q = re.sub(
                 r"(教えて|気になる|について|ください)", "", query, flags=re.IGNORECASE
             ).strip()
+            # after:YYYY-MM-DD は SQL ではなく呼び出し側の鮮度フィルタで扱う
+            clean_q = re.sub(r"\bafter:\S+", "", clean_q, flags=re.IGNORECASE).strip()
             keywords = [w for w in re.split(r"\s+", clean_q) if len(w) >= 2]
-            if not keywords and query.strip():
-                keywords = [query.strip()]
+            if not keywords and clean_q:
+                keywords = [clean_q]
             if keywords:
                 conditions = []
                 for kw in keywords:
@@ -375,3 +447,18 @@ async def search_news(query: str = None, limit: int = 15) -> list[dict]:
                 pass
             results.append(r)
         return results
+
+
+async def search_news_ranked(
+    query: str = None,
+    limit: int = 15,
+    max_age_days: int = 7,
+) -> list[dict]:
+    """プール検索 → 鮮度フィルタ → スコア並べ替え。"""
+    try:
+        await init_db()
+    except Exception:
+        pass
+    raw = await search_news(query, limit=max(limit * 4, 40))
+    fresh = filter_news_by_freshness(raw, max_age_days)
+    return rank_news_items_for_chat(fresh, limit=limit)

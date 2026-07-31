@@ -47,7 +47,7 @@ ON_DEMAND_FEEDS = [
     {"name": "AP News", "url": "https://rsshub.app/apnews/topics/apf-topnews"},
     {"name": "Reuters", "url": "https://www.reutersagency.com/feed/"},
     {"name": "TechCrunch", "url": "https://techcrunch.com/feed/"},
-    {"name": "Hacker News", "url": "https://hnrss.org/frontpage"},
+    # Hacker News は市況レーダー/プールのノイズ源のため除外
     # --- Google News RSS（横断保険・IPO/中国/半導体/日本株） ---
     {
         "name": "Google News: semiconductor",

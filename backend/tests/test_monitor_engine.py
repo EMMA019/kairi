@@ -136,7 +136,7 @@ def test_systematic_deduplication_and_entity_slot_safety():
     anyio.run(_run)
 
 def test_verify_date_and_entity_attribution():
-    """数値実在性だけでなく、日付・主語銘柄と数値の不整合（縫い合わせエラー）を警告できるか検証"""
+    """数値と主語の乖離はログのみ。Discord本文へ属性警告を埋め込まない。"""
     clean_text = "SOXL終値は $34.20 (-11.4%) と確定。半導体セクター全体が下落しました。"
     source_raw = "SOXL reported close at $34.20 (-11.4%) today."
     is_ok, out = verify_date_and_entity_attribution(clean_text, source_raw, target_symbols=["SOXL"])
@@ -144,8 +144,12 @@ def test_verify_date_and_entity_attribution():
 
     hallucinated_text = "SOXLは本日 $420.30 の大下落となりました。"
     source_raw = "Apple closed at $420.30 yesterday. SOXL dropped to $34.20 today."
-    is_ok_h, out_h = verify_date_and_entity_attribution(hallucinated_text, source_raw, target_symbols=["SOXL"], target_date="today")
-    assert "⚠️ [属性紐付け確認要" in out_h
+    is_ok_h, out_h = verify_date_and_entity_attribution(
+        hallucinated_text, source_raw, target_symbols=["SOXL"], target_date="today"
+    )
+    # 本文は汚染しない（警告挿入なし）
+    assert "⚠️ [属性紐付け確認要" not in out_h
+    assert "$420.30" in out_h
 
 def test_full_pipeline_processing_with_dry_run():
     """1週間の3ヶ国語フィードをパイプラインに通し、検証通過・重複除外・棄却ログが正しく働くか総合テスト"""

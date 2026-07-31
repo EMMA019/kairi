@@ -301,6 +301,25 @@ _US_CLOSE_ARTICLE_RE = re.compile(
 )
 
 
+def _strip_snapshot_meta_for_wrap_check(source_text: str) -> str:
+    """スナップショット指示文（『Stock Market News for DATE』例示）を朝ラップ判定から除外。"""
+    if not source_text:
+        return ""
+    # 米スナップショットブロック全体を落とす（指示文が誤検知トリガーになるため）
+    cleaned = re.sub(
+        r"【米国市場スナップショット[\s\S]*?(?=\n【|\n🔗|\n\[|$)",
+        "\n",
+        source_text,
+    )
+    # 残った指示フレーズ単体も除去
+    cleaned = re.sub(
+        r"『Stock Market News for DATE』|『Premarket』|『Before the Open』",
+        "",
+        cleaned,
+    )
+    return cleaned
+
+
 def soften_us_morning_wrap_as_close(text: str, source_text: Optional[str] = None) -> str:
     """
     『Stock Market News for DATE』朝ラップの数値を DATE 終値として断定する誤認を緩和する。
@@ -308,7 +327,7 @@ def soften_us_morning_wrap_as_close(text: str, source_text: Optional[str] = None
     """
     if not text or not isinstance(text, str):
         return text
-    src = source_text or ""
+    src = _strip_snapshot_meta_for_wrap_check(source_text or "")
     if not _US_MORNING_WRAP_RE.search(src):
         return text
 
@@ -317,14 +336,26 @@ def soften_us_morning_wrap_as_close(text: str, source_text: Optional[str] = None
     if not claims_close:
         return text
 
-    # 朝ラップ下落 vs 引け後上昇の矛盾
-    wrap_down = bool(
-        re.search(r"(?:News for|Premarket).{0,200}(?:down|fall|drop|%安|ポイント安)", src, re.I | re.S)
-        or re.search(r"2\.2%\s*安|1\.5%\s*安|大幅下落", text)
+    # 当日終値を下落断定しているか（「前日の大幅下落」は除外）
+    today_close_down = bool(
+        re.search(
+            r"(?<!前日)(?<!前営業日)(?<!前夜)(?<!前日の)(?<!前営業日の)"
+            r"(?:大幅下落|急落|安で終了|安で引け|ポイント安で終了)",
+            text,
+        )
+        or re.search(r"(?:本日|今日|7/\d+|7月\d+日).{0,40}(?:大幅下落|急落|安で終了|安で引け)", text)
+    )
+    wrap_down_in_src = bool(
+        re.search(
+            r"(?:Stock Market News for|Premarket Movers).{0,200}"
+            r"(?:down|fall|fell|drop|dropped|sank|plunge|%安|ポイント安)",
+            src,
+            re.I | re.S,
+        )
     )
     close_up = bool(re.search(r"ends?\s+(?:sharply\s+)?higher|closes?\s+higher|大幅高", src, re.I))
 
-    if has_close_article and wrap_down and close_up:
+    if has_close_article and today_close_down and wrap_down_in_src and close_up:
         note = (
             "\n\n⚠️ **[終値日付の要確認]** 『Stock Market News for DATE』等の朝記事は"
             "前日終値の要約であることが多い。引け後の『Wall Street ends…』記事と"
@@ -335,7 +366,7 @@ def soften_us_morning_wrap_as_close(text: str, source_text: Optional[str] = None
             text = text.rstrip() + note
         return text
 
-    if not has_close_article and re.search(r"(?:確定)?終値|で終了|で引け", text):
+    if not has_close_article and today_close_down and re.search(r"(?:確定)?終値|で終了|で引け", text):
         text2 = re.sub(
             r"(?<!前)(?<!日)(?<!の要確認】『)終値",
             "終値（朝記事由来・前日終値の可能性）",

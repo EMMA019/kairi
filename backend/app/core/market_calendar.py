@@ -468,13 +468,19 @@ def format_market_status(dt: Optional[datetime.datetime] = None) -> str:
         us_text = f"🔴 米国株式市場: 本日は終日休場 ({status['us_reason']}) です。前営業日の確定終値をベースに語ってください。"
     parts.append(us_text)
     
-    # 日本市場
+    # 日本市場（取引時間外と週末/祝日休場を混同しない）
     jp_icon = {"open": "🟢", "closed": "🔴"}
     jp_text = f"{jp_icon.get(status['jp_market'], '⚪')} 日本株式市場: "
     if status["jp_market"] == "open":
         jp_text += "取引中"
-    else:
+    elif status.get("jp_reason") == "outside_trading_hours":
+        jp_text += "取引時間外（本日は通常営業日）"
+    elif status.get("jp_reason") == "weekend":
+        jp_text += "休場 (週末)"
+    elif status.get("jp_reason"):
         jp_text += f"休場 ({status['jp_reason']})"
+    else:
+        jp_text += "休場"
     parts.append(jp_text)
     
     # 向こう7日間のスケジュールカレンダーを作成・追加（祝日見落とし・休日営業誤認の完全防止）

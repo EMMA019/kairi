@@ -172,6 +172,22 @@ def _freshness_score(query: str, title: str, snippet: str) -> float:
             re.I,
         ):
             score += 22.0
+        # 前日セッションの大幅下落見出し（当日終値クエリ時）を減点
+        if re.search(
+            r"drops? more than|closes? down sharply|drag(?:s|ged)? .* lower|"
+            r"1,?100|1100.*(drop|fall|安)|AI stocks? drag",
+            blob,
+            re.I,
+        ) and not re.search(r"\bends?\s+(?:sharply\s+)?higher|\bcloses?\s+higher", blob, re.I):
+            score -= 30.0
+        # クエリ内の明示日付とタイトル日付がズレる記事を減点
+        q_dates = _extract_dates(q)
+        blob_dates = dates
+        if q_dates and blob_dates:
+            q_day = max(q_dates).date()
+            newest_blob = max(blob_dates).date()
+            if abs((newest_blob - q_day).days) >= 1:
+                score -= 20.0
 
     return max(-80.0, min(40.0, score))
 

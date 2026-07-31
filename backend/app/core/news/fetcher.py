@@ -70,6 +70,12 @@ ON_DEMAND_FEEDS = [
 MIN_NEWS_COUNT = 15
 
 
+def _strip_html(text: str) -> str:
+    import re
+
+    return re.sub(r"<[^>]+>", "", text or "").strip()
+
+
 def normalize_entry(entry, source_name: str) -> Optional[dict]:
     try:
         link = entry.get("link", "") or ""
@@ -77,11 +83,11 @@ def normalize_entry(entry, source_name: str) -> Optional[dict]:
         if isinstance(link, list) and link:
             link = link[0].get("href", "") if isinstance(link[0], dict) else str(link[0])
         return {
-            "title": entry.get("title", "") or "",
+            "title": _strip_html(entry.get("title", "") or ""),
             "url": link,
             "published": entry.get("published", entry.get("updated", "")) or "",
             "source": source_name,
-            "summary": entry.get("summary", "") or "",
+            "summary": _strip_html(entry.get("summary", "") or ""),
             "guid": entry.get("id") or entry.get("guid") or link,
         }
     except Exception:

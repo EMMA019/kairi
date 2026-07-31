@@ -15,7 +15,8 @@ def test_japan_market_does_not_add_us_etf():
     assert "us japan stock dividend" not in blob
     assert any("日経" in q or "東京" in q for q in queries)
     assert any("TOPIX" in q for q in queries)
-    assert any("業種" in q for q in queries)
+    # 引け後は業種クエリを夜間先物に差し替える場合あり
+    assert any("業種" in q or "先物" in q for q in queries)
     assert len(queries) >= 3
 
 
@@ -48,7 +49,7 @@ def test_market_today_shortcut_japan():
     assert out["category"] == "finance"
     assert any("日経" in q for q in out["search_queries"])
     assert any("TOPIX" in q for q in out["search_queries"])
-    assert any("業種" in q for q in out["search_queries"])
+    assert any("業種" in q or "先物" in q for q in out["search_queries"])
 
 
 def test_japan_morning_session_is_todayish():

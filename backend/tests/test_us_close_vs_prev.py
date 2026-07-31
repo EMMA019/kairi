@@ -79,7 +79,8 @@ def test_snapshot_labels_close_and_previous_close():
             text = _format_us_market_snapshot_for_prompt("7/30の米国市場どうだった？")
     assert "終値 as_of=2026-07-30" in text
     assert "前日終値" in text
-    assert "Stock Market News for DATE" in text or "朝ラップ" in text
+    assert "朝刊ラップ" in text or "Premarket" in text
+    assert "DIA / SPY / QQQ / SOXX" in text
     assert "記事の日付を優先" not in text
 
 
@@ -110,3 +111,19 @@ def test_soften_morning_wrap_vs_ends_higher():
     text = "7月30日の米国市場は大幅下落で引けました。ダウ終値51,594.14（▲2.2%）。"
     out = soften_us_morning_wrap_as_close(text, src)
     assert "終値日付の要確認" in out
+
+
+def test_soften_no_false_positive_on_correct_rally_with_snapshot_meta():
+    """snapshot指示文＋『前日の大幅下落』では注記しない。"""
+    src = """
+【米国市場スナップショット session_date=2026-07-30 source=yfinance】
+※【P0】朝刊ラップ（News-for-DATE / Premarket / Before-the-Open）は前日終値＋当日見通しのことが多い。
+- SPY 終値 as_of=2026-07-30: 741.69 +1.68%
+Wall Street ends sharply higher, lifted by soaring Microsoft
+"""
+    text = (
+        "前日7/29の大幅下落から一転、7/30は主要指数が揃って急伸しました。"
+        "S&P500 (SPY) 終値 741.69（+1.68%）。"
+    )
+    out = soften_us_morning_wrap_as_close(text, src)
+    assert "終値日付の要確認" not in out

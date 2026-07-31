@@ -106,11 +106,16 @@ async def send_discord_alert(
     url = alert_item.get("url", "")
     source = alert_item.get("source", "確度検証済みソース")
     importance = alert_item.get("importance", 0)
-    body_fact = alert_item.get("verified_fact", alert_item.get("summary", ""))
+    import re
+
+    body_fact = alert_item.get("verified_fact", alert_item.get("summary", "")) or ""
+    body_fact = re.sub(r"<[^>]+>", "", body_fact)
+    body_fact = re.sub(r"\s*⚠️\s*\[属性紐付け確認要:[^\]]*\]", "", body_fact)
+    title = re.sub(r"<[^>]+>", "", title or "")
     targets = alert_item.get("matched_targets", [])
     entities = alert_item.get("matched_entities", [])
     catalysts = alert_item.get("detected_catalysts", [])
-    price_reaction = alert_item.get("price_reaction", "±0.0% (変動前/超初動)")
+    price_reaction = (alert_item.get("price_reaction") or "").strip()
 
     # ターゲットバッジ文字列生成
     target_badges = []
@@ -130,19 +135,20 @@ async def send_discord_alert(
     else:
         header_title = f"🥇 **【市場監視速報】** (重要度: {importance}pt)"
 
-    # Embed フィールド構築
+    # Embed フィールド構築（価格反応スタブは出さない）
     fields = [
         {
             "name": "🎯 関連ターゲット＆銘柄",
             "value": target_str,
             "inline": True
         },
-        {
+    ]
+    if price_reaction and not price_reaction.startswith("±0.0%"):
+        fields.append({
             "name": "📈 現在の市場反応 (織り込み状況)",
             "value": f"**{price_reaction}**",
             "inline": True
-        }
-    ]
+        })
 
     if catalysts:
         fields.append({

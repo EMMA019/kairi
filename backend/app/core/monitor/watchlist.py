@@ -474,7 +474,8 @@ CATALYST_KEYWORDS: Dict[str, Dict[str, Any]] = {
         "weight": 35,
         "label": "🚀 最高値/時価総額最高値更新・歴史的突破",
         "patterns": [
-            r"all-time high", r"record high", r"ath", r"market cap record", r"historic high", r"surges to record",
+            # bare "ath" は path/rather 等に誤爆するため禁止。境界付きのみ。
+            r"all-time high", r"record high", r"\bath\b", r"market cap record", r"historic high", r"surges to record",
             r"時価総額最高", r"時価総額過去最高", r"最高値更新", r"上場来高値", r"過去最高値", r"歴史的高値",
             r"사상 최고치", r"역대 최고치", r"시가총액 최고", r"최고가 경신"
         ]
@@ -527,6 +528,22 @@ async def init_monitor_db():
         await db.commit()
     logger.info("Radar DB initialized (alert_history, rejected_news_log).")
 
+def _synonym_matches(text_lower: str, syn: str) -> bool:
+    """
+    短い英数字同義語は単語境界のみ。education→cat / earnings→gs / quarter→ter を防ぐ。
+    日本語・韓国語や長いフレーズは部分一致のまま。
+    """
+    if not syn:
+        return False
+    s = syn.lower()
+    # ASCII短語（ティッカー・略語）は境界必須
+    if re.fullmatch(r"[a-z0-9$.^\-]{1,4}", s):
+        # $TICKER / ^INDEX / 単独単語
+        pat = rf"(?<![a-z0-9]){re.escape(s)}(?![a-z0-9])"
+        return bool(re.search(pat, text_lower))
+    return s in text_lower
+
+
 def extract_matched_targets_and_entities(text_lower: str) -> Tuple[List[str], List[str]]:
     """テキストからマッチしたターゲット指数コードおよびエンティティを抽出"""
     matched_targets = set()
@@ -535,14 +552,14 @@ def extract_matched_targets_and_entities(text_lower: str) -> Tuple[List[str], Li
     # 1. ターゲット指数シノニムチェック
     for t_code, t_info in TARGET_DEFINITIONS.items():
         for syn in t_info["synonyms"]:
-            if syn in text_lower:
+            if _synonym_matches(text_lower, syn):
                 matched_targets.add(t_code)
                 break
 
     # 2. 中核エンティティシノニムチェック＆指数逆引き
     for entity_id, e_info in CORE_ENTITY_MAPPING.items():
         for syn in e_info["synonyms"]:
-            if syn in text_lower:
+            if _synonym_matches(text_lower, syn):
                 matched_entities.add(entity_id)
                 for t_code in e_info["targets"]:
                     matched_targets.add(t_code)

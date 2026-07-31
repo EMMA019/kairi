@@ -44,10 +44,60 @@ def _now_jst() -> datetime:
     return datetime.now(JST)
 
 
-async def _score_and_rank(items: list[dict], top_k: int = 5) -> list[dict]:
+_BRIEFING_EXCLUDE_SOURCES = {
+    "hacker news",
+    "hnrss",
+}
+
+
+def _is_briefing_noise_source(item: dict) -> bool:
+    src = (item.get("source") or "").strip().lower()
+    url = (item.get("url") or "").strip().lower()
+    if src in _BRIEFING_EXCLUDE_SOURCES or "hacker news" in src:
+        return True
+    if "news.ycombinator.com" in url or "hnrss.org" in url:
+        return True
+    return False
+
+
+def _is_stale_jp_close_headline(item: dict, kind: BriefKind, today: datetime) -> bool:
+    """寄り前ブリーフで前日の『日経終値○○円安』を今日のポイントに載せない。"""
+    if kind != "preopen":
+        return False
+    title = (item.get("title") or "") + " " + (item.get("summary") or "")
+    if not re.search(r"日経.*終値|終値.*日経|930円安|円安で終了", title):
+        return False
+    pub = (item.get("published") or "").strip()
+    if not pub:
+        return True  # 日付不明の終値見出しは寄り前では降格
+    try:
+        # ざっくり YYYY-MM-DD を拾う
+        m = re.search(r"(20\d{2})[-/年](\d{1,2})[-/月](\d{1,2})", pub)
+        if not m:
+            return True
+        from datetime import date as date_cls
+
+        d = date_cls(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        return d < today.date()
+    except Exception:
+        return True
+
+
+async def _score_and_rank(
+    items: list[dict],
+    top_k: int = 5,
+    *,
+    kind: BriefKind = "preopen",
+    now: Optional[datetime] = None,
+) -> list[dict]:
     from app.core.monitor.watchlist import systematic_screen_and_score, systematic_deduplicate
 
-    scored = [systematic_screen_and_score(dict(it)) for it in items]
+    now = now or _now_jst()
+    filtered = [
+        it for it in items
+        if not _is_briefing_noise_source(it) and not _is_stale_jp_close_headline(it, kind, now)
+    ]
+    scored = [systematic_screen_and_score(dict(it)) for it in filtered]
     scored.sort(key=lambda x: x.get("importance", 0), reverse=True)
 
     kept: list[dict] = []
@@ -60,6 +110,7 @@ async def _score_and_rank(items: list[dict], top_k: int = 5) -> list[dict]:
         if len(kept) >= top_k:
             return kept
 
+    # バックフィルでも HN / 前日終値見出しは入れない
     if len(kept) < top_k:
         for c in scored:
             if c in kept:
@@ -129,8 +180,35 @@ def _fmt_quote_row(label: str, q: dict[str, Any] | None) -> str:
     return f"| {label} | {price_s} | {chg_s} |"
 
 
+_US_QUOTE_CACHE_PATH = BRIEFING_DIR / "us_settled_quotes_cache.json"
+
+
+def _load_us_quote_cache() -> dict[str, Any]:
+    try:
+        import json
+
+        if _US_QUOTE_CACHE_PATH.is_file():
+            return json.loads(_US_QUOTE_CACHE_PATH.read_text(encoding="utf-8"))
+    except Exception as e:
+        logger.debug(f"US quote cache load failed: {e}")
+    return {}
+
+
+def _save_us_quote_cache(payload: dict[str, Any]) -> None:
+    try:
+        import json
+
+        BRIEFING_DIR.mkdir(parents=True, exist_ok=True)
+        _US_QUOTE_CACHE_PATH.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception as e:
+        logger.warning(f"US quote cache save failed: {e}")
+
+
 def _us_settled_quotes_section() -> str:
-    """寄り前用: 米国市場の確定値テーブル（API取得のみ・推測禁止）。"""
+    """寄り前用: 米国市場の確定値テーブル。失敗時は前回成功キャッシュを as_of 付きで使用。"""
     header = [
         "## 米国市場確定値（前夜）",
         "",
@@ -143,17 +221,70 @@ def _us_settled_quotes_section() -> str:
         tickers = [t for t, _ in US_SETTLED_TICKERS]
         batch = _quotes_batch(tickers, prefer_yfinance=True, enrich_vol_atr=False)
         quotes = (batch or {}).get("quotes") or {}
-        rows = []
-        for ticker, label in US_SETTLED_TICKERS:
-            rows.append(_fmt_quote_row(label, quotes.get(ticker)))
-        src = (batch or {}).get("source") or "yfinance"
+        ok_count = sum(
+            1 for t, _ in US_SETTLED_TICKERS if (quotes.get(t) or {}).get("current_price") is not None
+        )
+        if ok_count >= 2:
+            as_of = _now_jst().strftime("%Y-%m-%d %H:%M JST")
+            cache_quotes = {
+                t: quotes.get(t)
+                for t, _ in US_SETTLED_TICKERS
+                if (quotes.get(t) or {}).get("current_price") is not None
+            }
+            _save_us_quote_cache(
+                {
+                    "as_of": as_of,
+                    "source": (batch or {}).get("source") or "yfinance",
+                    "quotes": cache_quotes,
+                }
+            )
+            rows = [_fmt_quote_row(label, quotes.get(ticker)) for ticker, label in US_SETTLED_TICKERS]
+            src = (batch or {}).get("source") or "yfinance"
+            header.extend(rows)
+            header.append("")
+            header.append(f"source={src} as_of={as_of}（API取得値。欠損は取得失敗と表示）")
+            header.append("")
+            return "\n".join(header)
+
+        # レート制限等で全滅/ほぼ全滅 → キャッシュ
+        cached = _load_us_quote_cache()
+        cq = cached.get("quotes") or {}
+        if cq:
+            rows = []
+            for ticker, label in US_SETTLED_TICKERS:
+                q = cq.get(ticker) or quotes.get(ticker)
+                rows.append(_fmt_quote_row(label, q))
+            header.extend(rows)
+            header.append("")
+            header.append(
+                f"source=cache as_of={cached.get('as_of', '?')} "
+                f"（API失敗のため前回成功値。当日確定値として断定しない）"
+            )
+            header.append("")
+            logger.warning("US settled quotes: using cache after API miss")
+            return "\n".join(header)
+
+        rows = [_fmt_quote_row(label, quotes.get(ticker)) for ticker, label in US_SETTLED_TICKERS]
         header.extend(rows)
         header.append("")
-        header.append(f"source={src}（API取得値。欠損は取得失敗と表示）")
+        header.append("source=yfinance（API取得値。欠損は取得失敗と表示）")
         header.append("")
         return "\n".join(header)
     except Exception as e:
         logger.warning(f"US settled quotes for briefing failed: {e}")
+        cached = _load_us_quote_cache()
+        cq = cached.get("quotes") or {}
+        if cq:
+            rows = [_fmt_quote_row(label, cq.get(ticker)) for ticker, label in US_SETTLED_TICKERS]
+            return "\n".join(
+                header
+                + rows
+                + [
+                    "",
+                    f"source=cache as_of={cached.get('as_of', '?')}（例外時フォールバック）",
+                    "",
+                ]
+            )
         rows = [_fmt_quote_row(label, None) for _, label in US_SETTLED_TICKERS]
         return "\n".join(header + rows + ["", "（取得失敗）", ""])
 
@@ -337,7 +468,7 @@ async def generate_briefing(
     pool = await get_pool_news(hours=hours, limit=250)
     logger.info(f"📝 briefing[{kind}] pool={len(pool)} hours={hours}")
 
-    stories = await _score_and_rank(pool, 5)
+    stories = await _score_and_rank(pool, 5, kind=kind)
     stories = await attach_companions(stories, max_lookups=5)
 
     calendar_text = format_market_status()

@@ -378,9 +378,10 @@ def _format_us_market_snapshot_for_prompt(user_input: str = "") -> str:
     src = (batch or {}).get("source") or "yfinance"
     lines = [
         f"【米国市場スナップショット session_date={anchor.isoformat()} source={src}（推測禁止・指数はここを優先）】",
-        "※【P0】『Stock Market News for DATE』『Premarket』『Before the Open』は前日終値＋当日見通しの朝ラップであることが多い。",
+        "※【P0】朝刊ラップ（News-for-DATE / Premarket / Before-the-Open）は前日終値＋当日見通しのことが多い。",
         "  それを DATE の確定終値として書いてはならない。引け後記事（Wall Street ends / stocks close）と下記 as_of を優先。",
         "※ 指数レベルは ETF 日足の近似。記事の物語と数値は as_of 日付で照合すること。",
+        "※ 表は DIA / SPY / QQQ / SOXX を欠落させず、未取得は『当該日終値バー未取得』と明示すること。",
     ]
     for ticker, label in tickers:
         q = quotes.get(ticker) or {}

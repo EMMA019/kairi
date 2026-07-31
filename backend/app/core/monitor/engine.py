@@ -81,27 +81,19 @@ def verify_date_and_entity_attribution(
                     entity_co_occurs = True
                     break
 
-        # 別エンティティの数値を勝手に結合している可能性がある場合の注記・警告
+        # 別エンティティの数値を勝手に結合している可能性がある場合はログのみ（Discord本文に警告を埋め込まない）
         if not entity_co_occurs and len(target_symbols) >= 1:
-            warning_note = f"⚠️ [属性紐付け確認要: `{clean_num}` はソース原文中で主語銘柄と同一文にありません]"
-            if warning_note not in text:
-                logger.warning(f"🚨 [VerifyDateEntity] 数値 {clean_num} と主語銘柄 {target_symbols} の乖離を検知")
-                # 数値の直後に注記を挿入
-                text = text.replace(clean_num, f"{clean_num} {warning_note}", 1)
+            logger.warning(
+                f"🚨 [VerifyDateEntity] 数値 {clean_num} と主語銘柄 {target_symbols} の乖離を検知（本文には挿入しない）"
+            )
 
     return True, text
 
 def check_current_price_reaction(targets: List[str], entities: List[str]) -> str:
     """
-    対象ターゲット/銘柄の現在の価格反応（ザラ場/プレ・ポスト/先物気配）を取得または推定する。
-    実運用では Yahoo API や市場カレンダーから価格変動を取得。初動ニュース時は変動前のステータスを提示。
+    価格反応フィールド。実クォート未配線のため空文字を返し、Discord埋め込みでは非表示にする。
     """
-    # ここではシステマチックに銘柄・指数の初動反応ステータスを生成
-    if not targets and not entities:
-        return "±0.0% (変動前/総合マクロ)"
-    
-    main_target = (targets + entities)[0]
-    return f"±0.0%〜-0.3% (変動前/超初動期: `{main_target}`)"
+    return ""
 
 async def process_news_for_radar(
     news_items: List[Dict[str, Any]],
@@ -133,8 +125,12 @@ async def process_news_for_radar(
             continue
 
         # Tier 3: ファクト検証＆属性紐付けチェック 【APIコスト ¥0〜極小】
-        raw_summary = scored_item.get("summary", "")
-        source_raw = scored_item.get("body_text") or raw_summary or scored_item.get("title", "")
+        raw_summary = re.sub(r"<[^>]+>", "", scored_item.get("summary", "") or "")
+        source_raw = re.sub(
+            r"<[^>]+>",
+            "",
+            scored_item.get("body_text") or raw_summary or scored_item.get("title", "") or "",
+        )
         targets = scored_item.get("matched_targets", [])
         entities = scored_item.get("matched_entities", [])
 
@@ -151,6 +147,9 @@ async def process_news_for_radar(
 
         # 3. 投資断定・推測の純化 (filter_fact)
         clean_fact = filter_fact(entity_checked)
+        clean_fact = re.sub(r"<[^>]+>", "", clean_fact or "")
+        # 万一古い経路で属性警告が残っていれば除去
+        clean_fact = re.sub(r"\s*⚠️\s*\[属性紐付け確認要:[^\]]*\]", "", clean_fact)
         scored_item["verified_fact"] = clean_fact
         scored_item["price_reaction"] = check_current_price_reaction(targets, entities)
 

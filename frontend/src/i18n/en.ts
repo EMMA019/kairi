@@ -96,11 +96,32 @@ export const en = {
   "firstRun.keyHintAfter": ". You can change providers later in Settings.",
   "firstRun.save": "Save and start",
   "firstRun.saving": "Saving…",
+  "firstRun.verifying": "Checking key with DeepSeek…",
   "firstRun.errorEmpty": "Paste your DeepSeek API key.",
   "firstRun.errorHttp": "Could not save (HTTP {{status}}).",
   "firstRun.errorReach": "Could not reach the server. Is the desktop window still running?",
+  "firstRun.errorInvalid": "This DeepSeek key was rejected (invalid or revoked). Create a new key at platform.deepseek.com.",
+  "firstRun.errorBalance": "DeepSeek reports insufficient balance / quota. Top up billing, then try again.",
+  "firstRun.errorRateLimit": "DeepSeek rate-limited the check. Wait a moment and try again.",
+  "firstRun.errorNetwork": "Could not reach DeepSeek (network/firewall). Check internet, then retry.",
+  "firstRun.errorUnknown": "Key check failed. Confirm the key and try again. ({{detail}})",
+
+  "settings.version": "Version {{version}}",
+  "settings.exportTitle": "Backup / export",
+  "settings.exportDesc": "Download chat history and settings as a zip. API keys are masked unless you opt in.",
+  "settings.exportBtn": "Download backup",
+  "settings.exporting": "Preparing…",
+  "settings.exportSecrets": "Include API keys in zip (keep offline)",
+  "settings.exportDone": "Backup downloaded.",
+  "settings.exportFail": "Export failed.",
+  "settings.upgradeHint":
+    "When updating from a new zip: copy only app files; keep your backend\\storage folder (chats & keys).",
 
   "auth.title": "Authentication & Security",
+  "error.boundaryTitle": "Something went wrong",
+  "error.boundaryBody": "Copy the diagnostics below if you need help with startup or key setup.",
+  "error.copyDiag": "Copy diagnostics",
+  "error.copied": "Copied",
 } as const;
 
 export type MessageKey = keyof typeof en;

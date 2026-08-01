@@ -144,6 +144,16 @@ def get_deepseek_client() -> openai.AsyncOpenAI:
     return _deepseek_client
 
 
+def reset_llm_clients() -> None:
+    """設定キー変更後にシングルトンを破棄（次回呼び出しで新キーを読む）。"""
+    global _deepseek_client, _openai_client, _gemini_client, _local_client, _anthropic_client
+    _deepseek_client = None
+    _openai_client = None
+    _gemini_client = None
+    _local_client = None
+    _anthropic_client = None
+
+
 def get_gemini_client() -> genai.Client:
     """Gemini クライアント（公式SDK）のシングルトンを取得"""
     global _gemini_client

@@ -350,6 +350,17 @@ class ToolHandler:
                         
                 with open(target_path, "w", encoding="utf-8") as f:
                     f.write(clean_content + "\n")
+
+                try:
+                    from app.core.workspace_state import record_change
+                    record_change(
+                        safe_path,
+                        original_content or "",
+                        clean_content + "\n",
+                        "create" if is_new_file else "write",
+                    )
+                except Exception:
+                    pass
                     
                 lint_error = self.run_linter(target_path, is_new_file, original_content)
                 if lint_error:
@@ -427,6 +438,12 @@ class ToolHandler:
                 with open(target_path, "w", encoding="utf-8") as f:
                     f.write(result)
 
+                try:
+                    from app.core.workspace_state import record_change
+                    record_change(safe_path, original_content or "", result, "edit")
+                except Exception:
+                    pass
+
                 lint_error = self.run_linter(target_path, is_new_file=False, original_content=original_content)
                 if lint_error:
                     logger.error(lint_error)
@@ -477,6 +494,12 @@ class ToolHandler:
                     from app.core.file_edit_fallback import try_replace_with_context
                     success, result = try_replace_with_context(target_path, clean_search, clean_replace)
                     if success:
+                        try:
+                            from app.core.workspace_state import record_change
+                            after = target_path.read_text(encoding="utf-8")
+                            record_change(safe_path, file_content, after, "replace")
+                        except Exception:
+                            pass
                         success_msg = f"ファイル {safe_path} をフォールバック置換しました。"
                         self.tool_results.append(success_msg)
                         logger.info(f"フォールバック置換成功: {target_path}")
@@ -490,6 +513,12 @@ class ToolHandler:
                 new_content = file_content.replace(clean_search, clean_replace, 1)
                 with open(target_path, "w", encoding="utf-8") as f:
                     f.write(new_content)
+
+                try:
+                    from app.core.workspace_state import record_change
+                    record_change(safe_path, file_content, new_content, "replace")
+                except Exception:
+                    pass
                     
                 lint_error = self.run_linter(target_path, is_new_file=False, original_content=file_content)
                 if lint_error:
@@ -577,6 +606,11 @@ class ToolHandler:
                         logger.info(f"🛡️ マルウェア・サプライチェーン防衛: npm install に --ignore-scripts を自動付与: {cmd}")
 
                     events.append({"type": "status", "status": "running_tool"})
+                    try:
+                        from app.core.workspace_state import record_activity
+                        record_activity("run_command", cmd[:200])
+                    except Exception:
+                        pass
                     
                     terminal_block = f"\n\n```bash\n$ {cmd}\n"
                     events.append({"type": "chunk", "content": terminal_block})

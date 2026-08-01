@@ -96,7 +96,9 @@ if "%USE_EMBED%"=="1" (
 )
 
 echo [3/3] Starting (browser will open)...
-echo First run: paste your DeepSeek API key in the wizard.
+echo First run: paste your DeepSeek API key in the wizard (it will be verified).
+echo If port 8000 is busy, another port is chosen automatically.
+echo Data folder: backend\storage  (keep this when updating the zip)
 echo To quit: Ctrl+C in this window.
 echo.
 "%PYEXE%" "kairi_desktop.py"

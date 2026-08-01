@@ -50,21 +50,28 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [usageStats, setUsageStats] = useState<any>(null);
   const [cacheStats, setCacheStats] = useState<any>(null);
   const [advancedModes, setAdvancedModes] = useState(getShowAdvancedModes);
+  const [appVersion, setAppVersion] = useState<string>("");
+  const [exporting, setExporting] = useState(false);
+  const [exportSecrets, setExportSecrets] = useState(false);
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setAdvancedModes(getShowAdvancedModes());
+      setExportMsg(null);
       setLoading(true);
       Promise.all([
         apiFetch("/api/settings").then(res => res.json()),
         apiFetch("/api/usage").then(res => res.json()).catch(() => null),
-        apiFetch("/api/stats").then(res => res.json()).catch(() => null)
-      ]).then(([settingsData, usageData, cacheData]) => {
+        apiFetch("/api/stats").then(res => res.json()).catch(() => null),
+        apiFetch("/api/version").then(res => res.json()).catch(() => null),
+      ]).then(([settingsData, usageData, cacheData, versionData]) => {
         const stored = localStorage.getItem("kairi_notify_on_complete");
         settingsData.notify_on_complete = stored === null ? true : stored !== "false";
         setSettings(settingsData);
         if (usageData) setUsageStats(usageData);
         if (cacheData) setCacheStats(cacheData);
+        if (versionData?.version) setAppVersion(versionData.version);
         setLoading(false);
       }).catch(err => {
         console.error(err);
@@ -72,6 +79,33 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       });
     }
   }, [isOpen]);
+
+  const handleExport = async () => {
+    setExporting(true);
+    setExportMsg(null);
+    try {
+      const q = exportSecrets ? "?include_secrets=true" : "";
+      const res = await apiFetch(`/api/export${q}`);
+      if (!res.ok) {
+        setExportMsg(t("settings.exportFail"));
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const cd = res.headers.get("Content-Disposition") || "";
+      const m = /filename=\"?([^\";]+)\"?/.exec(cd);
+      a.href = url;
+      a.download = m?.[1] || "kairi-backup.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+      setExportMsg(t("settings.exportDone"));
+    } catch {
+      setExportMsg(t("settings.exportFail"));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -727,6 +761,11 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               {/* タブ 4: 🌐 表示・言語 (i18n) */}
               {activeTab === "system" && (
                 <div className="space-y-4 animate-in fade-in duration-200">
+                  {appVersion && (
+                    <div className="text-[11px] text-gray-500 px-1">
+                      {t("settings.version", { version: appVersion })}
+                    </div>
+                  )}
                   <div className="bg-[#161a25] p-4 rounded-xl border border-[#2d3139]">
                     <label className="flex items-start gap-3 cursor-pointer text-sm text-zinc-200">
                       <input
@@ -746,6 +785,31 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         </span>
                       </span>
                     </label>
+                  </div>
+                  <div className="bg-[#161a25] p-4 rounded-xl border border-[#2d3139] space-y-3">
+                    <h3 className="text-sm font-semibold text-gray-200 leading-normal">
+                      {t("settings.exportTitle")}
+                    </h3>
+                    <p className="text-xs text-gray-400 leading-relaxed">{t("settings.exportDesc")}</p>
+                    <p className="text-[11px] text-amber-200/80 leading-relaxed">{t("settings.upgradeHint")}</p>
+                    <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="accent-cyan-500"
+                        checked={exportSecrets}
+                        onChange={(e) => setExportSecrets(e.target.checked)}
+                      />
+                      {t("settings.exportSecrets")}
+                    </label>
+                    <button
+                      type="button"
+                      disabled={exporting}
+                      onClick={() => void handleExport()}
+                      className="px-3 py-2 rounded-lg text-xs font-bold bg-[#21262d] hover:bg-[#30363d] text-white disabled:opacity-50"
+                    >
+                      {exporting ? t("settings.exporting") : t("settings.exportBtn")}
+                    </button>
+                    {exportMsg && <p className="text-[11px] text-gray-400">{exportMsg}</p>}
                   </div>
                   <div className="bg-[#161a25] p-4 rounded-xl border border-[#2d3139]">
                     <h3 className="text-sm font-semibold text-gray-200 mb-3 flex items-center gap-2 leading-normal">

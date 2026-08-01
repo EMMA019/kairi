@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
 Kairi Desktop launcher — binds 127.0.0.1 only; KAIRI_RELEASE=1 hides OpenAPI.
+Port 8000 busy → try 8001..8019 automatically.
 """
 import sys
 import os
+import socket
 import time
 import webbrowser
 import threading
@@ -19,6 +21,26 @@ BACKEND_DIR = ROOT_DIR / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
 
+def _port_free(host: str, port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind((host, port))
+            return True
+        except OSError:
+            return False
+
+
+def pick_port(preferred: int = 8000, attempts: int = 20) -> int:
+    for port in range(preferred, preferred + attempts):
+        if _port_free("127.0.0.1", port):
+            return port
+    raise RuntimeError(
+        f"No free port in range {preferred}-{preferred + attempts - 1}. "
+        "Close the other app or set KAIRI_PORT."
+    )
+
+
 def run_server(port=8000):
     import uvicorn
 
@@ -32,7 +54,27 @@ def run_server(port=8000):
 
 
 def main():
-    port = int(os.environ.get("KAIRI_PORT", "8000"))
+    preferred = int(os.environ.get("KAIRI_PORT", "8000"))
+    # If KAIRI_PORT is set explicitly, still fall back when occupied unless KAIRI_PORT_STRICT=1
+    strict = os.environ.get("KAIRI_PORT_STRICT", "").strip() in ("1", "true", "TRUE", "yes")
+    if strict:
+        if not _port_free("127.0.0.1", preferred):
+            print(f"[ERROR] Port {preferred} is in use (KAIRI_PORT_STRICT=1).")
+            sys.exit(1)
+        port = preferred
+    else:
+        port = pick_port(preferred)
+        if port != preferred:
+            print(f"[info] Port {preferred} busy — using {port} instead.")
+
+    # Remember for support / scripts
+    try:
+        port_file = BACKEND_DIR / "storage" / "runtime_port.txt"
+        port_file.parent.mkdir(parents=True, exist_ok=True)
+        port_file.write_text(str(port), encoding="utf-8")
+    except Exception:
+        pass
+
     print(f"Starting Kairi Desktop on http://127.0.0.1:{port}/ ...")
     print("(First run: paste DeepSeek API key in the browser wizard. Data stays on this PC.)")
 

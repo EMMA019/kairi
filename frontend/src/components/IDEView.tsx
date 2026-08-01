@@ -4,8 +4,14 @@ import { InputArea } from "./InputArea";
 import type { ChatMessage } from "../types";
 import { CodePanel } from "./CodePanel";
 import { apiFetch } from "../utils/api";
-import { FileExplorer } from "./FileExplorer";
+import { WorkspaceSidePanel } from "./WorkspaceSidePanel";
 import type { CodeBlock } from "./CodePanel";
+
+interface ActivityItem {
+  kind: string;
+  detail: string;
+  ts: number;
+}
 
 interface IDEViewProps {
   sessionId: string;
@@ -46,7 +52,27 @@ export const IDEView = memo(({
   const [showExplorer, setShowExplorer] = useState(true);
   const [openedFiles, setOpenedFiles] = useState<CodeBlock[]>([]);
   const [activeTab, setActiveTab] = useState<"chat" | "workspace">("chat");
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
   const isDragging = useRef(false);
+
+  useEffect(() => {
+    let alive = true;
+    const pull = async () => {
+      try {
+        const res = await apiFetch("/api/workspace/activity?limit=8");
+        const data = await res.json();
+        if (alive) setActivity(data.activity || []);
+      } catch {
+        /* ignore */
+      }
+    };
+    pull();
+    const id = setInterval(pull, 2500);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [status, messages.length]);
 
   const handleFileSelect = async (path: string) => {
     try {
@@ -178,22 +204,40 @@ export const IDEView = memo(({
       
       {/* 中央・右側: ワークスペース (モバイルではタブ切替) */}
       <div className={`${activeTab === "workspace" ? "flex" : "hidden"} md:flex flex-1 flex-col md:flex-row h-full min-w-0 relative w-full`}>
-        {/* 中央: フルスクリーンコードパネル */}
-        <div className="flex-1 h-full min-w-0 relative">
-          <CodePanel
-            codeBlocks={[...openedFiles, ...codeBlocks]}
-            isOpen={true}
-            onClose={onCloseIDE}
-          />
+        {/* 中央: アクティビティ + コードパネル */}
+        <div className="flex-1 h-full min-w-0 relative flex flex-col">
+          {activity.length > 0 && (
+            <div className="shrink-0 flex items-center gap-2 px-3 py-1 border-b border-[#3c4043] bg-[#0b0f19] overflow-x-auto text-[11px] text-gray-400">
+              <span className="text-gray-600 shrink-0">Activity</span>
+              {[...activity].reverse().slice(0, 6).map((a, i) => (
+                <span
+                  key={`${a.ts}-${i}`}
+                  className="shrink-0 px-1.5 py-0.5 rounded bg-[#161b22] text-gray-300 max-w-[12rem] truncate"
+                  title={`${a.kind}: ${a.detail}`}
+                >
+                  <span className="text-sky-400">{a.kind}</span> {a.detail}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex-1 min-h-0 relative">
+            <CodePanel
+              codeBlocks={[...openedFiles, ...codeBlocks]}
+              isOpen={true}
+              onClose={onCloseIDE}
+            />
+          </div>
         </div>
 
-        {/* 右側: ファイルエクスプローラー */}
+        {/* 右側: Workspace パネル（Files / Spec / Changes） */}
         {showExplorer && (
           <div className="hidden md:block h-full shrink-0">
-            <FileExplorer
+            <WorkspaceSidePanel
+              sessionId={sessionId}
               onFileSelect={handleFileSelect}
               onToggle={() => setShowExplorer(false)}
               refreshTrigger={`${messages.length}-${codeBlocks.length}-${status}`}
+              lastAssistantContent={[...messages].reverse().find((m) => m.role === "assistant")?.content}
             />
           </div>
         )}

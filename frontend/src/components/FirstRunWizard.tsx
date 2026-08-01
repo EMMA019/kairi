@@ -14,7 +14,7 @@ const LLM_SET_FLAGS = [
 ] as const;
 
 /**
- * First run: ask only for a DeepSeek key, then go straight to chat.
+ * First run: ask only for a DeepSeek key, verify with ping, then go to chat.
  */
 export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
   const { t } = useLocale();
@@ -50,6 +50,22 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
 
   if (checking || !visible) return null;
 
+  const mapPingError = (code: string, detail?: string) => {
+    switch (code) {
+      case "invalid_key":
+      case "empty":
+        return t("firstRun.errorInvalid");
+      case "balance":
+        return t("firstRun.errorBalance");
+      case "rate_limit":
+        return t("firstRun.errorRateLimit");
+      case "network":
+        return t("firstRun.errorNetwork");
+      default:
+        return t("firstRun.errorUnknown", { detail: (detail || code || "").slice(0, 120) });
+    }
+  };
+
   const handleSave = async () => {
     const trimmed = key.trim();
     if (!trimmed) {
@@ -59,6 +75,21 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
     setSaving(true);
     setError("");
     try {
+      const pingRes = await apiFetch("/api/settings/ping-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: "deepseek", api_key: trimmed }),
+      });
+      if (!pingRes.ok) {
+        setError(t("firstRun.errorHttp", { status: pingRes.status }));
+        return;
+      }
+      const ping = await pingRes.json();
+      if (!ping.ok) {
+        setError(mapPingError(ping.error || "unknown", ping.detail));
+        return;
+      }
+
       const res = await apiFetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -134,7 +165,7 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
             onClick={() => void handleSave()}
             className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-sm font-bold disabled:opacity-50 transition-all"
           >
-            {saving ? t("firstRun.saving") : t("firstRun.save")}
+            {saving ? t("firstRun.verifying") : t("firstRun.save")}
           </button>
         </div>
       </div>

@@ -48,6 +48,8 @@ Not investment, medical, or legal advice. Conversation content is sent to the LL
 If the zip/build includes `runtime\python`, no system Python install is required.  
 Builders: `scripts/prepare_embedded_python.ps1` then `scripts/build_booth_zip.ps1`.
 
+**Updating a zip install:** keep `backend/storage` (chats + settings). See [`scripts/UPGRADE.txt`](scripts/UPGRADE.txt) and `scripts/backup_storage.bat`. Settings → Language → Backup downloads a zip without wiping the install.
+
 ### Option B — Dev servers
 
 **Backend**

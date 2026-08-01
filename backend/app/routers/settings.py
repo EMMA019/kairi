@@ -293,10 +293,33 @@ async def get_settings():
 async def update_settings(req: SettingsUpdate):
     """設定を更新（マスク値の秘密フィールドは無視）"""
     app_settings.update(req.model_dump(exclude_unset=True))
+    try:
+        from app.core.llm_client import reset_llm_clients
+        reset_llm_clients()
+    except Exception:
+        pass
     return {
         "status": "ok",
         **_public_settings(app_settings.get()),
     }
+
+
+class PingKeyRequest(BaseModel):
+    provider: str = "deepseek"
+    api_key: Optional[str] = None
+
+
+@router.post("/settings/ping-key")
+async def ping_key(req: PingKeyRequest):
+    """保存前に BYOK キーが生きているか短く検証する。"""
+    provider = (req.provider or "deepseek").strip().lower()
+    key = (req.api_key or "").strip()
+    if not key or _is_masked_secret(key):
+        key = str(app_settings.get().get(f"{provider}_api_key") or "").strip()
+    if provider == "deepseek":
+        from app.core.key_ping import ping_deepseek_key
+        return await ping_deepseek_key(key)
+    return {"ok": False, "error": "unsupported", "detail": f"Provider not supported: {provider}"}
 
 @router.get("/usage")
 async def get_usage():

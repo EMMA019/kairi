@@ -49,11 +49,34 @@ LLM / 検索は購入者ご自身の API キー（BYOK）。オフライン完�
 - 医療・投資・法律の専門助言の代替にはなりません
 - DRM / ライセンスサーバーはありません
 
+【アップデート（重要：データを消さない）】
+新しい zip で更新するとき、会話・設定は backend\storage にあります。
+
+推奨手順:
+1. いまの Kairi を終了（黒い窓を閉じる / Ctrl+C）
+2. いまのフォルダの backend\storage を別名で退避（例: storage_backup）
+3. 新しい zip を別フォルダに解凍する（上書きでも可）
+4. 退避した storage を新しい側の backend\storage に戻す
+   ※ settings.json / conversations.db を含むフォルダごと戻す
+5. start_kairi.bat で起動
+
+やってはいけないこと:
+- storage ごと新しい zip で上書きして消す
+- 「全部入れ替え」で古い storage を捨てる
+
+詳細メモ: scripts\UPGRADE.txt
+
+【バックアップ】
+設定 → 言語 タブ →「バックアップをダウンロード」
+既定では API キーはマスクされます（含める場合はチェックを ON）。
+
 【困ったとき（サポート範囲）】
 サポートは「起動」と「キー設定」までです。
 - Python / runtime が見つからない → 同梱 zip か PATH を確認
 - 画面が白い → frontend\dist\index.html があるか確認
-- モデルが動かない → DeepSeek キーを確認
+- モデルが動かない → DeepSeek キーを確認（初回ウィザードで自動検証）
+- ポート 8000 が使用中 → 自動で 8001 以降に切り替えます
+- ログ: backend\storage\logs\kairi.log
 - API 各社の障害・課金は各社へ
 
 ========================================

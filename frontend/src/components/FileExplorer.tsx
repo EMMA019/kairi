@@ -19,6 +19,7 @@ interface FileExplorerProps {
   onFileSelect: (path: string) => void;
   onToggle: () => void; // 開閉用の関数
   refreshTrigger?: any; // 自動更新用のトリガー
+  embedded?: boolean; // 親パネル内に埋め込むときヘッダーを隠す
 }
 
 const TreeNode = ({
@@ -91,7 +92,7 @@ const TreeNode = ({
   );
 };
 
-export function FileExplorer({ onFileSelect, onToggle, refreshTrigger }: FileExplorerProps) {
+export function FileExplorer({ onFileSelect, onToggle, refreshTrigger, embedded }: FileExplorerProps) {
   const [tree, setTree] = useState<FileNode[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -126,19 +127,45 @@ export function FileExplorer({ onFileSelect, onToggle, refreshTrigger }: FileExp
   }, []);
 
   return (
-    <div className="w-64 h-full flex flex-col bg-[#0d1117] border-l border-[#3c4043] shrink-0">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[#3c4043]">
-        {/* Workspaceの横に開閉ボタンを配置 */}
-        <div className="flex items-center gap-2">
+    <div
+      className={`${
+        embedded ? "w-full border-l-0" : "w-64 border-l"
+      } h-full flex flex-col bg-[#0d1117] border-[#3c4043] shrink-0`}
+    >
+      {!embedded && (
+        <div className="flex items-center justify-between px-3 py-2 border-b border-[#3c4043]">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onToggle}
+              className="p-1 rounded hover:bg-[#2a2d2e] text-blue-400 transition-colors"
+              title="エクスプローラーを閉じる"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+            </button>
+            <span className="text-[#cccccc] text-sm font-medium">Workspace</span>
+          </div>
+
           <button
-            onClick={onToggle}
-            className="p-1 rounded hover:bg-[#2a2d2e] text-blue-400 transition-colors"
-            title="エクスプローラーを閉じる"
+            onClick={() => fetchTree(false)}
+            className="text-gray-400 hover:text-white p-1 rounded hover:bg-[#2a2d2e] transition-colors"
+            title="Refresh"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
+              width="14"
+              height="14"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -146,33 +173,12 @@ export function FileExplorer({ onFileSelect, onToggle, refreshTrigger }: FileExp
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
             </svg>
           </button>
-          <span className="text-[#cccccc] text-sm font-medium">Workspace</span>
         </div>
-
-        <button
-          onClick={() => fetchTree(false)}
-          className="text-gray-400 hover:text-white p-1 rounded hover:bg-[#2a2d2e] transition-colors"
-          title="Refresh"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-            <path d="M3 3v5h5" />
-          </svg>
-        </button>
-      </div>
+      )}
       
       <div className="flex-1 overflow-y-auto py-2">
         {loading ? (

@@ -18,7 +18,9 @@ from app.core.news.scheduler import setup_scheduler, shutdown_scheduler
 from app.core.cache_manager import init_cache_db
 from app.core.monitor.scheduler import start_radar_scheduler, stop_radar_scheduler
 from app.core.briefing.scheduler import start_briefing_scheduler, stop_briefing_scheduler
-from app.routers import chat, history, memory, logs, mood, upload, settings, workspace, project, tools, image, integrity, news_health
+from app.core.app_version import APP_VERSION
+from app.routers import chat, history, memory, logs, mood, upload, settings, workspace, project, tools, image, integrity, news_health, export
+from app.utils.logger import ensure_file_logging
 
 
 def _env_truthy(name: str) -> bool:
@@ -37,6 +39,7 @@ def _schedulers_enabled() -> bool:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """アプリケーションのライフサイクル管理"""
+    ensure_file_logging()
     # 起動時: DB 初期化
     await init_db()
     await init_news_db()
@@ -64,7 +67,7 @@ _is_release = _env_truthy("KAIRI_RELEASE")
 app = FastAPI(
     title="Kairi Chat AI",
     description="検索つき市況／相棒チャット（BYOK）",
-    version="2.1.1",
+    version=APP_VERSION,
     lifespan=lifespan,
     # 配布ビルドでは OpenAPI UI を閉じる
     docs_url=None if _is_release else "/docs",
@@ -125,13 +128,24 @@ app.include_router(tools.router, prefix="/api", tags=["tools"])
 app.include_router(image.router, prefix="/api", tags=["image"])
 app.include_router(integrity.router, prefix="/api", tags=["integrity"])
 app.include_router(news_health.router, prefix="/api", tags=["news"])
+app.include_router(export.router, prefix="/api", tags=["export"])
 
 
 @app.get("/api/ping")
 @app.get("/ping")
 async def ping():
-    """Renderスリープ防止および死活監視用の軽量ヘルスチェックエンドポイント"""
-    return {"status": "ok", "service": "kairi-chat-backend", "alive": True}
+    """死活監視 + バージョン表示用"""
+    return {
+        "status": "ok",
+        "service": "kairi-chat-backend",
+        "alive": True,
+        "version": APP_VERSION,
+    }
+
+
+@app.get("/api/version")
+async def version():
+    return {"app": "Kairi", "version": APP_VERSION}
 
 
 from fastapi.staticfiles import StaticFiles
@@ -154,7 +168,7 @@ else:
     async def root():
         return {
             "app": "Kairi Chat AI",
-            "version": "2.1.0",
+            "version": APP_VERSION,
             "status": "running",
             "message": "Frontend build not found. Run `npm run build` in frontend directory.",
         }

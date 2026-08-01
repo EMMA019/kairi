@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { apiFetch, getStoredApiToken, setStoredApiToken } from "../utils/api";
+import { useLocale } from "../i18n";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -7,14 +8,13 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  const [licenseKey, setLicenseKey] = useState("KAIRI-PRO-ESTABLISHED");
+  const { t } = useLocale();
   const [appPin, setAppPin] = useState("");
   const [inputPin, setInputPin] = useState("");
   const [apiToken, setApiToken] = useState("");
   const [inputApiToken, setInputApiToken] = useState("");
-  const [isLicensed, setIsLicensed] = useState(true);
   const [statusMsg, setStatusMsg] = useState("");
-  const [activeTab, setActiveTab] = useState<"license" | "pin" | "token" | "audit">("token");
+  const [activeTab, setActiveTab] = useState<"byok" | "pin" | "token" | "audit">("byok");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -25,12 +25,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       apiFetch("/api/settings")
         .then((res) => res.json())
         .then((data) => {
-          if (data.license_key !== undefined) setLicenseKey(data.license_key);
-          if (data.is_licensed !== undefined) setIsLicensed(data.is_licensed);
-          if (data.app_pin !== undefined) setAppPin(data.app_pin);
-          if (data.api_token) {
+          if (data.app_pin_set) setAppPin("********");
+          else if (data.app_pin !== undefined) setAppPin(data.app_pin || "");
+          if (data.api_token_set) {
+            if (!stored) setApiToken("********");
+          } else if (data.api_token) {
             setApiToken(data.api_token);
-            // サーバー側トークンがある場合は localStorage も同期（自締め出し防止）
             if (!stored) {
               setStoredApiToken(data.api_token);
               setInputApiToken(data.api_token);
@@ -43,37 +43,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   if (!isOpen) return null;
 
-  const handleActivate = async () => {
-    setSaving(true);
-    setStatusMsg("");
-    try {
-      if (!licenseKey || licenseKey.trim().length < 6) {
-        setStatusMsg("有効な6文字以上のプロダクトキーを入力してください。");
-        setSaving(false);
-        return;
-      }
-      await apiFetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          license_key: licenseKey,
-          is_licensed: true,
-        }),
-      });
-      setIsLicensed(true);
-      setStatusMsg("正規買い切りライセンスが認証・登録されました。");
-    } catch (e) {
-      setStatusMsg("認証エラーが発生しました。");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleSavePin = async () => {
     setSaving(true);
     setStatusMsg("");
     try {
-      // 鶏と卵回避: POST 前に localStorage へ保存し、このリクエスト自体に Token を付ける
       setStoredApiToken(inputPin);
       setInputApiToken(inputPin);
       setApiToken(inputPin);
@@ -85,21 +58,21 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         }),
       });
       if (res.status === 401) {
-        setStatusMsg("PINをローカル保存しましたが、サーバー認証に失敗しました。値の一致を確認してください。");
+        setStatusMsg("PIN saved locally, but server auth failed. Check that values match.");
         return;
       }
       if (!res.ok) {
-        setStatusMsg(`PIN設定保存エラーが発生しました。（HTTP ${res.status}）`);
+        setStatusMsg(`Could not save PIN (HTTP ${res.status}).`);
         return;
       }
       setAppPin(inputPin);
       setStatusMsg(
         inputPin
-          ? "PINセキュリティロックを設定し、クライアント認証も同期しました。"
-          : "PINセキュリティロックを解除しました。"
+          ? "PIN lock enabled and synced for client auth."
+          : "PIN lock cleared."
       );
-    } catch (e) {
-      setStatusMsg("PINをローカル保存しましたが、サーバーへ届きませんでした。接続を確認してください。");
+    } catch {
+      setStatusMsg("PIN saved locally, but the server was unreachable.");
     } finally {
       setSaving(false);
     }
@@ -110,7 +83,6 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setStatusMsg("");
     try {
       const token = inputApiToken.trim();
-      // 鶏と卵回避: POST 前に localStorage へ保存（この POST にも X-API-Token が付く）
       setStoredApiToken(token);
       setApiToken(token);
       const res = await apiFetch("/api/settings", {
@@ -122,21 +94,21 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       });
       if (res.status === 401) {
         setStatusMsg(
-          "Tokenをローカル保存しましたが、サーバー認証に失敗しました。RenderのKAIRI_API_TOKENと同じ値か確認してください。"
+          "Token saved locally, but server auth failed. Use the same value as the server token."
         );
         return;
       }
       if (!res.ok) {
-        setStatusMsg(`API Token 保存エラーが発生しました。（HTTP ${res.status}）`);
+        setStatusMsg(`Could not save API token (HTTP ${res.status}).`);
         return;
       }
       setStatusMsg(
         token
-          ? "API Token を保存しました。以降の API 呼び出しに自動付与されます。"
-          : "API Token をクリアしました（開発モード）。"
+          ? "API token saved. It will be sent with API requests."
+          : "API token cleared."
       );
-    } catch (e) {
-      setStatusMsg("Tokenをローカル保存しましたが、サーバーへ届きませんでした。接続を確認してください。");
+    } catch {
+      setStatusMsg("Token saved locally, but the server was unreachable.");
     } finally {
       setSaving(false);
     }
@@ -152,15 +124,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             </div>
             <div>
               <h2 className="text-base font-bold text-white leading-normal flex items-center gap-2">
-                Kairi セキュリティ＆製品認証センター
-                {isLicensed && (
-                  <span className="text-[10px] bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
-                    PRO ACTIVATED
-                  </span>
-                )}
+                {t("auth.title")}
+                <span className="text-[10px] bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
+                  BYOK
+                </span>
               </h2>
               <p className="text-xs text-gray-400 leading-relaxed">
-                API Token / PIN / ライセンス管理
+                Your API keys · optional PIN · optional token
               </p>
             </div>
           </div>
@@ -174,10 +144,10 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
         <div className="flex border-b border-[#2d3139] bg-[#0b0e14] px-6 gap-2 pt-2 overflow-x-auto">
           {[
+            { id: "byok", label: "API keys (required)" },
             { id: "token", label: "API Token" },
-            { id: "pin", label: "PINロック" },
-            { id: "license", label: "ライセンス" },
-            { id: "audit", label: "チェックリスト" },
+            { id: "pin", label: "PIN lock" },
+            { id: "audit", label: "Checklist" },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
             return (
@@ -206,28 +176,60 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             </div>
           )}
 
+          {activeTab === "byok" && (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              <div className="bg-[#161a25] p-5 rounded-xl border border-[#2d3139] space-y-3">
+                <h3 className="text-sm font-bold text-white leading-normal">
+                  BYOK (Bring Your Own Key)
+                </h3>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  No serial unlock. Chat needs your own LLM API key. Provider usage fees are
+                  billed by that provider, not by this app.
+                </p>
+                <ol className="list-decimal list-inside space-y-2 text-xs text-gray-300 leading-relaxed">
+                  <li>
+                    Recommended: create a key at{" "}
+                    <a
+                      href="https://platform.deepseek.com/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-400 underline"
+                    >
+                      DeepSeek
+                    </a>
+                  </li>
+                  <li>Use the first-run wizard, or Settings → API Keys, to save DeepSeek</li>
+                  <li>Optional: Brave Search key improves web search quality</li>
+                </ol>
+                <p className="text-[11px] text-gray-500 leading-relaxed">
+                  Messages go to the LLM/search providers you configure. Data is stored locally
+                  in SQLite by default.
+                </p>
+              </div>
+            </div>
+          )}
+
           {activeTab === "token" && (
             <div className="space-y-4 animate-in fade-in duration-200">
               <div className="bg-[#161a25] p-5 rounded-xl border border-[#2d3139]">
                 <h3 className="text-sm font-bold text-white mb-2 leading-normal">
-                  API Token（本番・LAN公開時）
+                  API Token (LAN exposure, etc.)
                 </h3>
                 <p className="text-xs text-gray-400 leading-relaxed mb-4">
-                  バックエンドの <code className="text-blue-300">api_token</code> / 環境変数{" "}
-                  <code className="text-blue-300">KAIRI_API_TOKEN</code> と同じ値を入力してください。
-                  ブラウザの localStorage に保存され、全 API 呼び出しに{" "}
-                  <code className="text-blue-300">X-API-Token</code> として付与されます。
+                  Leave empty for normal desktop use (127.0.0.1 only). If set, use the same value
+                  as backend <code className="text-blue-300">api_token</code> /{" "}
+                  <code className="text-blue-300">KAIRI_API_TOKEN</code>.
                 </p>
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs text-gray-300 font-semibold mb-1.5 leading-normal">
-                      API Token {apiToken ? "(設定済み)" : "(未設定=開発モード)"}
+                      API Token {apiToken ? "(set)" : "(not set)"}
                     </label>
                     <input
                       type="password"
                       value={inputApiToken}
                       onChange={(e) => setInputApiToken(e.target.value)}
-                      placeholder="サーバー側と同じトークン"
+                      placeholder="Same token as the server"
                       className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-xl px-4 py-3 text-xs text-gray-200 font-mono focus:border-blue-500 focus:outline-none leading-normal"
                     />
                   </div>
@@ -236,41 +238,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     disabled={saving}
                     className="w-full mt-2 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50"
                   >
-                    {saving ? "保存中..." : "API Token を保存"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "license" && (
-            <div className="space-y-4 animate-in fade-in duration-200">
-              <div className="bg-[#161a25] p-5 rounded-xl border border-[#2d3139]">
-                <h3 className="text-sm font-bold text-white mb-2 leading-normal">
-                  プロダクトライセンス認証
-                </h3>
-                <p className="text-xs text-gray-400 leading-relaxed mb-4">
-                  ご購入時のシリアルキーを入力してください。ローカルに永続保存されます。
-                </p>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs text-gray-300 font-semibold mb-1.5 leading-normal">
-                      プロダクトキー
-                    </label>
-                    <input
-                      type="text"
-                      value={licenseKey}
-                      onChange={(e) => setLicenseKey(e.target.value)}
-                      placeholder="例: KAIRI-PRO-2026-XXXX"
-                      className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-xl px-4 py-3 text-xs text-blue-300 font-mono focus:border-blue-500 focus:outline-none tracking-wider uppercase leading-normal"
-                    />
-                  </div>
-                  <button
-                    onClick={handleActivate}
-                    disabled={saving}
-                    className="w-full mt-2 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50"
-                  >
-                    {saving ? "認証確認中..." : "プロダクトキーをアクティベート"}
+                    {saving ? "Saving…" : "Save API Token"}
                   </button>
                 </div>
               </div>
@@ -281,21 +249,22 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             <div className="space-y-4 animate-in fade-in duration-200">
               <div className="bg-[#161a25] p-5 rounded-xl border border-[#2d3139]">
                 <h3 className="text-sm font-bold text-white mb-2 leading-normal">
-                  アプリケーション起動ロック PIN
+                  App unlock PIN
                 </h3>
                 <p className="text-xs text-gray-400 leading-relaxed mb-4">
-                  PIN を設定するとバックエンド認証にも使われます。クライアント側の API Token にも自動同期します（未同期だと全 API が 401 になります）。
+                  When set, the PIN is also used for backend auth and synced to the client API
+                  token.
                 </p>
                 <div className="space-y-3">
                   <div>
                     <label className="block text-xs text-gray-300 font-semibold mb-1.5 leading-normal">
-                      新しい PIN コード（未入力で解除）
+                      New PIN (leave empty to clear)
                     </label>
                     <input
                       type="password"
                       value={inputPin}
                       onChange={(e) => setInputPin(e.target.value)}
-                      placeholder={appPin ? "現在のPIN設定済み (上書き入力)" : "例: 2026"}
+                      placeholder={appPin ? "PIN is set (type to replace)" : "e.g. 2026"}
                       className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-xl px-4 py-3 text-xs text-gray-200 font-mono focus:border-blue-500 focus:outline-none leading-normal"
                     />
                   </div>
@@ -304,7 +273,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     disabled={saving}
                     className="w-full mt-2 py-3 bg-[#1e2330] hover:bg-[#282f40] text-gray-200 text-xs font-bold rounded-xl border border-[#3e4452] transition-all disabled:opacity-50"
                   >
-                    {saving ? "設定保存中..." : "PIN 設定を適用する"}
+                    {saving ? "Saving…" : "Apply PIN"}
                   </button>
                 </div>
               </div>
@@ -315,23 +284,17 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             <div className="space-y-4 animate-in fade-in duration-200">
               <div className="bg-[#161a25] p-5 rounded-xl border border-[#2d3139] space-y-3">
                 <h3 className="text-sm font-bold text-white mb-1 leading-normal">
-                  セキュリティ・チェックリスト（静的）
+                  Security checklist
                 </h3>
-                <p className="text-xs text-gray-400 leading-relaxed mb-3">
-                  実行時スキャンではありません。本番公開前の確認項目です。
-                </p>
                 <ul className="space-y-2 text-xs text-gray-300">
                   <li className="p-3 bg-[#0b0e14] rounded-xl border border-[#2d3139]">
-                    API Token（または PIN）を本番で設定し、この画面の Token タブにも同じ値を保存したか
+                    DeepSeek (or another) API key saved in Settings
                   </li>
                   <li className="p-3 bg-[#0b0e14] rounded-xl border border-[#2d3139]">
-                    settings.json に生の API キーをコミットしていないか
+                    Do not share settings.json or API keys
                   </li>
                   <li className="p-3 bg-[#0b0e14] rounded-xl border border-[#2d3139]">
-                    CORS / ALLOW_OPEN_CORS を本番で開きすぎていないか
-                  </li>
-                  <li className="p-3 bg-[#0b0e14] rounded-xl border border-[#2d3139]">
-                    image_engine が gallery（ローカルストック）になっているか
+                    Set API Token / PIN only if you expose the app on a LAN
                   </li>
                 </ul>
               </div>
@@ -344,7 +307,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             onClick={onClose}
             className="px-5 py-2.5 rounded-xl bg-[#282f40] hover:bg-[#343c52] text-gray-200 text-xs font-semibold transition-colors"
           >
-            完了して閉じる
+            Done
           </button>
         </div>
       </div>

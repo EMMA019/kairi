@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "../utils/api";
 import { CHAR_BG_PRESETS, isCharBgUrl } from "../utils/charBackground";
+import { getShowAdvancedModes, setShowAdvancedModes } from "../utils/advancedModes";
+import { useLocale, setLocaleLocal } from "../i18n";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -40,15 +42,18 @@ interface Settings {
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
+  const { t } = useLocale();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"models" | "persona" | "byok" | "system" | "stats">("models");
   const [usageStats, setUsageStats] = useState<any>(null);
   const [cacheStats, setCacheStats] = useState<any>(null);
+  const [advancedModes, setAdvancedModes] = useState(getShowAdvancedModes);
 
   useEffect(() => {
     if (isOpen) {
+      setAdvancedModes(getShowAdvancedModes());
       setLoading(true);
       Promise.all([
         apiFetch("/api/settings").then(res => res.json()),
@@ -113,6 +118,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       } catch {
         /* ignore */
       }
+      setLocaleLocal(settings.locale || "en");
       onClose();
     } catch (e) {
       console.error(e);
@@ -145,7 +151,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         </h3>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-gray-400 mb-1 leading-normal">Provider</label>
+            <label className="block text-xs text-gray-400 mb-1 leading-normal">{t("settings.provider")}</label>
             <select
               value={provider}
               onChange={(e) => {
@@ -165,7 +171,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1 leading-normal">Model</label>
+            <label className="block text-xs text-gray-400 mb-1 leading-normal">{t("settings.model")}</label>
             {provider === "local" ? (
               <input
                 type="text"
@@ -198,9 +204,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <div className="flex justify-between items-center px-6 py-4 border-b border-[#2d3139] bg-[#121621]">
           <div>
             <h2 className="text-base font-bold text-white flex items-center gap-2.5 leading-normal">
-              <span>⚙️</span> Kairi Integrated Settings Center
+              <span>⚙️</span> {t("settings.title")}
             </h2>
-            <p className="text-xs text-gray-400 mt-0.5 leading-normal">Manage persona, BYOK API keys, and models</p>
+            <p className="text-xs text-gray-400 mt-0.5 leading-normal">{t("settings.subtitle")}</p>
           </div>
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-[#1a1f2e] transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -210,22 +216,22 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         {/* タブヘッダー */}
         <div className="flex border-b border-[#2d3139] bg-[#0e121b] px-6 pt-2 gap-1 overflow-x-auto">
           {[
-            { id: "models", label: "🤖 Models" },
-            { id: "persona", label: "🎭 Persona & Voice" },
-            { id: "byok", label: "🔑 BYOK API Keys" },
-            { id: "system", label: "🌐 Language (i18n)" },
-            { id: "stats", label: "📈 System Stats" },
-          ].map((t) => (
+            { id: "models", label: `🤖 ${t("settings.tab.models")}` },
+            { id: "persona", label: `🎭 ${t("settings.tab.persona")}` },
+            { id: "byok", label: `🔑 ${t("settings.tab.byok")}` },
+            { id: "system", label: `🌐 ${t("settings.tab.system")}` },
+            { id: "stats", label: `📈 ${t("settings.tab.stats")}` },
+          ].map((tab) => (
             <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id as any)}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
               className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 leading-normal whitespace-nowrap ${
-                activeTab === t.id
+                activeTab === tab.id
                   ? "border-blue-500 text-blue-400 bg-blue-500/10 rounded-t-lg"
                   : "border-transparent text-gray-400 hover:text-gray-200"
               }`}
             >
-              {t.label}
+              {tab.label}
             </button>
           ))}
         </div>
@@ -516,20 +522,31 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                     <div className="space-y-3">
                       {[
-                        { label: "Google Gemini API Key", key: "gemini_api_key", placeholder: "AIza..." },
-                        { label: "Anthropic API Key", key: "anthropic_api_key", placeholder: "sk-ant-..." },
+                        { label: "DeepSeek API Key（推奨・必須）", key: "deepseek_api_key", placeholder: "sk-..." },
                         { label: "OpenAI API Key", key: "openai_api_key", placeholder: "sk-proj-..." },
-                        { label: "DeepSeek API Key", key: "deepseek_api_key", placeholder: "sk-..." },
+                        { label: "Anthropic API Key", key: "anthropic_api_key", placeholder: "sk-ant-..." },
+                        { label: "Google Gemini API Key", key: "gemini_api_key", placeholder: "AIza..." },
                       ].map((item) => (
                         <div key={item.key}>
                           <label className="block text-xs text-gray-300 font-semibold mb-1 leading-normal">
                             {item.label}
+                            {(settings as any)[`${item.key}_set`] ? (
+                              <span className="ml-2 text-emerald-400 font-normal">設定済み</span>
+                            ) : null}
                           </label>
                           <input
                             type="password"
-                            value={(settings as any)[item.key] || ""}
+                            value={
+                              (settings as any)[item.key] === "********"
+                                ? ""
+                                : (settings as any)[item.key] || ""
+                            }
                             onChange={(e) => setSettings({ ...settings, [item.key]: e.target.value })}
-                            placeholder={item.placeholder}
+                            placeholder={
+                              (settings as any)[`${item.key}_set`]
+                                ? "変更する場合のみ新しいキーを入力"
+                                : item.placeholder
+                            }
                             className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3.5 py-2 text-xs text-gray-200 font-mono focus:border-blue-500 focus:outline-none leading-normal"
                           />
                         </div>
@@ -555,12 +572,23 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         <div key={item.key}>
                           <label className="block text-xs text-gray-300 font-semibold mb-1 leading-normal">
                             {item.label}
+                            {(settings as any)[`${item.key}_set`] ? (
+                              <span className="ml-2 text-emerald-400 font-normal">設定済み</span>
+                            ) : null}
                           </label>
                           <input
                             type="password"
-                            value={(settings as any)[item.key] || ""}
+                            value={
+                              (settings as any)[item.key] === "********"
+                                ? ""
+                                : (settings as any)[item.key] || ""
+                            }
                             onChange={(e) => setSettings({ ...settings, [item.key]: e.target.value })}
-                            placeholder={item.placeholder}
+                            placeholder={
+                              (settings as any)[`${item.key}_set`]
+                                ? "変更する場合のみ新しいキーを入力"
+                                : item.placeholder
+                            }
                             className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3.5 py-2 text-xs text-gray-200 font-mono focus:border-blue-500 focus:outline-none leading-normal"
                           />
                         </div>
@@ -700,13 +728,33 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               {activeTab === "system" && (
                 <div className="space-y-4 animate-in fade-in duration-200">
                   <div className="bg-[#161a25] p-4 rounded-xl border border-[#2d3139]">
+                    <label className="flex items-start gap-3 cursor-pointer text-sm text-zinc-200">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 accent-cyan-500"
+                        checked={advancedModes}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          setAdvancedModes(on);
+                          setShowAdvancedModes(on);
+                        }}
+                      />
+                      <span>
+                        <span className="font-semibold">{t("settings.advancedModes")}</span>
+                        <span className="block text-xs text-zinc-500 mt-1 leading-relaxed">
+                          {t("settings.advancedModesDesc")}
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                  <div className="bg-[#161a25] p-4 rounded-xl border border-[#2d3139]">
                     <h3 className="text-sm font-semibold text-gray-200 mb-3 flex items-center gap-2 leading-normal">
-                      🌐 Interface Locale
+                      🌐 {t("settings.localeTitle")}
                     </h3>
                     <div className="grid grid-cols-2 gap-3">
                       {[
-                        { id: "en", name: "🇺🇸 English", desc: "Main release (Recommended)" },
-                        { id: "ja", name: "🇯🇵 日本語 (Japanese)", desc: "Japanese locale" },
+                        { id: "en", name: `🇺🇸 ${t("settings.localeEn")}`, desc: t("settings.localeEnDesc") },
+                        { id: "ja", name: `🇯🇵 ${t("settings.localeJa")}`, desc: t("settings.localeJaDesc") },
                       ].map((loc) => {
                         const isSelected = (settings.locale || "en") === loc.id;
                         return (
@@ -731,28 +779,28 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               )}
             </>
           ) : (
-            <div className="text-center py-12 text-red-400 text-xs">Failed to load settings</div>
+            <div className="text-center py-12 text-red-400 text-xs">{t("settings.loadFailed")}</div>
           )}
         </div>
         
         {/* フッター */}
         <div className="px-6 py-4 border-t border-[#2d3139] flex justify-between items-center bg-[#121621]">
           <span className="text-[11px] text-gray-500">
-            ✓ Stored securely on local machine
+            ✓ {t("settings.storedLocal")}
           </span>
           <div className="flex gap-2.5">
             <button 
               onClick={onClose}
               className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-300 hover:text-white hover:bg-[#1a1f2e] transition-colors leading-normal"
             >
-              Cancel
+              {t("settings.cancel")}
             </button>
             <button 
               onClick={handleSave}
               disabled={saving || !settings}
               className="px-5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-600/25 transition-all disabled:opacity-50 active:scale-95 leading-normal"
             >
-              {saving ? "Saving..." : "Save Settings"}
+              {saving ? t("settings.saving") : t("settings.save")}
             </button>
           </div>
         </div>

@@ -68,8 +68,9 @@ def _previous_weekday(d: date) -> date:
 
 def last_us_equity_session_date(now_jst: datetime | None = None) -> date:
     """
-    直近の米国株レギュラーセッション確定日（ET）。
+    直近の米国株レギュラーセッション確定日（settled / 引け済み）。
     平日 16:00 ET 未満 → 前営業日、以降 → 当日（土日は金曜へ）。
+    場中の「今日の市況」には使わず current_us_trading_date を使うこと。
     """
     now = now_jst or datetime.now(JST)
     et = now.astimezone(ET)
@@ -81,23 +82,295 @@ def last_us_equity_session_date(now_jst: datetime | None = None) -> date:
     return d
 
 
+def settled_us_session_date(now_jst: datetime | None = None) -> date:
+    """last_us_equity_session_date の別名（意図を明示）。"""
+    return last_us_equity_session_date(now_jst)
+
+
+def current_us_trading_date(now_jst: datetime | None = None) -> date:
+    """
+    進行中（または当日）の米国株取引カレンダー日（ET）。
+    週末・祝日は直近の前営業日へ。
+    """
+    now = now_jst or datetime.now(JST)
+    et = now.astimezone(ET)
+    d = et.date()
+    if d.weekday() >= 5:
+        return _previous_weekday(d)
+    try:
+        from app.core.market_calendar import get_us_holidays
+
+        holidays = {h["date"] for h in get_us_holidays(d.year)}
+        while d.weekday() >= 5 or d in holidays:
+            d = _previous_weekday(d)
+            # 年またぎ祝日セットを更新
+            holidays |= {h["date"] for h in get_us_holidays(d.year)}
+    except Exception:
+        pass
+    return d
+
+
 def resolve_market_anchor_date(
     user_input: str,
     *,
     market: Literal["jp", "us"] = "jp",
     now_jst: datetime | None = None,
+    purpose: Literal["auto", "settled", "live"] = "auto",
 ) -> date:
     """
     市況クエリの日付アンカー。
-    明示日付があればそれを優先。なければ日本=JST今日、米国=直近確定セッション日。
+    明示日付があればそれを優先。
+    米国:
+      - purpose=settled → 直近確定終値日
+      - purpose=live → 当日取引日（場中向け）
+      - purpose=auto → プレ/ザラ場中は live、それ以外は settled
     """
     now = now_jst or datetime.now(JST)
     explicit = parse_explicit_calendar_date(user_input, default_year=now.year)
     if explicit:
         return explicit
     if market == "us":
-        return last_us_equity_session_date(now)
+        from app.core.market_session import us_session_is_live
+
+        if purpose == "settled":
+            return settled_us_session_date(now)
+        if purpose == "live":
+            return current_us_trading_date(now)
+        # auto
+        if us_session_is_live(now):
+            return current_us_trading_date(now)
+        return settled_us_session_date(now)
     return now.date()
+
+
+# メガキャップ程度の社名→検索用ティッカー（検索クエリ保持用。網羅リストではない）
+_US_COMPANY_ALIASES: list[tuple[tuple[str, ...], str, str]] = [
+    (("google", "alphabet", "googl", "goog", "グーグル", "アルファベット"), "GOOGL", "Alphabet OR GOOGL"),
+    (("amazon", "amzn", "アマゾン"), "AMZN", "Amazon OR AMZN"),
+    (("microsoft", "msft", "マイクロソフト"), "MSFT", "Microsoft OR MSFT"),
+    (("apple", "aapl", "アップル"), "AAPL", "Apple OR AAPL"),
+    (("nvidia", "nvda", "エヌビディア"), "NVDA", "Nvidia OR NVDA"),
+    (("meta", "facebook", "メタ"), "META", "Meta OR META"),
+    (("broadcom", "avgo", "ブロードコム"), "AVGO", "Broadcom OR AVGO"),
+    (("tesla", "tsla", "テスラ"), "TSLA", "Tesla OR TSLA"),
+]
+
+
+# 検査・医療略語（裸ティッカー誤認防止）
+_LAB_TICKER_DENY: frozenset[str] = frozenset({
+    "ALT", "AST", "GPT", "GTP", "RBC", "WBC", "PLT", "HDL", "LDL", "BUN", "CRP",
+    "CHOL", "ALB", "MCV", "MCH", "MCHC", "GA", "TP", "HB", "HBA", "HGB", "HT",
+    "INR", "PT", "APTT", "BNP", "TSH", "PSA", "CEA", "AFP", "IgE", "IgG", "IgA",
+    "IgM", "Na", "NA", "K", "CL", "CA", "FE", "UA", "UN", "CRE", "eGFR", "EGFR",
+})
+
+_MEDICAL_LAB_KW = (
+    "献血", "採血", "採決", "血圧", "脈拍", "検査", "生化学", "血球",
+    "ヘモグロビン", "ヘマトクリット", "血小板", "白血球", "赤血球",
+    "γ-GTP", "グリコアルブミン", "基準値", "GPT)", "（GPT", "(GPT",
+    "アルブミン対", "総蛋白", "コレステロール　", "グリコアルブミン",
+)
+
+_FINANCE_TICKER_CUES = (
+    "株", "銘柄", "ティッカー", "ticker", "stock", "$", "米国株",
+    "NASDAQ", "Nasdaq", "NYSE", "nyse",
+    "米国市場", "アメリカ市場", "Wall Street", "ダウ", "Dow", "ナスダック", "S&P",
+)
+
+
+def is_medical_lab_context(text: str) -> bool:
+    """献血・採血結果・検査表など、株シード抽出を無効化すべき文脈。"""
+    t = text or ""
+    return any(k in t for k in _MEDICAL_LAB_KW)
+
+
+def _has_finance_ticker_cues(text: str) -> bool:
+    t = text or ""
+    if any(k in t for k in _FINANCE_TICKER_CUES):
+        return True
+    if re.search(r"\$[A-Z]{1,5}\b", t):
+        return True
+    return False
+
+
+def _company_alias_hit(alias: str, text: str, text_l: str) -> bool:
+    if not alias.isascii():
+        # メタ ⊆ メタボ を拒否: 前後が仮名/漢字なら不一致
+        for m in re.finditer(re.escape(alias), text):
+            start, end = m.start(), m.end()
+            before = text[start - 1] if start > 0 else ""
+            after = text[end] if end < len(text) else ""
+            if before and re.match(r"[ぁ-んァ-ヶー一-龥]", before):
+                continue
+            if after and re.match(r"[ぁ-んァ-ヶー一-龥]", after):
+                continue
+            return True
+        return False
+    # 短ASCIIは単語境界（googl ⊆ google 誤爆防止）
+    if len(alias) <= 5 and alias.isalpha():
+        return (
+            re.search(rf"(?<![A-Za-z0-9]){re.escape(alias)}(?![A-Za-z0-9])", text_l)
+            is not None
+        )
+    return alias in text_l
+
+
+def extract_us_company_search_seeds(user_input: str) -> list[dict[str, str]]:
+    """発話から米国個別銘柄の検索シードを抽出。"""
+    text = user_input or ""
+    if is_medical_lab_context(text):
+        return []
+    text_l = text.lower()
+    seeds: list[dict[str, str]] = []
+    seen: set[str] = set()
+
+    for aliases, ticker, query_name in _US_COMPANY_ALIASES:
+        if any(_company_alias_hit(a, text, text_l) for a in aliases):
+            if ticker not in seen:
+                seeds.append({"ticker": ticker, "query_name": query_name})
+                seen.add(ticker)
+
+    # 裸ティッカーは金融手がかりがあるときだけ（検査表 ALT/RBC 誤認防止）
+    # 境界は ASCII 英数のみ（IBM株 のように直後が日本語でも拾う）
+    if _has_finance_ticker_cues(text):
+        for m in re.finditer(r"(?<![A-Za-z0-9])([A-Z]{2,5})(?![A-Za-z0-9])", text):
+            t = m.group(1)
+            if t in seen or t in {"US", "ETF", "CEO", "AI", "IPO", "NY", "OR"}:
+                continue
+            if t in _LAB_TICKER_DENY:
+                continue
+            seeds.append({"ticker": t, "query_name": t})
+            seen.add(t)
+    return seeds
+
+
+_US_MOVE_KW = (
+    "上がっ", "上げ", "下げ", "下がっ", "急騰", "急落", "反発", "暴落", "高騰",
+    "surge", "rally", "plunge", "soar", "sink",
+)
+_US_NEWS_ASK_KW = (
+    "ニュース", "決算", "なにかあった", "何かあった", "何があった", "なにがあった",
+    "どうして", "なんで", "材料", "理由", "catalyst", "いいニュース", "悪いニュース",
+)
+_US_MARKET_CARRY_MARKERS = (
+    "米国市場", "アメリカ市場", "wall street", "dow", "nasdaq", "s&p", "us stock",
+    "米国株", "nyse", "ダウ", "ナスダック",
+)
+
+
+def user_asserts_us_price_move(user_input: str) -> bool:
+    text = user_input or ""
+    text_l = text.lower()
+    return any(k in text for k in _US_MOVE_KW) or any(k in text_l for k in ("surge", "rally", "plunge", "soar"))
+
+
+def user_asks_company_news(user_input: str) -> bool:
+    text = user_input or ""
+    return any(k in text for k in _US_NEWS_ASK_KW)
+
+
+def prior_turn_was_us_market(session_id: str | None) -> bool:
+    """直前検索キャリーが米国市況系なら True（市況→個別フォロー用）。"""
+    if not session_id:
+        return False
+    prev = _last_search_by_session.get(session_id)
+    if not prev:
+        return False
+    blob = " ".join(
+        [str(prev.get("user_input") or "")]
+        + [str(q) for q in (prev.get("queries") or [])]
+    ).lower()
+    return any(m in blob for m in _US_MARKET_CARRY_MARKERS)
+
+
+def is_soft_us_single_stock_query(
+    user_input: str,
+    *,
+    session_id: str | None = None,
+) -> bool:
+    """
+    「米国市場」無しでも個別株＋今日/騰落/材料聞き、または市況フォローなら soft-US。
+    表内の過去日付だけでは立てない（検査結果の誤発火防止）。
+    """
+    text = user_input or ""
+    if is_medical_lab_context(text):
+        return False
+    if any(k in text for k in ("日本市場", "日経", "東証", "TOPIX", "東京株式", "日本株", "国内市場")):
+        return False
+    seeds = extract_us_company_search_seeds(text)
+    if not seeds:
+        return False
+    # 今日系キーワードのみ（明示カレンダー日付だけでは不可）
+    if any(k in text for k in _TODAYISH_KW):
+        return True
+    if user_asserts_us_price_move(text) or user_asks_company_news(text):
+        return True
+    if prior_turn_was_us_market(session_id):
+        return True
+    return False
+
+
+def wants_company_why_up(user_input: str) -> bool:
+    """騰落主張・材料聞きなら why-up クエリを優先（場中/引け後問わず）。"""
+    return user_asserts_us_price_move(user_input) or user_asks_company_news(user_input)
+
+
+def build_us_market_search_queries(
+    user_input: str,
+    *,
+    now_jst: datetime | None = None,
+    company_focus: bool = False,
+) -> list[str]:
+    """米国今日系の検索クエリ（場中=live、引け後=closes）。企業言及を消さない。"""
+    from app.core.market_session import us_session_is_live
+
+    now = now_jst or datetime.now(JST)
+    explicit = parse_explicit_calendar_date(user_input)
+    live = us_session_is_live(now) and explicit is None
+    purpose: Literal["auto", "settled", "live"] = "live" if live else "settled"
+    # 明示過去日は settled 記事
+    if explicit is not None:
+        purpose = "settled"
+        live = False
+
+    us_d = resolve_market_anchor_date(
+        user_input, market="us", now_jst=now, purpose=purpose
+    )
+    d = us_d.isoformat()
+    d_en = format_anchor_date_en(us_d)
+    company_seeds = extract_us_company_search_seeds(user_input)
+    why_up = wants_company_why_up(user_input) or company_focus
+
+    if live:
+        index_qs = [
+            f"US stocks today {d_en}",
+            f"Dow S&P Nasdaq live OR trading {d}",
+            f"stock market movers earnings {d_en}",
+        ]
+    else:
+        index_qs = [
+            f"Wall Street closes {d_en}",
+            f"Dow S&P Nasdaq close {d}",
+            f"stocks end higher OR lower {d_en}",
+        ]
+
+    if not company_seeds:
+        return index_qs[:3]
+
+    company_qs = []
+    for seed in company_seeds[:2]:
+        name = seed["query_name"]
+        ticker = seed["ticker"]
+        if live or why_up:
+            company_qs.append(f"{name} stock news why up OR surge {d_en}")
+            company_qs.append(f"{ticker} stock {d} rally OR jump OR catalyst")
+        else:
+            company_qs.append(f"{name} stock news {d_en}")
+            company_qs.append(f"{ticker} earnings OR close {d}")
+    # 企業優先。soft-US/個別フォーカスは指数を最大1本
+    index_n = 1 if company_focus else 2
+    merged = company_qs[:2] + index_qs[:index_n]
+    return merged[:4]
 
 
 def format_anchor_date_en(d: date) -> str:
@@ -227,7 +500,13 @@ def _is_todayish_market_query(user_input: str, *, now_jst: datetime | None = Non
     return parse_explicit_calendar_date(text) is not None
 
 
-def balance_search_queries(user_input: str, search_needed: bool, search_queries: list) -> tuple[bool, list]:
+def balance_search_queries(
+    user_input: str,
+    search_needed: bool,
+    search_queries: list,
+    *,
+    session_id: str | None = None,
+) -> tuple[bool, list]:
     """市場・ネガティブ問いに対するクエリバランス補完（地域スコープ付き）。"""
     now_jst = datetime.now(JST)
     jp_anchor = resolve_market_anchor_date(user_input, market="jp", now_jst=now_jst)
@@ -252,9 +531,10 @@ def balance_search_queries(user_input: str, search_needed: bool, search_queries:
         k in user_input
         for k in ("米国市場", "アメリカ市場", "NY", "ナスダック", "Nasdaq", "S&P", "ダウ", "Dow", "Wall Street", "米国株")
     )
+    soft_us = is_soft_us_single_stock_query(user_input, session_id=session_id)
     todayish = _is_todayish_market_query(user_input, now_jst=now_jst)
-    # planner と同じ: 「今日の市場」単独は日本寄り
-    if todayish and not jp_scope and not us_scope and any(
+    # planner と同じ: 「今日の市場」単独は日本寄り（soft-US 個別株があるときは日本既定にしない）
+    if todayish and not jp_scope and not us_scope and not soft_us and any(
         k in user_input for k in ("市場", "相場", "market", "Market")
     ):
         jp_scope = True
@@ -262,6 +542,15 @@ def balance_search_queries(user_input: str, search_needed: bool, search_queries:
     sector_semi = any(k in user_input for k in ("半導体", "SOX", "電機"))
     wants_topix = "TOPIX" in user_input or "トピックス" in user_input
     wants_sector = any(k in user_input for k in ("セクター", "業種", "ローテーション")) or sector_finance or sector_semi
+
+    # soft-US: 「米国市場」無しの個別株＋今日/騰落/材料聞き/市況フォロー
+    if soft_us and not jp_scope:
+        search_needed = True
+        search_queries = build_us_market_search_queries(
+            user_input, now_jst=now_jst, company_focus=True
+        )
+        logger.info(f"🇺🇸 soft-US 個別株クエリに正規化: {search_queries}")
+        return search_needed, search_queries[:4]
 
     if any(kw in user_input for kw in market_keywords) or jp_scope or us_scope:
         search_needed = True
@@ -288,13 +577,9 @@ def balance_search_queries(user_input: str, search_needed: bool, search_queries:
             return search_needed, search_queries[:4]
 
         if todayish and us_scope and not jp_scope:
-            search_queries = [
-                f"Wall Street closes {today_us_en}",
-                f"Dow S&P Nasdaq close {today_us}",
-                f"stocks end higher OR lower {today_us_en}",
-            ]
+            search_queries = build_us_market_search_queries(user_input, now_jst=now_jst)
             logger.info(f"🇺🇸 米国市場今日系クエリに正規化: {search_queries}")
-            return search_needed, search_queries[:3]
+            return search_needed, search_queries[:4]
 
         # 日本市場フォロー（金融/TOPIX/セクター）— 今日でなくても補強
         soft_jp = jp_scope or (sector_finance and not us_scope) or (wants_sector and not us_scope and "ローテーション" in user_input)
@@ -373,10 +658,11 @@ def should_skip_deep_fetch(user_input: str) -> bool:
 
 def _format_us_market_snapshot_for_prompt(user_input: str = "") -> str:
     """
-    米国主要指数ETFのセッション日付き終値ブロック。
-    『Stock Market News for DATE』朝ラップ（＝前日終値要約）を DATE 終値と混同させない。
+    米国主要指数ETFスナップショット。
+    場中・プレ → 直近値（取引中）。引け後 → セッション終値（朝ラップ混同防止）。
     """
-    from app.core.tools.market_data import fetch_us_etf_session_closes
+    from app.core.market_session import us_session_is_live
+    from app.core.tools.market_data import fetch_us_etf_session_closes, _quote_dict_yf
 
     tickers = [
         ("DIA", "ダウ (DIA)"),
@@ -384,7 +670,49 @@ def _format_us_market_snapshot_for_prompt(user_input: str = "") -> str:
         ("QQQ", "ナスダック100 (QQQ)"),
         ("SOXX", "半導体 SOXX"),
     ]
-    anchor = resolve_market_anchor_date(user_input, market="us")
+    now = datetime.now(JST)
+    explicit = parse_explicit_calendar_date(user_input)
+    live = us_session_is_live(now) and explicit is None
+    purpose: Literal["auto", "settled", "live"] = "live" if live else "settled"
+    if explicit is not None:
+        purpose = "settled"
+        live = False
+
+    anchor = resolve_market_anchor_date(
+        user_input, market="us", now_jst=now, purpose=purpose
+    )
+
+    if live:
+        lines = [
+            f"【米国市場スナップショット session_date={anchor.isoformat()} status=取引中（推測禁止・指数はここを優先）】",
+            "※【P0】現在はレギュラー/プレマーケット取引中。下記は直近値であり終値ではない。",
+            "  『終値』『大引け』と呼ぶこと、前日確定終値を本日の市況として語ることを禁止。",
+            "※ 指数レベルは ETF 近似。記事の物語と数値は日付・時刻で照合すること。",
+            "※ 表は DIA / SPY / QQQ / SOXX を欠落させず、未取得は『直近値未取得』と明示すること。",
+        ]
+        for ticker, label in tickers:
+            try:
+                q = _quote_dict_yf(ticker, enrich_vol_atr=False) or {}
+            except Exception:
+                q = {}
+            price = q.get("current_price")
+            if price is None:
+                lines.append(f"- {label}: 直近値未取得")
+                continue
+            prev = q.get("previous_close")
+            chg = q.get("change")
+            pct = q.get("change_pct")
+            parts = [f"{float(price):,.2f}"]
+            if chg is not None and pct is not None:
+                sign = "+" if chg >= 0 else ""
+                parts.append(f"{sign}{float(chg):,.2f}（{sign}{float(pct):.2f}%）")
+            prev_s = f"{float(prev):,.2f}" if prev is not None else "未確認"
+            lines.append(
+                f"- {label} 直近値（取引中） as_of={anchor.isoformat()}: "
+                f"{' '.join(parts)} | 前日終値: {prev_s}"
+            )
+        return "\n".join(lines)
+
     batch = fetch_us_etf_session_closes(anchor, [t for t, _ in tickers])
     quotes = (batch or {}).get("quotes") or {}
     src = (batch or {}).get("source") or "yfinance"
@@ -424,11 +752,64 @@ def _format_us_market_snapshot_for_prompt(user_input: str = "") -> str:
     return "\n".join(lines)
 
 
+def _format_us_single_stock_quotes_for_prompt(user_input: str) -> str:
+    """個別株シードのクォートをプロンプト先頭用に整形。失敗時は空文字。"""
+    seeds = extract_us_company_search_seeds(user_input)
+    if not seeds:
+        return ""
+    try:
+        from app.core.tools.market_data import _quote_dict_yf
+    except Exception:
+        return ""
+
+    from app.core.market_session import us_session_is_live
+
+    now = datetime.now(JST)
+    purpose: Literal["auto", "settled", "live"] = (
+        "live" if us_session_is_live(now) else "settled"
+    )
+    as_of = resolve_market_anchor_date(
+        user_input, market="us", now_jst=now, purpose=purpose
+    ).isoformat()
+    lines = [f"【個別株クォート as_of={as_of}】"]
+    for seed in seeds[:2]:
+        ticker = seed["ticker"]
+        try:
+            q = _quote_dict_yf(ticker, enrich_vol_atr=False)
+        except Exception as e:
+            logger.warning(f"single-stock quote failed for {ticker}: {e}")
+            continue
+        if not q or q.get("error"):
+            continue
+        price = q.get("current_price")
+        prev = q.get("previous_close")
+        chg = q.get("change")
+        pct = q.get("change_pct")
+        kind = q.get("price_kind") or "session_close_or_last"
+        price_s = f"{price:.2f}" if isinstance(price, (int, float)) else str(price)
+        prev_s = f"{prev:.2f}" if isinstance(prev, (int, float)) else str(prev)
+        chg_s = f"{chg:+.2f}" if isinstance(chg, (int, float)) else str(chg)
+        pct_s = f"{pct:+.2f}%" if isinstance(pct, (int, float)) else str(pct)
+        label = "直近値（取引中）" if purpose == "live" else "終値/直近"
+        lines.append(
+            f"- {ticker}: {label} {price_s} | 前日終値 {prev_s} | "
+            f"騰落 {chg_s} ({pct_s}) | price_kind={kind}"
+        )
+    if len(lines) <= 1:
+        return ""
+    lines.append(
+        "※上記は確定クォート。騰落率・終値を断定するときはこのブロックを優先し、"
+        "記事スニペットの途中経過レンジと混同しないこと。"
+    )
+    return "\n".join(lines)
+
+
 async def run_web_search(
     *,
     user_input: str,
     search_queries: list,
     search_providers: list,
+    session_id: str | None = None,
 ) -> AsyncGenerator[dict, None]:
     """
     検索を実行し、SSE用イベント dict を yield。
@@ -443,14 +824,33 @@ async def run_web_search(
         k in (user_input or "")
         for k in ("日本市場", "日経", "東証", "TOPIX", "東京株式", "日本株", "国内市場")
     ) or any(k in qblob for k in ("日経", "TOPIX", "東証", "東京株式"))
-    us_market = any(
+    us_scope_explicit = any(
         k in (user_input or "")
         for k in ("米国市場", "アメリカ市場", "NY", "ナスダック", "Nasdaq", "S&P", "ダウ", "Dow", "Wall Street", "米国株")
-    ) or any(k in qblob.lower() for k in ("dow", "nasdaq", "s&p", "us stock"))
-    max_queries = 4 if jp_market else 2
+    )
+    us_market = us_scope_explicit or any(
+        k in qblob.lower() for k in ("dow", "nasdaq", "s&p", "us stock", "wall street")
+    )
+    soft_us = is_soft_us_single_stock_query(user_input, session_id=session_id)
+    company_seeds = extract_us_company_search_seeds(user_input)
+    # 米国場中は企業+指数で最大4本。引け後の指数のみは2本のまま。soft-US/企業は最大4。
+    from app.core.market_session import us_session_is_live
+
+    us_live = us_market and us_session_is_live()
+    max_queries = 4 if (jp_market or us_live or soft_us or company_seeds or (us_market and len(search_queries or []) > 2)) else 2
+    if (us_market or soft_us) and not jp_market:
+        max_queries = max(max_queries, min(4, len(search_queries or [])))
+    from app.routers.settings import app_settings
+    from app.core.ui_status import pipeline_detail
+
+    _ui_locale = app_settings.get().get("locale", "en")
     for q in search_queries[:max_queries]:
         yield {"type": "status", "status": "searching", "query": q}
-        yield {"type": "pipeline", "stage": "search", "detail": f"情報収集中: {q}"}
+        yield {
+            "type": "pipeline",
+            "stage": "search",
+            "detail": pipeline_detail("searching", _ui_locale, q=q),
+        }
         tasks.append(web_search(q, providers=search_providers))
         logger.info(f"検索実行: '{q}' (Providers: {search_providers}) (Original: '{user_input}')")
 
@@ -468,23 +868,33 @@ async def run_web_search(
                 direct_url_fallback_texts.append(text)
             all_raw_sources.extend(sources)
 
-    # 日本/米国市況: yfinance スナップショットを検索より先に置く（推測禁止の確定値）
+    # 個別株クォート（soft-US / 企業シード）→ 明示 us_scope のときだけ指数スナップ
     snapshot_block = ""
+    single_quote_block = ""
+    if company_seeds and not jp_market:
+        try:
+            single_quote_block = _format_us_single_stock_quotes_for_prompt(user_input)
+        except Exception as e:
+            logger.warning(f"US single-stock quote prefetch failed: {e}")
     if jp_market:
         try:
             from app.core.tools.market_data import format_jp_market_snapshot_for_prompt
             snapshot_block = format_jp_market_snapshot_for_prompt(user_input)
         except Exception as e:
             logger.warning(f"JP market snapshot failed: {e}")
-    elif us_market:
+    elif us_scope_explicit:
+        # 明示「米国市場」のみ指数スナップ（soft-US 単独は個別クォートのみ）
         try:
             snapshot_block = _format_us_market_snapshot_for_prompt(user_input)
         except Exception as e:
             logger.warning(f"US market snapshot failed: {e}")
 
     combined_texts = list(direct_url_fallback_texts)
+    # 個別クォートを最優先（終値誤帰属防止）
+    if single_quote_block:
+        combined_texts.insert(0, single_quote_block)
     if snapshot_block:
-        combined_texts.insert(0, snapshot_block)
+        combined_texts.insert(0 if not single_quote_block else 1, snapshot_block)
     if all_raw_sources:
         from app.core.search.reranker import rerank
         from app.core.search.formatter import format_for_prompt

@@ -10,6 +10,7 @@ import { ModeBadge } from "./components/ModeBadge";
 import { KVMemoryPanel } from "./components/KVMemoryPanel";
 import { SettingsModal } from "./components/SettingsModal";
 import { AuthModal } from "./components/AuthModal";
+import { FirstRunWizard } from "./components/FirstRunWizard";
 import { IntegrityBadge } from "./components/IntegrityBadge";
 import { Sidebar } from "./components/Sidebar";
 import { ActivityBar } from "./components/ActivityBar";
@@ -19,6 +20,8 @@ import { ToolPanel } from "./components/ToolPanel";
 import type { CodeBlock } from "./components/CodePanel";
 import { apiFetch, AUTH_REQUIRED_EVENT } from "./utils/api";
 import { getCharBackgroundStyle } from "./utils/charBackground";
+import { getShowAdvancedModes } from "./utils/advancedModes";
+import { useLocale, setLocaleLocal } from "./i18n";
 import "./index.css";
 
 // コードブロック抽出（閉じタグ ``` が確認できたもののみ、および <file> タグ）
@@ -69,6 +72,7 @@ function getOrCreateSessionId(): string {
 }
 
 function App() {
+  const { locale, t, setLocale } = useLocale();
   const [sessionId, setSessionId] = useState(getOrCreateSessionId);
   const [mode, setMode] = useState<"chat" | "task" | "char" | "market">("chat");
   const [isKVPanelOpen, setIsKVPanelOpen] = useState(false);
@@ -80,6 +84,16 @@ function App() {
   const [isToolPanelOpen, setIsToolPanelOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [charBackground, setCharBackground] = useState("");
+  const [showAdvancedModes, setShowAdvancedModesState] = useState(getShowAdvancedModes);
+
+  useEffect(() => {
+    const onAdv = (e: Event) => {
+      const detail = (e as CustomEvent<boolean>).detail;
+      setShowAdvancedModesState(typeof detail === "boolean" ? detail : getShowAdvancedModes());
+    };
+    window.addEventListener("kairi-advanced-modes", onAdv);
+    return () => window.removeEventListener("kairi-advanced-modes", onAdv);
+  }, []);
 
   const fetchCharBackground = useCallback(async () => {
     try {
@@ -87,6 +101,7 @@ function App() {
       if (res.ok) {
         const data = await res.json();
         setCharBackground(data.char_background || "");
+        if (data.locale) setLocaleLocal(data.locale);
       }
     } catch (e) {
       console.error(e);
@@ -96,6 +111,22 @@ function App() {
   useEffect(() => {
     fetchCharBackground();
   }, [fetchCharBackground]);
+
+  const switchLocale = useCallback(
+    async (next: "en" | "ja") => {
+      setLocale(next);
+      try {
+        await apiFetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ locale: next }),
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [setLocale]
+  );
 
   useEffect(() => {
     if (window.innerWidth >= 768) {
@@ -189,12 +220,14 @@ function App() {
 
   const handleToggleMode = useCallback(() => {
     setMode((prev) => {
-      // Chat バッジ: chat → Workspace(task) → char → market → chat
+      // 本命: chat ↔ market。上級ON時のみ IDE/Char を挟む
       let nextMode: "chat" | "task" | "char" | "market" = "chat";
-      if (prev === "chat") nextMode = "task";
+      if (!showAdvancedModes) {
+        nextMode = prev === "chat" ? "market" : "chat";
+      } else if (prev === "chat") nextMode = "task";
       else if (prev === "task") nextMode = "char";
       else if (prev === "char") nextMode = "market";
-      else nextMode = "chat"; // market → chat
+      else nextMode = "chat";
 
       if (nextMode === "task" || nextMode === "market") {
         setIsSidebarOpen(false);
@@ -202,7 +235,13 @@ function App() {
 
       return nextMode;
     });
-  }, []);
+  }, [showAdvancedModes]);
+
+  useEffect(() => {
+    if (!showAdvancedModes && (mode === "task" || mode === "char")) {
+      setMode("chat");
+    }
+  }, [showAdvancedModes, mode]);
 
   const handleToggleMarket = useCallback(() => {
     setMode((prev) => {
@@ -261,6 +300,7 @@ function App() {
         onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         onNewSession={handleNewSession}
         mode={mode}
+        showAdvancedModes={showAdvancedModes}
         onToggleMode={handleToggleMode}
         onToggleMarket={handleToggleMarket}
         onOpenKVMemory={() => setIsKVPanelOpen(true)}
@@ -295,8 +335,8 @@ function App() {
             <button 
               className="md:hidden shrink-0 p-2 text-gray-400 hover:text-white transition-all rounded-lg hover:bg-white/5"
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              title="Toggle menu"
-              aria-label="Toggle sidebar"
+              title={t("nav.toggleSidebar")}
+              aria-label={t("nav.toggleSidebar")}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="3" y1="7" x2="21" y2="7"></line>
@@ -323,12 +363,35 @@ function App() {
               </div>
               <div className="flex items-center gap-1.5">
                 <h1 className="text-base md:text-lg font-extrabold tracking-tight bg-gradient-to-r from-white via-cyan-100 to-blue-200 bg-clip-text text-transparent truncate">Kairi</h1>
-                <span className="hidden sm:inline-flex text-[10px] font-medium text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">Autonomous Engine</span>
+                <span className="hidden sm:inline-flex text-[10px] font-medium text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">{t("brand.subtitle")}</span>
               </div>
             </div>
           </div>
 
           <div className="shrink-0 ml-4 flex items-center gap-2">
+            <div
+              className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 p-0.5 text-[10px] font-semibold"
+              title={t("nav.localeHint")}
+            >
+              <button
+                type="button"
+                onClick={() => void switchLocale("en")}
+                className={`px-2 py-1 rounded-md transition-colors ${
+                  locale === "en" ? "bg-cyan-500/25 text-cyan-200" : "text-gray-500 hover:text-gray-300"
+                }`}
+              >
+                {t("nav.localeEn")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void switchLocale("ja")}
+                className={`px-2 py-1 rounded-md transition-colors ${
+                  locale === "ja" ? "bg-cyan-500/25 text-cyan-200" : "text-gray-500 hover:text-gray-300"
+                }`}
+              >
+                {t("nav.localeJa")}
+              </button>
+            </div>
             {/* コードパネル展開バッジ・ボタン */}
             {codeBlocks.length > 0 && (
               <button
@@ -450,6 +513,9 @@ function App() {
             }}
           />
 
+          {/* 初回: DeepSeek キーだけ */}
+          <FirstRunWizard onComplete={() => {}} />
+
           {/* 認証・セキュリティモーダル */}
           <AuthModal
             isOpen={isAuthOpen}
@@ -467,15 +533,17 @@ function App() {
               <span className="text-base">💬</span>
               <span className="text-[10px] tracking-tight">Chat</span>
             </button>
-            <button
-              onClick={() => setMode("task")}
-              className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all ${
-                mode === "task" ? "text-purple-400 bg-purple-500/15 scale-105 font-bold" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              <span className="text-base">💻</span>
-              <span className="text-[10px] tracking-tight">Workspace</span>
-            </button>
+            {showAdvancedModes && (
+              <button
+                onClick={() => setMode("task")}
+                className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all ${
+                  mode === "task" ? "text-purple-400 bg-purple-500/15 scale-105 font-bold" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <span className="text-base">💻</span>
+                <span className="text-[10px] tracking-tight">Workspace</span>
+              </button>
+            )}
             <button
               onClick={() => setMode("market")}
               className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all ${
@@ -485,15 +553,17 @@ function App() {
               <span className="text-base">📈</span>
               <span className="text-[10px] tracking-tight">Market</span>
             </button>
-            <button
-              onClick={() => setMode("char")}
-              className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all ${
-                mode === "char" ? "text-pink-400 bg-pink-500/15 scale-105 font-bold" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              <span className="text-base">🎭</span>
-              <span className="text-[10px] tracking-tight">Char</span>
-            </button>
+            {showAdvancedModes && (
+              <button
+                onClick={() => setMode("char")}
+                className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all ${
+                  mode === "char" ? "text-pink-400 bg-pink-500/15 scale-105 font-bold" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <span className="text-base">🎭</span>
+                <span className="text-[10px] tracking-tight">Char</span>
+              </button>
+            )}
             <button
               onClick={() => setIsKVPanelOpen(true)}
               className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all ${

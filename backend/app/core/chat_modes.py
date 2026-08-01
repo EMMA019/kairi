@@ -42,7 +42,8 @@ async def try_greeting_mode(
     yield {"type": "mode_switch", "mode": "chat"}
     settings_dict = app_settings.get()
     persona_style = settings_dict.get("persona_style", "standard")
-    greeting_sys = build_greeting_system_prompt(persona_style)
+    locale = settings_dict.get("locale", "en")
+    greeting_sys = build_greeting_system_prompt(persona_style, locale=locale)
     greeting_instruction = build_facts_instruction(greeting_json.get("instruction") or {})
     async for ev, payload in stream_simple_executor(
         user_input=user_input,
@@ -99,11 +100,19 @@ async def try_char_mode(
     persona_style = settings_dict.get("persona_style", "standard")
     char_profile = settings_dict.get("char_profile", "")
     visual_anchor = settings_dict.get("visual_anchor", "")
-    user_name = settings_dict.get("user_name", "ご主人様")
-    char_sys = get_char_system_prompt(user_name, char_profile, persona_style, visual_anchor)
+    user_name = settings_dict.get("user_name", "you")
+    locale = settings_dict.get("locale", "en")
+    char_sys = get_char_system_prompt(
+        user_name, char_profile, persona_style, visual_anchor, locale=locale
+    )
+    char_instruction = (
+        "Stay in character and keep the conversation natural and fun."
+        if str(locale).lower().startswith("en")
+        else "キャラクターになりきって、ユーザーとの会話を自然かつテンポよく楽しく盛り上げてください。"
+    )
     async for ev, payload in stream_simple_executor(
         user_input=user_input,
-        instruction="キャラクターになりきって、ユーザーとの会話を自然かつテンポよく楽しく盛り上げてください。",
+        instruction=char_instruction,
         system_instruction=char_sys,
         history_messages=messages,
         memory_text=filtered_kv_text or None,

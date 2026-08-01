@@ -1,10 +1,12 @@
 import React from "react";
+import { useLocale } from "../i18n";
 
 interface ActivityBarProps {
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   onNewSession: () => void;
   mode: "chat" | "task" | "char" | "market";
+  showAdvancedModes?: boolean;
   onToggleMode: () => void;
   onToggleMarket: () => void;
   onOpenKVMemory: () => void;
@@ -18,6 +20,7 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
   onToggleSidebar,
   onNewSession,
   mode,
+  showAdvancedModes = false,
   onToggleMode,
   onToggleMarket,
   onOpenKVMemory,
@@ -25,6 +28,20 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
   onOpenToolPanel,
   onOpenAuth,
 }) => {
+  const { t } = useLocale();
+
+  const modeTitle = !showAdvancedModes
+    ? mode === "market"
+      ? t("nav.modeMarketNextChat")
+      : t("nav.modeChatNextMarket")
+    : mode === "task"
+    ? t("nav.modeWorkspaceNextChar")
+    : mode === "char"
+    ? t("nav.modeCharNextMarket")
+    : mode === "market"
+    ? t("nav.modeMarketNextChat")
+    : t("nav.modeChatNextWorkspace");
+
   return (
     <aside
       className="hidden md:flex flex-col items-center justify-between w-14 shrink-0 bg-[#080b11] border-r border-white/5 py-4 z-50 select-none shadow-xl"
@@ -43,8 +60,8 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
               ? "bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-500/40 shadow-lg shadow-cyan-500/10"
               : "hover:bg-white/5 border border-transparent hover:border-white/10"
           }`}
-          title={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
-          aria-label="Toggle sidebar"
+          title={isSidebarOpen ? t("nav.closeSidebar") : t("nav.openSidebar")}
+          aria-label={t("nav.toggleSidebar")}
         >
           <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 p-[1.5px]">
             <div className="flex items-center justify-center w-full h-full bg-[#080b11] rounded-[6px]">
@@ -69,8 +86,8 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
         <button
           onClick={onNewSession}
           className="flex items-center justify-center w-9 h-9 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all duration-200"
-          title="New Chat"
-          aria-label="New Chat"
+          title={t("nav.newChat")}
+          aria-label={t("nav.newChat")}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 20h9"></path>
@@ -78,7 +95,7 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           </svg>
         </button>
 
-        {/* チャット / タスク IDE / キャラ雑談 モードトグル */}
+        {/* 本命: Chat ↔ Market。上級ON時のみ Workspace/Char を挟む */}
         <button
           onClick={onToggleMode}
           className={`flex items-center justify-center w-9 h-9 rounded-xl transition-all duration-200 ${
@@ -90,16 +107,8 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
               ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
               : "text-gray-400 hover:text-white hover:bg-white/10"
           }`}
-          title={
-            mode === "task"
-              ? "Workspace (next: Char)"
-              : mode === "char"
-              ? "Char (next: Market)"
-              : mode === "market"
-              ? "Market (next: Chat)"
-              : "Chat (next: Workspace)"
-          }
-          aria-label="Switch mode"
+          title={modeTitle}
+          aria-label={modeTitle}
         >
           {mode === "task" ? (
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -128,8 +137,8 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
               ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
               : "text-gray-400 hover:text-white hover:bg-white/10"
           }`}
-          title={mode === "market" ? "Market mode (Click to exit)" : "Open Market desk"}
-          aria-label="Market mode"
+          title={mode === "market" ? t("nav.marketExit") : t("nav.marketOpen")}
+          aria-label={t("nav.market")}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
@@ -141,8 +150,8 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
         <button
           onClick={onOpenToolPanel}
           className="flex items-center justify-center w-9 h-9 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all duration-200"
-          title="Tool & Activity Center"
-          aria-label="Tool Panel"
+          title={t("nav.tools")}
+          aria-label={t("nav.tools")}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
@@ -156,8 +165,8 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
         <button
           onClick={onOpenKVMemory}
           className="flex items-center justify-center w-9 h-9 rounded-xl text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/10 transition-all duration-200"
-          title="Long-term Memory & Profile"
-          aria-label="Memory"
+          title={t("nav.memory")}
+          aria-label={t("nav.memory")}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2a8 8 0 0 1 8 8c0 3.3-2 6.2-5 7.5V20a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-2.5C6 16.2 4 13.3 4 10a8 8 0 0 1 8-8z" />
@@ -171,8 +180,8 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
         <button
           onClick={onOpenAuth}
           className="flex items-center justify-center w-9 h-9 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-all duration-200"
-          title="Authentication & Security"
-          aria-label="Security"
+          title={t("nav.security")}
+          aria-label={t("nav.security")}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
@@ -183,8 +192,8 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
         <button
           onClick={onOpenSettings}
           className="flex items-center justify-center w-9 h-9 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-all duration-200"
-          title="Settings"
-          aria-label="Settings"
+          title={t("nav.settings")}
+          aria-label={t("nav.settings")}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3"></circle>

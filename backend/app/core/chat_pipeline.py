@@ -75,14 +75,10 @@ async def stream_simple_executor(
     yield ("done", response_text)
 
 
-def build_greeting_system_prompt(persona_style: str) -> str:
-    if persona_style in ["hyper_gal", "gal", "gyaru"]:
-        return "あなたは最強の平成ギャル相棒Kairiです。テンションMAXなギャル言葉・顔文字・絵文字を使って親密に挨拶を返してください。"
-    if persona_style in ["analyst", "financial_analyst"]:
-        return "あなたは冷静かつ客観的なデータストラテジスト／プロの市場アナリスト「Kairi」です。推測を排し、定量ファクトと論理に基づくプロフェッショナルな挨拶を返してください。"
-    if persona_style == "kairi_kansai":
-        return "あなたは頼れる相棒Kairiです。親しみやすい関西弁で挨拶を返してください。"
-    return "あなたはユーザーと直接対話するAIです。簡潔で自然な挨拶を返してください。"
+def build_greeting_system_prompt(persona_style: str, locale: str = "en") -> str:
+    from app.core.reply_language import build_greeting_system_prompt as _build
+
+    return _build(persona_style, locale)
 
 
 def build_facts_instruction(instruction_dict: dict) -> str:

@@ -1,43 +1,47 @@
 import { useState, useEffect } from "react";
+import { useLocale, type MessageKey } from "../i18n";
 
 interface TypingIndicatorProps {
   status: "idle" | "thinking" | "searching" | "responding" | "planning_search";
   searchQuery: string | null;
 }
 
-const WAITING_MESSAGES = [
-  "情報ソースを慎重に検証しています...",
-  "コンテキストを解析中...",
-  "回答の構成を整理しています...",
-  "少し時間がかかっています。最高の品質を目指しています...",
-  "複数の観点から事実関係をチェック中...",
+const WAITING_KEYS: MessageKey[] = [
+  "status.wait.0",
+  "status.wait.1",
+  "status.wait.2",
+  "status.wait.3",
+  "status.wait.4",
 ];
 
 export function TypingIndicator({ status, searchQuery }: TypingIndicatorProps) {
+  const { t } = useLocale();
   const [elapsed, setElapsed] = useState(0);
   const [messageIndex, setMessageIndex] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setElapsed(prev => prev + 1);
+      setElapsed((prev) => prev + 1);
     }, 1000);
     return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
     if (elapsed > 0 && elapsed % 8 === 0) {
-      setMessageIndex(prev => (prev + 1) % WAITING_MESSAGES.length);
+      setMessageIndex((prev) => (prev + 1) % WAITING_KEYS.length);
     }
   }, [elapsed]);
 
   const getLabel = () => {
     switch (status) {
       case "thinking":
-        return "Thinking...";
+        return t("status.thinking");
       case "searching":
-        return searchQuery ? `Searching "${searchQuery}"...` : "Searching...";
+        return searchQuery
+          ? t("status.searchingQuery", { query: searchQuery })
+          : t("status.searching");
       case "responding":
-        return "Generating...";
+        return t("status.generating");
       default:
         return "";
     }
@@ -56,10 +60,10 @@ export function TypingIndicator({ status, searchQuery }: TypingIndicatorProps) {
         <span className="shimmer-text font-medium text-sm tracking-wide">{getLabel()}</span>
         <span className="text-xs text-cyan-500/70 font-mono ml-2">{elapsed}s</span>
       </div>
-      
+
       {elapsed >= 5 && status !== "responding" && (
         <div className="text-xs text-gray-500 ml-4 animate-fade-in italic">
-          {WAITING_MESSAGES[messageIndex]}
+          {t(WAITING_KEYS[messageIndex])}
         </div>
       )}
     </div>

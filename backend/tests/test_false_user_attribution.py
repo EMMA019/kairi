@@ -27,6 +27,20 @@ def test_strip_ossharu_toori():
     assert "おっしゃる通り" not in out
 
 
+def test_strip_ossharu_toori_desu_does_not_leave_nao_desu():
+    """実害: Nao、おっしゃる通りです。 → Nao、です。 に壊さない。"""
+    user = "為替介入したわね"
+    text = (
+        "Nao、おっしゃる通りです。昨夜から今朝にかけての報道を確認しましたので、"
+        "整理してご説明します。\n\n## 結論\n介入が観測されています。"
+    )
+    out = strip_false_user_attribution(text, user_input=user)
+    assert "おっしゃる通り" not in out
+    assert "Nao、です" not in out
+    assert "昨夜から今朝にかけての報道を確認しました" in out
+    assert "介入が観測されています" in out
+
+
 def test_soften_ungrounded_earnings_timing_without_source():
     text = "MSFTとMETAは日本時間7/30未明に決算を発表しています。"
     out = soften_ungrounded_earnings_timing(text, source_text="MSFT META earnings preview scheduled")

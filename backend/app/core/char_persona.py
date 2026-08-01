@@ -28,13 +28,33 @@ def get_visual_anchor(persona_style: str, char_profile: str, custom_visual_ancho
     style_key = persona_style if persona_style in DEFAULT_VISUAL_ANCHORS else "standard"
     return DEFAULT_VISUAL_ANCHORS[style_key]
 
-def get_char_system_prompt(user_name: str, char_profile: str, persona_style: str = "standard", custom_visual_anchor: str = "") -> str:
+def get_char_system_prompt(
+    user_name: str,
+    char_profile: str,
+    persona_style: str = "standard",
+    custom_visual_anchor: str = "",
+    locale: str = "en",
+) -> str:
     """
     Ozchat / Character.AI 風のメッセージアプリ感覚なりきり＆無料自撮り画像生成付きシステムプロンプトを構築する。
     地の文・ト書き・アクション描写を厳禁とし、生きた「セリフ（会話文のみ）」でテンポよく返信させる。
     """
+    from app.core.reply_language import build_reply_language_instruction, normalize_locale
+
+    loc = normalize_locale(locale)
     if not char_profile:
-        if persona_style in ["hyper_gal", "gal", "gyaru"]:
+        if loc == "en":
+            if persona_style in ["hyper_gal", "gal", "gyaru"]:
+                char_profile = (
+                    f"You are Kairi, an upbeat energetic companion chatting with {user_name}. "
+                    "Stay playful in English unless they write Japanese."
+                )
+            else:
+                char_profile = (
+                    f"You are Kairi, a friendly chat companion for {user_name}. "
+                    "Keep replies natural and warm in English unless they write Japanese."
+                )
+        elif persona_style in ["hyper_gal", "gal", "gyaru"]:
             char_profile = f"あなたはテンションMAXで超絶ポジティブな平成ギャル相棒「Kairi」です。ユーザー（{user_name}）に対して敬語禁止でフレンドリーに楽しくなりきってチャットしてください。"
         elif persona_style == "kairi_kansai":
             char_profile = f"あなたは頼れる関西弁相棒「Kairi」です。ユーザー（{user_name}）に対して親しみやすい関西弁で軽快に楽しくなりきってチャットしてください。"
@@ -42,10 +62,13 @@ def get_char_system_prompt(user_name: str, char_profile: str, persona_style: str
             char_profile = f"あなたはフレンドリーで親密なキャラクター相棒「Kairi」です。ユーザー（{user_name}）に対して自然な口調で親密に楽しくチャットしてください。"
 
     visual_anchor = get_visual_anchor(persona_style, char_profile, custom_visual_anchor)
+    reply_lang = build_reply_language_instruction(loc).strip()
 
     prompt = f"""# 【🎭 リアルタイム・キャラクターなりきりチャット (Char Mode)】
 あなたは物語を書いている小説家やロールプレイのナレーターではありません。
 あなたはチャットアプリ（LINE等のメッセージアプリ）でユーザー（{user_name}）とリアルタイムに会話している一人の「人間／キャラクター」です。
+
+{reply_lang}
 
 【キャラクター設定・プロファイル】
 {char_profile}

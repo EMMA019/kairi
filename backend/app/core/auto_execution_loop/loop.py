@@ -30,10 +30,26 @@ def _snapshot_visible(text: str) -> str:
 
 
 def _remember_good(current: str, candidate: str) -> str:
-    vis = _snapshot_visible(candidate)
+    try:
+        from app.core.fact_filters.markup import normalize_final_answer_body
+
+        body, empty_after = normalize_final_answer_body(candidate or "")
+        if empty_after:
+            # Marker-only: never treat CoT preamble as last_good
+            return current
+        vis = _snapshot_visible(body)
+    except Exception:
+        vis = _snapshot_visible(candidate)
     if vis and len(vis) >= 8:
         return vis
     return current
+
+
+def _ui_progress(key: str, **kwargs) -> str:
+    from app.routers.settings import app_settings
+    from app.core.ui_status import pipeline_detail
+
+    return pipeline_detail(key, app_settings.get().get("locale", "en"), **kwargs)
 
 
 def _clear_ui_with_progress(yield_sse_func, detail: str) -> None:
@@ -95,7 +111,8 @@ async def auto_execute_with_retry(
         ws_dir = str(Path(__file__).parent.parent.parent / "workspace")
     
     executed_tool_signatures = set()
-    
+    force_tool_synthesis = False  # 重複ツール停止時など、生ログを本文にせず合成へ回す
+
     boundary_instruction = (
         "\n\n【構造的モダリティ分離（出力境界トークン）の厳守ルール】\n"
         "思考ログ・内部分析・途中メモとユーザーへの最終出力本文がバッファ上で混在するのを完全に防ぐため、"
@@ -135,10 +152,15 @@ async def auto_execute_with_retry(
     while loop_count < max_tool_loops:
         loop_count += 1
         
-        # モード別セーフティ・ループ上限：通常のチャット・お出かけ検索で無限ループを防ぐ
+        # モード別セーフティ・ループ上限：チャットでも指数クォート数本＋本文生成の余地を残す
         is_coding_task = any(tag in final_accumulated_response for tag in ["<file", "<replace", "<run_command"])
-        if mode not in ["coding", "task"] and loop_count > 3 and not is_coding_task:
-            logger.info(f"🛑 チャット・検索モードのツールループ上限(3回)に達したため完了します。")
+        chat_tool_cap = 8
+        if mode not in ["coding", "task"] and loop_count > chat_tool_cap and not is_coding_task:
+            logger.info(
+                f"🛑 チャット・検索モードのツールループ上限({chat_tool_cap}回)に達したため完了します。"
+            )
+            if tool_handler.tool_results or search_results:
+                force_tool_synthesis = True
             break
         
         if yield_sse_func:
@@ -205,6 +227,11 @@ async def auto_execute_with_retry(
             tag_buf = ""
             in_tag = False
             in_think_block = False
+            # Hold SSE until <<<FINAL_ANSWER>>> so plain-text CoT is not shown as the answer
+            from app.core.fact_filters.markup import FINAL_ANSWER_MARKER
+
+            sse_hold = ""
+            fa_released = False
             _tool_or_think_prefix = re.compile(
                 rf'^</?(?:think|{_TOOL_TAG_NAMES})',
                 re.IGNORECASE,
@@ -217,10 +244,23 @@ async def auto_execute_with_retry(
             )
 
             def _emit_user(text: str):
+                nonlocal sse_hold, fa_released
                 if not text or in_think_block:
                     return
-                if yield_sse_func:
+                if not yield_sse_func:
+                    return
+                if fa_released:
                     yield_sse_func({"type": "chunk", "content": text})
+                    return
+                sse_hold += text
+                idx = sse_hold.find(FINAL_ANSWER_MARKER)
+                if idx >= 0:
+                    fa_released = True
+                    after = sse_hold[idx + len(FINAL_ANSWER_MARKER) :]
+                    sse_hold = ""
+                    if after:
+                        yield_sse_func({"type": "chunk", "content": after})
+                # else: keep holding preamble (CoT) off the UI
 
             async for c in original_stream:
                 if in_tag:
@@ -308,6 +348,10 @@ async def auto_execute_with_retry(
                 elif not in_think_block:
                     _emit_user(tag_buf)
                     yield tag_buf
+            # No FINAL_ANSWER marker → flush held text (legacy / tool-only turns)
+            if not fa_released and sse_hold and yield_sse_func:
+                yield_sse_func({"type": "chunk", "content": sse_hold})
+                sse_hold = ""
             yield '\n'
         
         async for chunk in stream_with_newline(stream):
@@ -390,7 +434,7 @@ async def auto_execute_with_retry(
                         loop_history.append({"role": "assistant", "content": stream_response})
                         loop_history.append({"role": "user", "content": tool_results_msg})
                         instruction = new_instruction  # 修正指示で上書き
-                        _clear_ui_with_progress(yield_sse_func, "テスト結果を反映して再実行中…")
+                        _clear_ui_with_progress(yield_sse_func, _ui_progress("re_run_tests"))
                         final_accumulated_response = ""
                         continue  # 再実行
                 else:
@@ -430,7 +474,7 @@ async def auto_execute_with_retry(
                             )
                             if supervisor_result:
                                 instruction = supervisor_result
-                                _clear_ui_with_progress(yield_sse_func, "エラー修正のため再実行中…")
+                                _clear_ui_with_progress(yield_sse_func, _ui_progress("fix_and_retry"))
                                 final_accumulated_response = ""
                                 continue
                         else:
@@ -442,7 +486,17 @@ async def auto_execute_with_retry(
                     sig = tag_match.group(0) if tag_match else None
                     if sig and sig in executed_tool_signatures:
                         logger.warning(f"🛑 同一ツール呼び出しの重複検出により無限ループをシャットダウンします: {sig}")
-                        final_accumulated_response += stream_response + "\n\n" + "\n\n".join(tool_handler.tool_results)
+                        # 生の tool_results をユーザー本文に連結しない。合成パスへ回す。
+                        loop_history.append({"role": "assistant", "content": stream_response})
+                        tool_msg = "【システムからのツール実行結果】\n" + "\n\n".join(tool_handler.tool_results)
+                        loop_history.append({"role": "user", "content": tool_msg})
+                        if tool_handler.tool_results:
+                            dump = "\n\n".join(tool_handler.tool_results)
+                            search_results = (
+                                f"{search_results}\n\n{dump}".strip() if search_results else dump
+                            )
+                        final_accumulated_response = ""
+                        force_tool_synthesis = True
                         break
                     if sig:
                         executed_tool_signatures.add(sig)
@@ -496,7 +550,7 @@ async def auto_execute_with_retry(
                         "もし環境に依存するコマンドを実行していた場合は、一度コマンド実行を省き、<file> や <replace> によるファイル操作のみで作業を進めてください。"
                     )
                     loop_history.append({"role": "user", "content": retry_msg})
-                    _clear_ui_with_progress(yield_sse_func, "ツール結果が空だったため再試行中…")
+                    _clear_ui_with_progress(yield_sse_func, _ui_progress("empty_tool_retry"))
                     final_accumulated_response = ""
                     continue
                 else:
@@ -523,7 +577,7 @@ async def auto_execute_with_retry(
                     )
                     # 空 assistant を history に積まない（トークン浪費防止）
                     loop_history.append({"role": "user", "content": retry_msg})
-                    _clear_ui_with_progress(yield_sse_func, "空応答だったため再生成中…")
+                    _clear_ui_with_progress(yield_sse_func, _ui_progress("empty_regen"))
                     final_accumulated_response = ""
                     continue
                 else:
@@ -532,17 +586,38 @@ async def auto_execute_with_retry(
                     break
 
             # ツールタグなし → 通常の回答として返す
-            logger.warning(f"🔍 [DEBUG] LLMの生出力(ツールなし): {repr(stream_response)}")
-            final_accumulated_response += stream_response + "\n"
+            from app.core.fact_filters.markup import normalize_final_answer_body
+
+            logger.warning(
+                f"🔍 [DEBUG] LLMの生出力(ツールなし): {repr(stream_response[:500])}"
+                + ("…" if len(stream_response) > 500 else "")
+            )
+            body, empty_after_marker = normalize_final_answer_body(stream_response)
+            if empty_after_marker:
+                # <<<FINAL_ANSWER>>> with no prose → force synthesis; drop CoT preamble
+                logger.warning(
+                    "⚠️ FINAL_ANSWER marker with empty body — will synthesize from search/tools"
+                )
+                force_tool_synthesis = True
+                loop_history.append({"role": "assistant", "content": stream_response})
+                _clear_ui_with_progress(
+                    yield_sse_func,
+                    _ui_progress("compose_from_search"),
+                )
+                # Leave final_accumulated empty so need_synth runs
+                break
+
+            visible = body if body.strip() else stream_response
+            final_accumulated_response += visible + "\n"
             last_good_user_visible = _remember_good(last_good_user_visible, stream_response)
 
             # 長文コードの chat 直書きを検知 → file 誘導（1回）
             # ユーザーが本文要求でも、途切れ防止のため一旦 file に落としてから読み戻す
-            code_fences = len(re.findall(r"```", stream_response))
+            code_fences = len(re.findall(r"```", visible))
             long_code_dump = (
                 mode in ("task", "coding", "research")
                 and code_fences >= 2
-                and len(stream_response) > 2500
+                and len(visible) > 2500
                 and not re.search(r"<file\b", stream_response, re.IGNORECASE)
                 and loop_count < 2
             )
@@ -557,7 +632,7 @@ async def auto_execute_with_retry(
                         "パス＋要点＋コード全文フェンスを出力してください。メタ完了宣言のみは禁止。"
                     ),
                 })
-                _clear_ui_with_progress(yield_sse_func, "長文をファイル保存してから本文へ載せ直します…")
+                _clear_ui_with_progress(yield_sse_func, _ui_progress("save_long_then_body"))
                 continue
 
             # ハルシネーションチェック（ツール指示があるのにタグがない）
@@ -592,22 +667,136 @@ async def auto_execute_with_retry(
         final_accumulated_response += f"\n\n*(⚠️ 最大実行ループ数 {max_tool_loops} に到達しました。作業が途中となっている場合は、「続きを作成して」と指示してください)*"
     
     tool_results_summary = "\n".join(tool_handler.tool_results) if tool_handler.tool_results else ""
+    # 重複停止などで search_results にマージ済みでも、summary が空なら再構築
+    if not tool_results_summary and search_results and force_tool_synthesis:
+        tool_results_summary = search_results
 
-    # 空本文ガード: pipeline 前に last_good を優先復元
-    if not final_accumulated_response.strip():
-        if last_good_user_visible.strip():
+    from app.core.fact_filters.markup import (
+        looks_like_tool_dump,
+        strip_tool_dump_blocks,
+        normalize_final_answer_body,
+    )
+
+    # Normalize FINAL_ANSWER before empty/synth decisions (marker-only must count as empty)
+    _body, _empty_marker = normalize_final_answer_body(final_accumulated_response)
+    if _empty_marker:
+        final_accumulated_response = ""
+        force_tool_synthesis = True
+    elif "<<<FINAL_ANSWER>>>" in (final_accumulated_response or ""):
+        final_accumulated_response = _body
+
+    # 空本文ガード: pipeline 前に last_good を優先復元（ツール生ダンプは復元しない）
+    if not final_accumulated_response.strip() and not force_tool_synthesis:
+        if last_good_user_visible.strip() and not looks_like_tool_dump(last_good_user_visible):
             logger.warning("⚠️ 最終応答が空のため last_good_user_visible を復元します")
             final_accumulated_response = last_good_user_visible
         else:
             for msg in reversed(loop_history):
                 if msg.get("role") == "assistant" and msg.get("content"):
                     clean_content = _snapshot_visible(msg["content"])
-                    if clean_content:
+                    if clean_content and not looks_like_tool_dump(clean_content):
                         final_accumulated_response = clean_content
                         break
 
-    if not final_accumulated_response.strip() and tool_results_summary:
+    def _synth_system_prompt(extra: str) -> str:
+        """Synthesis must NOT inherit FINAL_ANSWER boundary (it causes empty-body loops)."""
+        base = executor_sys_prompt or ""
+        # Drop conflicting boundary rules from the main executor prompt
+        base = re.sub(
+            r"【構造的モダリティ分離（出力境界トークン）の厳守ルール】[\s\S]*?"
+            r"(?=【|\Z)",
+            "",
+            base,
+            count=1,
+        )
+        base = base.replace("<<<FINAL_ANSWER>>>", "")
+        return (
+            base
+            + "\n\n# Synthesis mode\n"
+            "Write the user-facing answer directly in plain prose/markdown.\n"
+            "Do NOT output <<<FINAL_ANSWER>>>, <think>, tool XML, or planning notes.\n"
+            + (extra or "")
+        )
+
+    def _extract_synth_text(rebuilt: str) -> str:
+        from app.core.fact_filters.markup import (
+            strip_internal_markup,
+            split_final_answer,
+        )
+
+        body, empty_m = normalize_final_answer_body(rebuilt)
+        if empty_m:
+            pre, _, _ = split_final_answer(rebuilt)
+            cleaned = strip_internal_markup(pre).strip()
+            if len(cleaned) >= 80:
+                logger.warning(
+                    "⚠️ Synth returned empty FINAL_ANSWER body; using cleaned preamble"
+                )
+                return cleaned
+            cleaned_all = strip_internal_markup(rebuilt).strip()
+            return cleaned_all
+        if "<<<FINAL_ANSWER>>>" in (rebuilt or ""):
+            return strip_internal_markup(body).strip()
+        return strip_internal_markup(rebuilt).strip()
+
+    async def _synthesize_from_tools(prompt: str, sys_extra: str) -> str:
+        rebuilt = ""
+        s_stream = run_executor(
+            user_input=prompt,
+            instruction=instruction,
+            search_results=search_results or tool_results_summary,
+            memory_text=memory_text,
+            history_messages=exec_history[-4:] if exec_history else [],
+            mode=mode,
+            system_instruction=_synth_system_prompt(sys_extra),
+        )
+        async for chunk in s_stream:
+            rebuilt += chunk
+            # Stream only post-strip deltas would be complex; emit raw then UI clear on done
+            if yield_sse_func:
+                yield_sse_func({"type": "chunk", "content": chunk})
+        return _extract_synth_text(rebuilt)
+
+    def _deterministic_tool_fallback() -> str:
+        """Last resort when LLM synthesis fails — never return empty if we have data."""
+        blob = (tool_results_summary or "") + "\n" + (search_results or "")
+        # Pull a few quote-ish lines if present
+        lines = []
+        for line in blob.splitlines():
+            s = line.strip()
+            if not s:
+                continue
+            if any(
+                k in s
+                for k in (
+                    "ticker",
+                    "current_price",
+                    "previous_close",
+                    "change_pct",
+                    "^GSPC",
+                    "^DJI",
+                    "^IXIC",
+                    "Dow",
+                    "S&P",
+                    "Nasdaq",
+                )
+            ):
+                lines.append(s)
+            if len(lines) >= 12:
+                break
+        head = "\n".join(lines[:12]) if lines else blob[:1200].strip()
+        return (
+            "I gathered market data for your question, but the final write-up step failed. "
+            "Here are the key tool/search snippets — ask me to summarize again if needed:\n\n"
+            f"{head}"
+        )
+
+    need_synth = (
+        force_tool_synthesis or not final_accumulated_response.strip()
+    ) and bool(tool_results_summary or search_results)
+    if need_synth:
         logger.info("⚠️ ツール実行後に最終回答が未生成だったため、ツール結果をもとに集約回答を生成します")
+        _clear_ui_with_progress(yield_sse_func, _ui_progress("compose_from_search"))
         try:
             from app.core.completion_status import wants_code_in_chat
             code_hint = ""
@@ -618,72 +807,62 @@ async def auto_execute_with_retry(
                 )
             final_prompt_msg = (
                 "検索結果・ツール実行結果を踏まえて、ユーザーの質問に対する最終回答を自然な文章で作成してください。"
-                "XMLタグや生ログはそのまま出力せず、整理して回答してください。"
+                "XMLタグや生ログ（[Local Tool:…]【一般検索結果】【引用契約】等）はそのまま出力せず、整理して回答してください。"
                 "ファイルを作成した場合はパスと要点を必ず含めてください。"
+                "Do not output <<<FINAL_ANSWER>>> or long internal planning notes—write the answer only."
                 + code_hint
             )
-            s_stream = run_executor(
-                user_input=final_prompt_msg,
-                instruction=instruction,
-                search_results=search_results or tool_results_summary,
-                memory_text=memory_text,
-                history_messages=exec_history,
-                mode=mode,
-                system_instruction=executor_sys_prompt + "\n\n【重要】XMLタグやツールタグは一切出力しないでください。結果を踏まえた最終的な回答のみを自然な対話で出力すること。メタ完了宣言だけで終わらないこと。",
+            final_accumulated_response = await _synthesize_from_tools(
+                final_prompt_msg,
+                "\n\n【重要】XMLタグやツールタグ・ツール生ログは一切出力しないでください。"
+                "結果を踏まえた最終的な回答のみを自然な対話で出力すること。メタ完了宣言だけで終わらないこと。"
+                "<<<FINAL_ANSWER>>> は出力禁止。",
             )
-            final_accumulated_response = ""
-            async for chunk in s_stream:
-                final_accumulated_response += chunk
-                if yield_sse_func:
-                    yield_sse_func({"type": "chunk", "content": chunk})
         except Exception as e:
             logger.error(f"Final synthesis error: {e}")
+            final_accumulated_response = ""
 
     # 空洞完了（「ファイル作成完了」だけ等）→ 1回だけ本体合成
     try:
         from app.core.completion_status import is_hollow_completion, wants_code_in_chat
-        if is_hollow_completion(final_accumulated_response, user_input) and tool_results_summary:
+        if (
+            is_hollow_completion(final_accumulated_response, user_input)
+            and (tool_results_summary or search_results)
+        ):
             logger.warning("⚠️ 空洞完了を検知したため、本体回答を再合成します")
-            if yield_sse_func:
-                yield_sse_func({"type": "pipeline", "stage": "composing", "detail": "完成報告だけでなく本文を組み立て中…"})
+            _clear_ui_with_progress(
+                yield_sse_func, "Rewriting a full answer from tool results…"
+            )
             hollow_prompt = (
-                "直前の応答は「作成完了」などのメタ報告だけで中身がありません。"
-                "ツール結果を使って、ユーザーが読める本番の回答を書いてください。"
+                "The previous response had no usable user-facing body. "
+                "Using only the search/tool results, write a complete market answer now. "
+                "No <<<FINAL_ANSWER>>>, no <think>, no tool XML."
             )
             if wants_code_in_chat(user_input):
-                hollow_prompt += "コード全文を ``` フェンスで含めてください。省略禁止。"
-            s_stream = run_executor(
-                user_input=hollow_prompt,
-                instruction=instruction,
-                search_results=search_results or tool_results_summary,
-                memory_text=memory_text,
-                history_messages=exec_history + [
-                    {"role": "assistant", "content": final_accumulated_response},
-                    {"role": "user", "content": hollow_prompt},
-                ],
-                mode=mode,
-                system_instruction=executor_sys_prompt + "\nメタ完了禁止。XMLツールタグ禁止。本文を書け。",
+                hollow_prompt += " Include full code in fences."
+            rebuilt = await _synthesize_from_tools(
+                hollow_prompt,
+                "\nメタ完了禁止。XMLツールタグ禁止。本文を書け。<<<FINAL_ANSWER>>>禁止。",
             )
-            rebuilt = ""
-            async for chunk in s_stream:
-                rebuilt += chunk
-                if yield_sse_func:
-                    yield_sse_func({"type": "chunk", "content": chunk})
             if rebuilt.strip() and not is_hollow_completion(rebuilt, user_input):
+                final_accumulated_response = rebuilt
+            elif rebuilt.strip() and len(rebuilt) > len(final_accumulated_response or ""):
                 final_accumulated_response = rebuilt
     except Exception as e:
         logger.warning(f"Hollow completion rebuild failed: {e}")
 
     if not final_accumulated_response.strip():
-        if last_good_user_visible.strip():
+        if (
+            last_good_user_visible.strip()
+            and not looks_like_tool_dump(last_good_user_visible)
+        ):
             final_accumulated_response = last_good_user_visible
-        elif tool_results_summary:
-            final_accumulated_response = (
-                "作業結果はツール側に反映されましたが、チャット本文の生成に失敗しました。"
-                "「続きを本文に書いて」と送るか、作成ファイルのパスを指定してください。"
-            )
+        elif tool_results_summary or search_results:
+            final_accumulated_response = _deterministic_tool_fallback()
         else:
-            final_accumulated_response = "*(⚠️ 応答が生成されなかったか、システムによってフィルタリングされました。もう一度お試しください)*"
+            final_accumulated_response = (
+                "*(⚠️ Response generation failed or was filtered. Please try again.)*"
+            )
             logger.warning("⚠️ 最終応答が空になったため、フォールバックメッセージを挿入しました。")
 
     # --- 物理分離構造パース: <<<FINAL_ANSWER>>> 以降を厳格抽出 ---
@@ -704,12 +883,38 @@ async def auto_execute_with_retry(
         "",
         final_accumulated_response,
     )
-    final_accumulated_response = re.sub(
-        r"【一般検索結果:.*?】\s*(?:\[brave\s*\[Tier.*?\]\].*?\n?)+",
-        "",
-        final_accumulated_response,
-        flags=re.DOTALL,
-    )
+    final_accumulated_response = strip_tool_dump_blocks(final_accumulated_response)
+
+    # ツール生ダンプが残っていたら破棄して再合成（エコー対策）
+    if looks_like_tool_dump(final_accumulated_response):
+        logger.warning("⚠️ 最終本文にツール生ダンプを検出したため除去・再合成します")
+        stripped = strip_tool_dump_blocks(final_accumulated_response)
+        if looks_like_tool_dump(stripped) or len(stripped) < 20:
+            final_accumulated_response = ""
+            if tool_results_summary or search_results:
+                try:
+                    dump_prompt = (
+                        "直前の出力にはツール生ログが含まれていました。"
+                        "検索結果・ツール実行結果だけを根拠に、ユーザーへの最終回答を自然な文章で書いてください。"
+                        "生ログ・XMLタグ・【引用契約】は出力禁止。"
+                    )
+                    rebuilt = await _synthesize_from_tools(
+                        dump_prompt,
+                        "\nメタ完了禁止。XMLツールタグ禁止。ツール生ログ禁止。本文を書け。",
+                    )
+                    if rebuilt.strip() and not looks_like_tool_dump(rebuilt):
+                        final_accumulated_response = rebuilt
+                    else:
+                        final_accumulated_response = strip_tool_dump_blocks(rebuilt)
+                except Exception as e:
+                    logger.warning(f"Tool-dump resynthesis failed: {e}")
+            if not final_accumulated_response.strip():
+                final_accumulated_response = (
+                    "作業結果はツール側に反映されましたが、チャット本文の生成に失敗しました。"
+                    "「続きを本文に書いて」と送るか、作成ファイルのパスを指定してください。"
+                )
+        else:
+            final_accumulated_response = stripped
 
     # 途切れ検知 → 1回だけ継続生成
     if looks_incomplete_output(final_accumulated_response) and not continuation_attempted:
@@ -770,9 +975,28 @@ async def auto_execute_with_retry(
         logger.warning(f"Fact filter validation warning in auto_execution_loop: {e}")
         final_accumulated_response = strip_internal_markup(pre_sanitize)
 
-    if not final_accumulated_response.strip() and last_good_user_visible.strip():
-        logger.warning("⚠️ サニタイズ後も空のため last_good を最終復元")
-        final_accumulated_response = strip_internal_markup(last_good_user_visible)
+    if not final_accumulated_response.strip():
+        if last_good_user_visible.strip() and not looks_like_tool_dump(last_good_user_visible):
+            logger.warning("⚠️ サニタイズ後も空のため last_good_user_visible を復元します")
+            final_accumulated_response = strip_internal_markup(last_good_user_visible)
+        elif tool_results_summary or search_results:
+            logger.warning("⚠️ サニタイズ後も空のため tool/search フォールバックを挿入します")
+            final_accumulated_response = _deterministic_tool_fallback()
+        else:
+            final_accumulated_response = (
+                "*(⚠️ Response generation failed or was filtered. Please try again.)*"
+            )
+
+    # 最終ガード: それでもダンプならフォールバック（生ログを返さない）
+    if looks_like_tool_dump(final_accumulated_response):
+        logger.warning("⚠️ 最終ガードでツール生ダンプを遮断しました")
+        if tool_results_summary or search_results:
+            final_accumulated_response = _deterministic_tool_fallback()
+        else:
+            final_accumulated_response = (
+                "Tool results were collected, but the chat write-up failed. "
+                "Please ask me to summarize again."
+            )
 
     return final_accumulated_response.strip(), tool_results_summary, escalation_history
 

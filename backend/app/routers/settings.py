@@ -57,7 +57,7 @@ _DEFAULT_SETTINGS = {
     "executor_model": "deepseek-v4-flash",
     "planner_provider": "deepseek",
     "planner_model": "deepseek-v4-flash",
-    "user_name": "ご主人様",
+    "user_name": "you",
     "user_location": "",
     "persona_style": "standard",
     "notify_on_complete": True,
@@ -67,7 +67,7 @@ _DEFAULT_SETTINGS = {
     "image_engine": "gallery",
     "cf_account_id": "",
     "cf_api_token": "",
-    "locale": "ja",
+    "locale": "en",
     "gemini_api_key": "",
     "anthropic_api_key": "",
     "openai_api_key": "",
@@ -76,7 +76,7 @@ _DEFAULT_SETTINGS = {
     "world_news_api_key": "",
     "newsdata_api_key": "",
     "mapbox_api_key": "",
-    "is_licensed": True,
+    "is_licensed": True,  # BOOTH 買い切り同梱（DRM なし）
     "license_key": "",
     "app_pin": "",
     "api_token": "",
@@ -90,6 +90,51 @@ _DEFAULT_SETTINGS = {
         "capacitor://localhost",
     ],
 }
+
+# GET でマスクする秘密フィールド（保存時のみ平文を受け取る）
+_SECRET_SETTING_KEYS = frozenset({
+    "gemini_api_key",
+    "anthropic_api_key",
+    "openai_api_key",
+    "deepseek_api_key",
+    "brave_api_key",
+    "world_news_api_key",
+    "newsdata_api_key",
+    "mapbox_api_key",
+    "cf_api_token",
+    "cf_account_id",
+    "app_pin",
+    "api_token",
+    "license_key",
+})
+_SECRET_MASK = "********"
+
+
+def _is_masked_secret(value) -> bool:
+    if value is None:
+        return True
+    if not isinstance(value, str):
+        return False
+    s = value.strip()
+    if not s:
+        return True
+    if s == _SECRET_MASK:
+        return True
+    # UI が全部 * や • のマスクを返した場合
+    if len(s) >= 4 and set(s) <= {"*", "•", "·"}:
+        return True
+    return False
+
+
+def _public_settings(raw: dict) -> dict:
+    """API 応答用: 秘密値をマスクし *_set フラグを付ける。"""
+    out = dict(raw)
+    for k in _SECRET_SETTING_KEYS:
+        val = out.get(k) or ""
+        configured = bool(str(val).strip())
+        out[f"{k}_set"] = configured
+        out[k] = _SECRET_MASK if configured else ""
+    return out
 
 
 class Settings:
@@ -135,7 +180,10 @@ class Settings:
                 with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
                     loaded = json.load(f)
                     self._settings = {**_DEFAULT_SETTINGS, **loaded}
-                logger.info(f"設定をロード: {self._settings}")
+                secret_count = sum(
+                    1 for k in _SECRET_SETTING_KEYS if str(self._settings.get(k) or "").strip()
+                )
+                logger.info(f"設定をロード（秘密フィールド設定済み: {secret_count}）")
             except Exception as e:
                 logger.info(f"設定ロード失敗、デフォルトを使用: {e}")
                 self._settings = _DEFAULT_SETTINGS.copy()
@@ -177,11 +225,18 @@ class Settings:
 
     def update(self, update_data: dict):
         for k, v in update_data.items():
-            if v is not None:
-                self._settings[k] = v
+            if v is None:
+                continue
+            # マスク／空の秘密値は既存を保持（設定画面の再保存でキーが消えないように）
+            if k in _SECRET_SETTING_KEYS and _is_masked_secret(v):
+                continue
+            self._settings[k] = v
         self._save()
         self._sync_env()
-        logger.info(f"設定更新: {self._settings}")
+        secret_count = sum(
+            1 for sk in _SECRET_SETTING_KEYS if str(self._settings.get(sk) or "").strip()
+        )
+        logger.info(f"設定を更新（秘密フィールド設定済み: {secret_count}）")
 
 
 # シングルトンインスタンス
@@ -222,8 +277,8 @@ class SettingsUpdate(BaseModel):
 
 @router.get("/settings")
 async def get_settings():
-    """現在の設定を取得"""
-    settings = app_settings.get()
+    """現在の設定を取得（秘密値はマスク）"""
+    settings = _public_settings(app_settings.get())
     return {
         **settings,
         "available_providers": ["anthropic", "openai", "gemini", "deepseek", "local"],
@@ -236,11 +291,11 @@ async def get_settings():
 
 @router.post("/settings")
 async def update_settings(req: SettingsUpdate):
-    """設定を更新"""
+    """設定を更新（マスク値の秘密フィールドは無視）"""
     app_settings.update(req.model_dump(exclude_unset=True))
     return {
         "status": "ok",
-        **app_settings.get(),
+        **_public_settings(app_settings.get()),
     }
 
 @router.get("/usage")

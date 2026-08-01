@@ -1,10 +1,11 @@
 /**
- * MarketDesk — 市況デスク（紙のみ・実発注なし）。
- * 主軸: $700 デイトレ〜スイング / 年利10% / 自動更新。
+ * MarketDesk — 市況参照パネル（紙のみ・実発注なし）。
+ * チャット本命の補助。レーダーは上級モード時のみ。
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { executeMarketTool } from "../hooks/useMarketTool";
 import TradingViewChartModal, { type ChartTarget } from "./TradingViewChartModal";
+import { getShowAdvancedModes } from "../utils/advancedModes";
 import {
   JP_INDEX_BAR,
   JP_SECTOR_BAR,
@@ -186,7 +187,18 @@ function volumeWarn(ratio: number | null | undefined): boolean {
 
 export function MarketDesk() {
   const [tab, setTab] = useState<DeskTab>("overview");
+  const [showAdvanced, setShowAdvanced] = useState(getShowAdvancedModes);
   const [loading, setLoading] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onAdv = () => {
+      const on = getShowAdvancedModes();
+      setShowAdvanced(on);
+      if (!on) setTab((t) => (t === "radar" ? "overview" : t));
+    };
+    window.addEventListener("kairi-advanced-modes", onAdv);
+    return () => window.removeEventListener("kairi-advanced-modes", onAdv);
+  }, []);
   const [ibkrSummary, setIbkrSummary] = useState<unknown>(null);
   const [ibkrPositions, setIbkrPositions] = useState<unknown>(null);
   const [ibkrFills, setIbkrFills] = useState<unknown>(null);
@@ -646,9 +658,11 @@ export function MarketDesk() {
 
   const tabs: Array<{ id: DeskTab; label: string }> = [
     { id: "overview", label: "Overview" },
-    { id: "radar", label: "Radar" },
     { id: "signals", label: "Signals" },
     { id: "briefing", label: "Briefing" },
+    ...(showAdvanced
+      ? [{ id: "radar" as const, label: "Radar（上級）" }]
+      : []),
   ];
 
   const quotesBusy = loading === "overview_quotes" || quoteBusyRef.current;
@@ -659,7 +673,7 @@ export function MarketDesk() {
         <div>
           <h2 className="text-base font-bold tracking-tight text-white">Market Desk</h2>
           <p className="text-[11px] text-gray-500">
-            $700 swing/day paper · 年利10%目標 · 実発注なし
+            指数・個別の参照パネル（実発注なし）
             {lastQuoteAt && (
               <span className="ml-2 text-cyan-500/80">
                 Updated {lastQuoteAt}

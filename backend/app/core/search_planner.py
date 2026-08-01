@@ -7,15 +7,24 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def _market_today_shortcut(user_input: str, current_date: str, current_date_en: str) -> dict[str, Any] | None:
+def _market_today_shortcut(
+    user_input: str,
+    current_date: str,
+    current_date_en: str,
+    *,
+    session_id: str | None = None,
+) -> dict[str, Any] | None:
     """
     「今日の日本/米国市場」系は LLM planner を飛ばして固定クエリを返す。
     明示日付（7/29 等）があればその日を使い、JST今日で上書きしない。
+    soft-US（個別株＋材料聞き等）も todayish 無しでショートサーキット可。
     """
     from datetime import datetime
     from app.core.chat_search import (
         _TODAYISH_KW,
+        build_us_market_search_queries,
         format_anchor_date_en,
+        is_soft_us_single_stock_query,
         parse_explicit_calendar_date,
         resolve_market_anchor_date,
         JST,
@@ -23,12 +32,28 @@ def _market_today_shortcut(user_input: str, current_date: str, current_date_en: 
 
     text = user_input or ""
     now = datetime.now(JST)
+    providers = ["tavily", "brave", "news"]
+
+    jp = any(k in text for k in ("日本市場", "日経", "東証", "TOPIX", "東京株式", "日本株"))
+    us = any(k in text for k in ("米国市場", "アメリカ市場", "NY", "ナスダック", "Nasdaq", "S&P", "ダウ", "Dow", "Wall Street"))
+    soft_us = is_soft_us_single_stock_query(text, session_id=session_id)
+
+    # soft-US 個別株は todayish 無しでも planner を飛ばす
+    if soft_us and not jp:
+        queries = build_us_market_search_queries(text, now_jst=now, company_focus=True)
+        return {
+            "needs_search": True,
+            "search_queries": queries[:4],
+            "providers": providers,
+            "needs_deep_search": False,
+            "recommended_mode": "chat",
+            "category": "finance",
+        }
+
     todayish = any(k in text for k in _TODAYISH_KW) or parse_explicit_calendar_date(text) is not None
     if not todayish:
         return None
 
-    jp = any(k in text for k in ("日本市場", "日経", "東証", "TOPIX", "東京株式", "日本株"))
-    us = any(k in text for k in ("米国市場", "アメリカ市場", "NY", "ナスダック", "Nasdaq", "S&P", "ダウ", "Dow", "Wall Street"))
     # 「市場」単独 + 今日系で日本寄り（locale既定）
     if not jp and not us and ("市場" in text or "相場" in text or "market" in text.lower()):
         if any(k in text for k in ("米国", "アメリカ", "US", "NY")):
@@ -37,7 +62,6 @@ def _market_today_shortcut(user_input: str, current_date: str, current_date_en: 
             jp = True
 
     session = "前場" if "前場" in text else ("後場" if "後場" in text else "")
-    providers = ["tavily", "brave", "news"]
 
     if jp and not us:
         from app.core.market_session import get_jp_session_bucket, jp_cash_price_query_word
@@ -70,17 +94,10 @@ def _market_today_shortcut(user_input: str, current_date: str, current_date_en: 
             "category": "finance",
         }
     if us and not jp:
-        us_d = resolve_market_anchor_date(text, market="us", now_jst=now)
-        d = us_d.isoformat()
-        d_en = format_anchor_date_en(us_d)
+        queries = build_us_market_search_queries(text, now_jst=now)
         return {
             "needs_search": True,
-            "search_queries": [
-                # 朝ラップ（News for DATE＝前日終値）を避け、引け後記事を優先
-                f"Wall Street closes {d_en}",
-                f"Dow S&P Nasdaq close {d}",
-                f"stocks end higher OR lower {d_en}",
-            ],
+            "search_queries": queries[:4],
             "providers": providers,
             "needs_deep_search": False,
             "recommended_mode": "chat",
@@ -146,7 +163,12 @@ PLANNER_SYSTEM_PROMPT = """あなたはユーザーの入力と文脈から、**
 """
 
 
-async def plan_search(user_input: str, history_messages: list[dict]) -> dict[str, Any]:
+async def plan_search(
+    user_input: str,
+    history_messages: list[dict],
+    *,
+    session_id: str | None = None,
+) -> dict[str, Any]:
     """
     高速な実行モデル (LLM) を呼び出し、検索の必要性と最適なクエリを判定する。
     """
@@ -169,7 +191,9 @@ async def plan_search(user_input: str, history_messages: list[dict]) -> dict[str
     current_date_en = now.strftime("%B %d, %Y").replace(" 0", " ")
 
     # --- 市場「今日/本日」ショートサーキット（planner LLM 1往復を省略）---
-    short = _market_today_shortcut(user_input or "", current_date, current_date_en)
+    short = _market_today_shortcut(
+        user_input or "", current_date, current_date_en, session_id=session_id
+    )
     if short:
         logger.info(f"⚡ 市場今日系ショートサーキット: {short['search_queries']}")
         return short

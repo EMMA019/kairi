@@ -88,6 +88,18 @@ _MARKET_QUERY_HINTS = (
     "セクター",
     "銀行",
     "市況",
+    # English (public / locale=en)
+    "market",
+    "markets",
+    "stock",
+    "stocks",
+    "s&p",
+    "dow",
+    "nasdaq",
+    "index",
+    "indices",
+    "equities",
+    "wall street",
 )
 
 

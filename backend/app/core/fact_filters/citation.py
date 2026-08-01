@@ -163,18 +163,12 @@ def verify_citations(
             unverified_abs.append(num)
         if unverified_abs:
             metrics.uncited_assertions += len(set(unverified_abs))
-            if (
-                soften_uncited
-                and "※一部の比率" not in text
-                and "※正確な" not in text
-                and "公式開示" not in text
-            ):
-                text = text.rstrip() + (
-                    "\n\n※一部の比率・市場指標や価格等はソース記事に明記されていない"
-                    "推計または周辺参考データを含む場合があります。"
-                    "正確な最新数値は公式開示データをご確認ください。"
-                )
-                logger.info(f"📎 ソース未記載の絶対数値を検知し免責を付与: {unverified_abs[:5]}")
+            if soften_uncited:
+                from app.core.ui_status import disclaimer, has_finance_estimate_disclaimer
+
+                if not has_finance_estimate_disclaimer(text):
+                    text = text.rstrip() + disclaimer("finance_estimate")
+                    logger.info(f"📎 ソース未記載の絶対数値を検知し免責を付与: {unverified_abs[:5]}")
 
     # 3) 強い時事断定トリガ文に引用が無い場合（要確認は上限）
     if soften_uncited and source_usable:

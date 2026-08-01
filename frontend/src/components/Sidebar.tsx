@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../utils/api";
 import type { SessionInfo } from "../types";
+import { useLocale } from "../i18n";
 
 interface ProjectInfo {
   id: string;
@@ -30,6 +31,7 @@ export function Sidebar({
   onDeleteSession,
   refreshTrigger,
 }: SidebarProps) {
+  const { t } = useLocale();
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
@@ -84,7 +86,7 @@ export function Sidebar({
   };
 
   const handleCreateProject = async () => {
-    const name = prompt("Enter project name:");
+    const name = prompt(t("sidebar.projectNamePrompt"));
     if (!name || !name.trim()) return;
     try {
       const res = await apiFetch("/api/project", {
@@ -153,13 +155,13 @@ export function Sidebar({
                 <h2 className="text-base font-extrabold tracking-tight bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent">Kairi</h2>
                 <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-500/30 text-cyan-300">AI</span>
               </div>
-              <p className="text-[10px] text-gray-400 font-medium tracking-wide">Autonomous Engine</p>
+              <p className="text-[10px] text-gray-400 font-medium tracking-wide">{t("brand.subtitle")}</p>
             </div>
             {/* モバイル用閉じるボタン */}
             <button 
               className="md:hidden text-gray-400 hover:text-white shrink-0"
               onClick={onClose}
-              aria-label="Close menu"
+              aria-label={t("sidebar.closeMenu")}
             >
               ✕
             </button>
@@ -169,12 +171,12 @@ export function Sidebar({
         {/* プロジェクト管理枠 */}
         <div className="p-4 border-b border-white/5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Project</span>
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t("sidebar.project")}</span>
             <button 
               onClick={handleCreateProject}
               className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors"
             >
-              + New
+              {t("sidebar.newProject")}
             </button>
           </div>
           
@@ -203,7 +205,7 @@ export function Sidebar({
                   {p.name}
                 </span>
                 {p.active && (
-                  <span className="text-[10px] text-blue-400/60 bg-blue-500/10 px-1.5 py-0.5 rounded">active</span>
+                  <span className="text-[10px] text-blue-400/60 bg-blue-500/10 px-1.5 py-0.5 rounded">{t("sidebar.active")}</span>
                 )}
                 {p.file_count > 0 && (
                   <span className="text-[10px] text-gray-500">{p.file_count}f</span>
@@ -212,7 +214,7 @@ export function Sidebar({
             ))}
             
             {projects.length === 0 && (
-              <div className="text-gray-500 text-xs text-center py-2">no projects</div>
+              <div className="text-gray-500 text-xs text-center py-2">{t("sidebar.noProjects")}</div>
             )}
           </div>
         </div>
@@ -227,17 +229,17 @@ export function Sidebar({
             className="w-full flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-400 hover:to-purple-400 text-white rounded-xl font-medium transition-all duration-300 shadow-md hover:shadow-lg hover:-translate-y-0.5 border border-white/10"
           >
             <span className="text-lg leading-none">+</span>
-            <span>New Chat</span>
+            <span>{t("sidebar.newChat")}</span>
           </button>
         </div>
 
         {/* チャット履歴一覧 */}
         <div className="flex-1 overflow-y-auto px-2">
-          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2 mt-2">Chat History</div>
+          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2 mt-2">{t("sidebar.chatHistory")}</div>
           {isLoading && sessions.length === 0 ? (
-            <div className="text-gray-500 text-sm text-center py-4">Loading...</div>
+            <div className="text-gray-500 text-sm text-center py-4">{t("sidebar.loading")}</div>
           ) : sessions.length === 0 ? (
-            <div className="text-gray-500 text-sm text-center py-4">No history</div>
+            <div className="text-gray-500 text-sm text-center py-4">{t("sidebar.noHistory")}</div>
           ) : (
             <div className="flex flex-col gap-1">
               {sessions.map((s) => (
@@ -254,7 +256,7 @@ export function Sidebar({
                   }}
                 >
                   <div className="truncate flex-1 text-sm">
-                    {s.title || "New Chat"}
+                    {s.title || t("sidebar.newChat")}
                   </div>
                   <button 
                     onClick={(e) => {

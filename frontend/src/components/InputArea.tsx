@@ -5,6 +5,7 @@
 import { useState, useRef, useCallback, useEffect, type KeyboardEvent } from "react";
 import { apiFetch } from "../utils/api";
 import { FileUploadButton } from "./FileUploadButton";
+import { useLocale } from "../i18n";
 
 interface InputAreaProps {
   onSend: (message: string, forceSearch?: boolean) => void;
@@ -13,6 +14,7 @@ interface InputAreaProps {
 }
 
 export function InputArea({ onSend, onStop, status }: InputAreaProps) {
+  const { t } = useLocale();
   const [input, setInput] = useState("");
   const [attachedFile, setAttachedFile] = useState<{ filename: string; content: string; mime_type?: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -179,7 +181,7 @@ export function InputArea({ onSend, onStop, status }: InputAreaProps) {
           }}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          placeholder="Kairiにメッセージや現在地を送信..."
+          placeholder={t("input.placeholder")}
           rows={1}
           disabled={disabled || isUploading}
           className="w-full bg-transparent border-none text-gray-100 text-sm md:text-base resize-none outline-none min-h-[28px] max-h-[160px] leading-relaxed"
@@ -203,14 +205,14 @@ export function InputArea({ onSend, onStop, status }: InputAreaProps) {
                   ? "bg-blue-500/15 text-blue-400 border-blue-500/30 shadow-sm"
                   : "bg-transparent text-gray-400 hover:text-gray-300 border-white/5 hover:border-white/10"
               }`}
-              title="Web検索モード"
+              title={t("input.searchTitle")}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10"></circle>
                 <line x1="2" y1="12" x2="22" y2="12"></line>
                 <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
               </svg>
-              <span>Search</span>
+              <span>{t("input.search")}</span>
             </button>
 
             {/* 現在地取得ボタン */}
@@ -222,24 +224,24 @@ export function InputArea({ onSend, onStop, status }: InputAreaProps) {
                   (pos) => {
                     const lat = pos.coords.latitude.toFixed(4);
                     const lon = pos.coords.longitude.toFixed(4);
-                    const locTag = `[現在地GPS: ${lat}, ${lon}] `;
+                    const locTag = t("input.locationTag", { lat, lon });
                     setInput((prev) => (prev.includes(locTag) ? prev : locTag + prev));
                   },
                   (err) => {
-                    alert("現在地情報を取得できませんでした（GPSの許可をご確認ください）: " + err.message);
+                    alert(t("input.locationError", { message: err.message }));
                   },
                   { enableHighAccuracy: true, timeout: 8000 }
                 );
               }}
               disabled={disabled}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 border bg-transparent text-gray-400 hover:text-emerald-400 border-white/5 hover:border-emerald-500/30 shrink-0"
-              title="現在地のGPS座標を入力欄に追加"
+              title={t("input.locationTitle")}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                 <circle cx="12" cy="10" r="3"></circle>
               </svg>
-              <span>現在地</span>
+              <span>{t("input.location")}</span>
             </button>
           </div>
 
@@ -249,7 +251,7 @@ export function InputArea({ onSend, onStop, status }: InputAreaProps) {
               <button
                 className="flex items-center justify-center w-8 h-8 rounded-full bg-red-500 hover:bg-red-400 text-white transition-all"
                 onClick={onStop}
-                title="生成停止"
+                title={t("input.stop")}
               >
                 <div className="w-3 h-3 bg-white rounded-sm" />
               </button>

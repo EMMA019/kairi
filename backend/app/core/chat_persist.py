@@ -23,12 +23,17 @@ def trim_history_content(content: str) -> str:
         "",
         content,
     )
-    content = re.sub(
-        r"【一般検索結果:.*?】\s*(?:\[brave\s*\[Tier.*?\]\].*?\n?)+",
-        "",
-        content,
-        flags=re.DOTALL,
-    ).strip()
+    try:
+        from app.core.fact_filters.markup import strip_tool_dump_blocks
+
+        content = strip_tool_dump_blocks(content)
+    except Exception:
+        content = re.sub(
+            r"【一般検索結果:.*?】\s*(?:\[[^\]]+\[Tier.*?\]\].*?\n?)+",
+            "",
+            content,
+            flags=re.DOTALL,
+        ).strip()
 
     if len(content) < 4000:
         return content

@@ -19,6 +19,46 @@ OFFICIAL_EXCHANGE_RATES_JPY = {
     "USD": 155.0,  # ドル
 }
 
+# 勝手な「外貨→円」換算の除去対象。兆/億/万付きの大口換算のみ。
+# ※ `(?:兆|億|万)?` を optional にすると `1ドル＝162円台` のスポットまで消え
+#   `1ドル台後半` になる（実害再現済み）。
+_NUM = r"\d+(?:,\d+)*(?:\.\d+)?"
+_LARGE_JPY_AMT = (
+    rf"(?:日本円(?:にして|で)?)?\s*約?\s*"
+    rf"(?:"
+    rf"{_NUM}\s*兆(?:\s*{_NUM})?\s*(?:億|万)?\s*"  # 1兆 / 1兆500億
+    rf"|"
+    rf"{_NUM}\s*(?:億|万)\s*"  # 237億 / 5700万
+    rf")"
+    rf"円(?:相当)?"
+)
+_RE_JPY_CONV_PAREN = re.compile(rf"[（\(]\s*{_LARGE_JPY_AMT}\s*[）\)]")
+_RE_JPY_CONV_EQ = re.compile(rf"(?:＝|=)\s*{_LARGE_JPY_AMT}")
+_RE_FX_OTHER_PAREN = re.compile(
+    r"[（\(]\s*(?:約|＝|=)?\s*\d+(?:,\d+)*(?:\.\d+)?\s*(?:兆|億|万)\s*"
+    r"(?:ユーロ|ドル|ポンド|EUR|USD|GBP)(?:相当)?\s*[）\)]"
+)
+_RE_FX_OTHER_EQ = re.compile(
+    r"(?:＝|=)\s*(?:約)?\s*\d+(?:,\d+)*(?:\.\d+)?\s*(?:兆|億|万)\s*"
+    r"(?:ユーロ|ドル|ポンド|EUR|USD|GBP)(?:相当)?"
+)
+
+
+def strip_unauthorized_jpy_conversions(text: str) -> str:
+    """外貨記事に勝手に付けた大口円換算を除去。ドル円スポット（＝162円台）は残す。"""
+    if not text:
+        return text
+    if not any(
+        cur in text
+        for cur in ["ポンド", "ユーロ", "ドル", "GBP", "EUR", "USD", "£", "€", "$", "ポンド台", "ドル台"]
+    ):
+        return text
+    text = _RE_JPY_CONV_PAREN.sub("", text)
+    text = _RE_JPY_CONV_EQ.sub("", text)
+    text = _RE_FX_OTHER_PAREN.sub("", text)
+    text = _RE_FX_OTHER_EQ.sub("", text)
+    text = re.sub(r"[^\S\r\n]{2,}", " ", text)
+    return text
 
 
 def check_currency_consistency(text: str) -> tuple[bool, str]:
@@ -27,22 +67,7 @@ def check_currency_consistency(text: str) -> tuple[bool, str]:
     回答内に2つ以上の為替換算や金額表記が出てきた場合、それぞれの暗黙レートを検知し、
     矛盾（例: 167円/ポンドと100円/ポンドの混在）があれば自動警告フラグを立てる。
     """
-    if any(cur in text for cur in ["ポンド", "ユーロ", "ドル", "GBP", "EUR", "USD", "£", "€", "$", "ポンド台", "ドル台"]):
-        # 「約1兆500億円」「約1,500億円」等の括弧内JPY換算を除去
-        _jpy_paren = (
-            r"[（\(]\s*(?:日本円(?:にして|で)?)?\s*約?\s*"
-            r"\d+(?:,\d+)*(?:\.\d+)?\s*(?:兆)?(?:\d+(?:,\d+)*(?:\.\d+)?\s*)?(?:億|万)?\s*円(?:相当)?\s*[）\)]"
-        )
-        text = re.sub(_jpy_paren, "", text)
-        text = re.sub(
-            r"(?:＝|=)\s*(?:日本円(?:にして|で)?)?\s*約?\s*"
-            r"\d+(?:,\d+)*(?:\.\d+)?\s*(?:兆)?(?:\d+(?:,\d+)*(?:\.\d+)?\s*)?(?:億|万)?\s*円(?:相当)?",
-            "",
-            text,
-        )
-        text = re.sub(r"[（\(]\s*(?:約|＝|=)?\s*\d+(?:,\d+)*(?:\.\d+)?\s*(?:兆|億|万)?\s*(?:ユーロ|ドル|ポンド|EUR|USD|GBP)(?:相当)?\s*[）\)]", "", text)
-        text = re.sub(r"(?:＝|=)\s*(?:約)?\s*\d+(?:,\d+)*(?:\.\d+)?\s*(?:兆|億|万)?\s*(?:ユーロ|ドル|ポンド|EUR|USD|GBP)(?:相当)?", "", text)
-        text = re.sub(r"[^\S\r\n]{2,}", " ", text)
+    text = strip_unauthorized_jpy_conversions(text)
 
     gbp_100m_bug = re.search(r"1億ポンド.*?100億円|100億円.*?1億ポンド", text)
     eur_pound_mix = re.search(r"(?:ユーロ|EUR|€).*?(?:ポンド|GBP|£)|(?:ポンド|GBP|£).*?(?:ユーロ|EUR|€)", text)

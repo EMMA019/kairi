@@ -5,6 +5,7 @@
 
 # Python & Virtual Environments
 venv/
+.venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -14,6 +15,9 @@ __pycache__/
 # Node & Frontend
 node_modules/
 frontend/dist/
+dist/booth/
+dist/booth-cache/
+runtime/
 *.log
 
 # Databases & Local Storage

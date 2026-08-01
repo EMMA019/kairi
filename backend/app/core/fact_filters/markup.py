@@ -164,10 +164,104 @@ def sanitize_preserving_body(text: str, sanitize_fn) -> str:
     return after if after is not None else ""
 
 
+FINAL_ANSWER_MARKER = "<<<FINAL_ANSWER>>>"
+
+
+def split_final_answer(text: str) -> tuple[str, str, bool]:
+    """
+    Split executor output on <<<FINAL_ANSWER>>>.
+    Returns (preamble, body, had_marker).
+    If marker present and body empty → treat as empty user answer (caller should synthesize).
+    """
+    if not text or not isinstance(text, str):
+        return "", "", False
+    if FINAL_ANSWER_MARKER not in text:
+        return "", text, False
+    parts = text.split(FINAL_ANSWER_MARKER)
+    preamble = FINAL_ANSWER_MARKER.join(parts[:-1])
+    body = parts[-1]
+    return preamble, body, True
+
+
+def normalize_final_answer_body(text: str) -> tuple[str, bool]:
+    """
+    Return (user_visible_body, empty_after_marker).
+    empty_after_marker True means marker was present but body is whitespace-only.
+    """
+    preamble, body, had = split_final_answer(text or "")
+    if not had:
+        return text or "", False
+    if not (body or "").strip():
+        return "", True
+    return body.strip(), False
+
+
 def clean_assistant_visible(text: str) -> str:
     """loop_history 復元用: ツールXMLを落として可視本文だけ残す。"""
     if not text:
         return ""
-    cleaned = strip_internal_markup(text)
+    body, empty_marker = normalize_final_answer_body(text)
+    if empty_marker:
+        return ""
+    cleaned = strip_internal_markup(body)
     cleaned = re.sub(r"<[^>]+>.*?</[^>]+>|<[^>]+/>", "", cleaned, flags=re.DOTALL).strip()
+    cleaned = strip_tool_dump_blocks(cleaned)
     return cleaned
+
+
+_TOOL_DUMP_MARKERS = (
+    "[Local Tool:",
+    "[MCP Tool:",
+    "【一般検索結果:",
+    "【引用契約】",
+    "【システムからのツール実行結果】",
+)
+
+
+def looks_like_tool_dump(text: str) -> bool:
+    """ユーザー向け本文にツール生ログが混入しているか。"""
+    if not text or not isinstance(text, str):
+        return False
+    return any(m in text for m in _TOOL_DUMP_MARKERS)
+
+
+def strip_tool_dump_blocks(text: str) -> str:
+    """
+    Local/MCP ツール結果・一般検索結果ブロックを除去する。
+    provider（brave/tavily 等）を問わない。
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    # [Local Tool: ...] / [MCP Tool: ...] + JSON or 後続テキスト
+    text = re.sub(
+        r"\[(?:Local|MCP) Tool:[^\]]*\]\s*\n\{[\s\S]*?\n\}",
+        "",
+        text,
+    )
+    text = re.sub(
+        r"\[(?:Local|MCP) Tool:[^\]]*\]\s*(?:\n(?!\[(?:Local|MCP) Tool:|【)[^\n]*)*",
+        "",
+        text,
+    )
+
+    # 【一般検索結果: …】〜次セクション or 末尾（引用契約・番号付きソース含む）
+    text = re.sub(
+        r"【一般検索結果:.*?】[\s\S]*?(?=(?:【一般検索結果:)|(?:\[(?:Local|MCP) Tool:)|(?:\Z))",
+        "",
+        text,
+    )
+    text = re.sub(r"【引用契約】[^\n]*\n?", "", text)
+    text = re.sub(r"【システムからのツール実行結果】\s*", "", text)
+
+    # 番号付き検索ソース行（tavily/brave/jina 等）
+    text = re.sub(
+        r"(?m)^\s*\[\d+\]\s*\[[^\]]*(?:tavily|brave|jina|news|wikipedia|duckduckgo)[^\]]*\][\s\S]*?"
+        r"(?=^\s*\[\d+\]\s*\[|\Z)",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()

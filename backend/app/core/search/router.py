@@ -100,13 +100,17 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
                         continue
                     if url:
                         seen_urls.add(url)
-                    formatted_news.append({
+                    pub = (r.get("published") or r.get("fetched_at") or "").strip()
+                    item = {
                         "title": r.get("title", ""),
                         "snippet": (r.get("summary") or r.get("verified_fact") or "")[:500],
                         "url": url,
                         "source": f"POOL ({r.get('source', 'news.db')})",
                         "importance": r.get("importance", 0),
-                    })
+                    }
+                    if pub:
+                        item["published"] = pub
+                    formatted_news.append(item)
                     pool_hits += 1
                 if pool_hits:
                     logger.info(f"✅ ニュースプールヒット: {pool_hits}件")
@@ -125,13 +129,17 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
                         continue
                     if url:
                         seen_urls.add(url)
-                    formatted_news.append({
+                    pub = (r.get("published") or r.get("fetched_at") or "").strip()
+                    item = {
                         "title": r.get("title", ""),
                         "snippet": (r.get("summary") or "")[:500],
                         "url": url,
                         "source": f"PRIMARY ({r.get('source', 'RSS')})",
                         "importance": r.get("importance", 0),
-                    })
+                    }
+                    if pub:
+                        item["published"] = pub
+                    formatted_news.append(item)
 
             # 高スコア優先で上限
             formatted_news.sort(key=lambda x: -(x.get("importance") or 0))

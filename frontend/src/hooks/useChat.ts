@@ -124,12 +124,18 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
       case "done":
         // ============================================================
         // 【修正ポイント1】最終コンテンツを確定
+        // Explicit empty string from server must NOT fall back to streamed CoT.
         // ============================================================
-        const finalContent = event.content || streamingContentRef.current;
+        const finalContent =
+          event.content !== undefined && event.content !== null
+            ? event.content
+            : streamingContentRef.current;
         const ok = event.ok !== false && !!finalContent.trim();
         const looksFailed =
           !ok ||
-          /応答の生成に失敗|フィルタリングされました|出力が空|本文が空/.test(finalContent);
+          /応答の生成に失敗|フィルタリングされました|出力が空|本文が空|<<<FINAL_ANSWER>>>/.test(
+            finalContent
+          );
 
         // バックグラウンド通知: 成功のみ完了、失敗は失敗通知
         import("../utils/notifyComplete")

@@ -13,6 +13,7 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { getApiUrl } from "../utils/api";
+import { useLocale } from "../i18n";
 
 function StockImage({ src, alt, ...props }: { src?: string; alt?: string; [key: string]: any }) {
   const [failed, setFailed] = useState(false);
@@ -267,6 +268,7 @@ export const ChatArea = memo(({
   pipelineStages = [],
   onSend,
 }: ChatAreaProps) => {
+  const { t } = useLocale();
   // 1. ヘッダーを押し出さないための唯一の解決策：コンテナ自体を直接制御する
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -353,14 +355,14 @@ export const ChatArea = memo(({
           {status === "planning_search" && (
             <div className="search-banner text-gray-400">
               <div className="spinner" />
-              <span>Determining if search is needed...</span>
+              <span>{t("status.planningSearch")}</span>
             </div>
           )}
 
           {status === "searching" && searchQuery && pipelineStages.length === 0 && (
             <div className="search-banner">
               <div className="spinner" />
-              <span>Searching "{searchQuery}"...</span>
+              <span>{t("status.searchingQuery", { query: searchQuery })}</span>
             </div>
           )}
 
@@ -385,7 +387,7 @@ export const ChatArea = memo(({
                         <circle cx="12" cy="12" r="10"></circle>
                         <polyline points="12 6 12 12 16 14"></polyline>
                       </svg>
-                      <span>Thinking process</span>
+                      <span>{t("status.thinkingProcess")}</span>
                     </summary>
                     <div className="mt-2.5 pt-2.5 border-t border-white/5 text-gray-400 whitespace-pre-wrap font-mono leading-relaxed opacity-90 shimmer-text text-[0.8rem]">
                       {streamingReasoning}

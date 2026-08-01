@@ -1,7 +1,7 @@
 /**
  * ModeBadge — モード状態表示 + 切替トグル
- * 🟢 雑談 / 🔵 実装 / 🟡 思考中 / 🟣 調査中
  */
+import { useLocale } from "../i18n";
 
 interface ModeBadgeProps {
   mode: "chat" | "task" | "stocks" | "char" | "market";
@@ -10,24 +10,25 @@ interface ModeBadgeProps {
 }
 
 export function ModeBadge({ mode, status, onToggle }: ModeBadgeProps) {
-  // ステータスに応じたバッジクラスとラベル
+  const { t } = useLocale();
+
   const getBadgeInfo = () => {
     if (status === "thinking") {
-      return { className: "thinking", label: "Thinking", emoji: "🟡" };
+      return { className: "thinking", label: t("mode.thinking") };
     }
     if (status === "searching") {
-      return { className: "searching", label: "Searching", emoji: "🟣" };
+      return { className: "searching", label: t("mode.searching") };
     }
     if (mode === "stocks" || mode === "market") {
-      return { className: "stocks", label: "Market", emoji: "📈" };
+      return { className: "stocks", label: t("mode.market") };
     }
     if (mode === "task") {
-      return { className: "task", label: "Workspace", emoji: "🔵" };
+      return { className: "task", label: t("mode.workspace") };
     }
     if (mode === "char") {
-      return { className: "char", label: "Char", emoji: "🎭" };
+      return { className: "char", label: t("mode.char") };
     }
-    return { className: "chat", label: "Chat", emoji: "🟢" };
+    return { className: "chat", label: t("mode.chat") };
   };
 
   const { className, label } = getBadgeInfo();
@@ -36,7 +37,7 @@ export function ModeBadge({ mode, status, onToggle }: ModeBadgeProps) {
     <button
       className={`mode-badge ${className}`}
       onClick={onToggle}
-      title={`Currently: ${label} mode (click: Chat→Workspace→Char→Market)`}
+      title={t("mode.title", { label })}
       aria-label={`${label} mode`}
       id="mode-badge"
     >

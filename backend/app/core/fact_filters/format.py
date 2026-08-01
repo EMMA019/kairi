@@ -399,6 +399,7 @@ def strip_excuse_hallucinations(text: str) -> str:
 _FALSE_ATTR_PHRASE_RE = re.compile(
     r"(ご指摘いただいた通り|ご指摘の通り|おっしゃる通り|おっしゃるとおり|"
     r"仰る通り|仰るとおり|ご案内の通り|ご案内のとおり)"
+    r"(?:です)?"  # 「おっしゃる通りです」ごと消さないと「Nao、です」が残る
     r"[、,]?\s*"
 )
 
@@ -421,6 +422,21 @@ def _extract_claim_tokens(fragment: str) -> list[str]:
         tokens.extend(pat.findall(fragment))
     # findall がタプルを返すことはないが、念のため正規化
     return [t if isinstance(t, str) else t[0] for t in tokens if t]
+
+
+def _repair_broken_attribution_opener(text: str) -> str:
+    """誤帰属除去後の『Nao、です。』『Nao、。』『、です。』を修復する。"""
+    if not text:
+        return text
+    # 名前＋壊れた同意オープナー行頭 → 中立挨拶
+    text = re.sub(
+        r"(^|\n)\s*[A-Za-zぁ-んァ-ン一-龥]{1,24}、(?:です)?[。．]\s*",
+        r"\1",
+        text,
+    )
+    text = re.sub(r"、です([。．])", r"\1", text)
+    text = re.sub(r"、。", "。", text)
+    return text
 
 
 def strip_false_user_attribution(text: str, user_input: str = "") -> str:
@@ -467,5 +483,6 @@ def strip_false_user_attribution(text: str, user_input: str = "") -> str:
     # 「、」が二重になったり先頭カンマが残るのを軽く整える
     cleaned = re.sub(r"^[、,\s]+", "", cleaned)
     cleaned = re.sub(r"([。！？\n])[、,\s]+", r"\1", cleaned)
+    cleaned = _repair_broken_attribution_opener(cleaned)
     return cleaned
 

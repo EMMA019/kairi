@@ -59,12 +59,8 @@ def filter_fact(fact: str) -> str:
         if any(kw in fact for kw in ["未確認", "未検証", "噂され"]):
             fact = f'⚠️ **[未確認]** {fact}'
 
-    # 6. 外貨情報の勝手な日本円換算や異なる外貨同士の勝手な並記・同一視（（約47億ユーロ）等）の削除
-    if any(cur in fact for cur in ["ポンド", "ユーロ", "ドル", "GBP", "EUR", "USD", "£", "€", "$", "ポンド台", "ドル台"]):
-        fact = re.sub(r"[（\(]\s*(?:日本円(?:にして|で)?)?\s*約?\s*\d+(?:,\d+)*(?:\.\d+)?\s*(?:兆|億|万)?\s*円(?:相当)?\s*[）\)]", "", fact)
-        fact = re.sub(r"(?:＝|=)\s*(?:日本円(?:にして|で)?)?\s*約?\s*\d+(?:,\d+)*(?:\.\d+)?\s*(?:兆|億|万)?\s*円(?:相当)?", "", fact)
-        fact = re.sub(r"[（\(]\s*(?:約|＝|=)?\s*\d+(?:,\d+)*(?:\.\d+)?\s*(?:兆|億|万)?\s*(?:ユーロ|ドル|ポンド|EUR|USD|GBP)(?:相当)?\s*[）\)]", "", fact)
-        fact = re.sub(r"[^\S\r\n]{2,}", " ", fact)
+    # 6. 外貨の勝手な大口円換算・他通貨並記の削除（ドル円スポット「＝162円台」は消さない）
+    fact = strip_unauthorized_jpy_conversions(fact)
 
     # 7. 曜日間違いハルシネーション（自己計算曜日）の原則除去
     fact = strip_unverified_day_of_week(fact, source_text=None, strip_if_no_source=True)

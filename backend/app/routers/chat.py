@@ -108,7 +108,10 @@ async def chat(request: ChatRequest):
         from app.core.search_planner import plan_search
         from app.core.supervisor import run_supervisor
         from app.core.executor import run_executor
-        
+        from app.core.ui_status import pipeline_detail
+
+        _ui_locale = app_settings.get().get("locale", "en")
+
         # --- Greeting / Char short-circuit ---
         async for ev in try_greeting_mode(
             user_input=user_input,
@@ -178,9 +181,13 @@ async def chat(request: ChatRequest):
 
         # 1. 検索判定 (Search Planner LLM)
         yield _sse_event({"type": "status", "status": "planning_search"})
-        yield _sse_event({"type": "pipeline", "stage": "intent_analysis", "detail": "ユーザーの意図と検索要否を分析中..."})
+        yield _sse_event({
+            "type": "pipeline",
+            "stage": "intent_analysis",
+            "detail": pipeline_detail("intent_analysis", _ui_locale),
+        })
         
-        search_plan = await plan_search(user_input, messages)
+        search_plan = await plan_search(user_input, messages, session_id=session_id)
         search_needed = search_plan["needs_search"] or request.force_search
         search_queries = search_plan.get("search_queries", [])
         chat_category = search_plan.get("category", "general")
@@ -195,7 +202,9 @@ async def chat(request: ChatRequest):
                 else q
                 for q in search_queries
             ]
-        search_needed, search_queries = balance_search_queries(user_input, search_needed, search_queries)
+        search_needed, search_queries = balance_search_queries(
+            user_input, search_needed, search_queries, session_id=session_id
+        )
 
         # --- Intent Routing (Auto Mode Switching) ---
         recommended_mode = search_plan.get("recommended_mode")
@@ -245,6 +254,7 @@ async def chat(request: ChatRequest):
                 user_input=user_input,
                 search_queries=search_queries,
                 search_providers=search_providers,
+                session_id=session_id,
             ):
                 if ev.get("type") == "_result":
                     search_results_text = ev.get("text")
@@ -271,7 +281,11 @@ async def chat(request: ChatRequest):
             
             # 2. 思考モデル (V4 Pro)
             yield _sse_event({"type": "status", "status": "thinking"})
-            yield _sse_event({"type": "pipeline", "stage": "fact_checking", "detail": "検索結果とコンテキストを照合・検証中..."})
+            yield _sse_event({
+                "type": "pipeline",
+                "stage": "fact_checking",
+                "detail": pipeline_detail("fact_checking", _ui_locale),
+            })
             
             current_user_input_with_context = user_input_with_context
             if escalation_history:
@@ -340,7 +354,11 @@ async def chat(request: ChatRequest):
                         )
                 except Exception as e:
                     logger.error(f"Supervisor error: {e}")
-                    yield _sse_event({"type": "error", "message": "システムエラーが発生しました。処理を完了できませんでした。", "detail": str(e)})
+                    yield _sse_event({
+                        "type": "error",
+                        "message": pipeline_detail("system_error", _ui_locale),
+                        "detail": str(e),
+                    })
                     return
             
             if reasoning:
@@ -518,7 +536,11 @@ async def chat(request: ChatRequest):
                 sse_queue.put_nowait(data)
             
             yield _sse_event({"type": "status", "status": "responding"})
-            yield _sse_event({"type": "pipeline", "stage": "composing", "detail": "回答を構成・生成中..."})
+            yield _sse_event({
+                "type": "pipeline",
+                "stage": "composing",
+                "detail": pipeline_detail("composing", _ui_locale),
+            })
             
             try:
                 exec_task = asyncio.create_task(
@@ -551,7 +573,11 @@ async def chat(request: ChatRequest):
                 escalation_history.extend(new_escalation)
             except Exception as e:
                 logger.error(f"Auto execution loop error: {e}")
-                yield _sse_event({"type": "error", "message": "システムエラーが発生しました。処理を完了できませんでした。", "detail": str(e)})
+                yield _sse_event({
+                    "type": "error",
+                    "message": pipeline_detail("system_error", _ui_locale),
+                    "detail": str(e),
+                })
                 return
             
             if escalation_history:

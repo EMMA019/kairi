@@ -16,15 +16,19 @@ def test_visual_anchor_default():
     assert "friendly smile" in anchor_kansai
 
 def test_char_system_prompt_generation():
+    # Default locale is English for public builds
     prompt = get_char_system_prompt("Nao", "", "hyper_gal")
-    assert "平成ギャル相棒「Kairi」です" in prompt
+    assert "upbeat energetic companion" in prompt
+    assert "Prefer **English**" in prompt
     assert "メッセージアプリのチャット返信（セリフのみ）" in prompt
     assert "地の文（状況説明・描写テキスト）を絶対に書かないでください。" in prompt
-    assert "AIアシスタントとしての自覚」の完全破棄" in prompt
     assert "/api/image/generate?prompt=" in prompt
-    assert "visual_anchor" not in prompt  # visual_anchorは展開済みであること
+    assert "visual_anchor" not in prompt
     assert "short magenta bob hair" in prompt
     assert "gyaru style" in prompt
+
+    prompt_ja = get_char_system_prompt("Nao", "", "hyper_gal", locale="ja")
+    assert "平成ギャル相棒「Kairi」です" in prompt_ja
 
 def test_char_system_prompt_custom_profile():
     custom = "あなたは魔法使いの弟子です。"

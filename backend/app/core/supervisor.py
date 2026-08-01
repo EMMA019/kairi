@@ -39,6 +39,20 @@ def get_supervisor_system_prompt(category: str = "general") -> str:
         except FileNotFoundError:
             pass
 
+    try:
+        from app.routers.settings import app_settings
+        from app.core.reply_language import build_reply_language_instruction
+
+        locale = app_settings.get().get("locale", "en")
+        prompt += "\n\n" + build_reply_language_instruction(locale).strip() + "\n"
+        prompt += (
+            "When writing `instruction.facts_to_present` / tone directives for the executor, "
+            "use the reply language above (do not force Japanese translation of English sources "
+            "when locale prefers English).\n"
+        )
+    except Exception:
+        pass
+
     return prompt.strip()
 
 

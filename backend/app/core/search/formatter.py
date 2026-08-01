@@ -36,17 +36,30 @@ def _filter_entity_noise(query: str, results: list[dict]) -> list[dict]:
 
 from app.core.source_evaluator import annotate_and_sort_search_results, filter_untrusted_sources_for_finance
 
+def _result_published(r: dict) -> str:
+    """既存パイプラインの published / fetched_at を拾う（無いなら空。捏造しない）。"""
+    for key in ("published", "pub_date", "published_at", "fetched_at", "date"):
+        val = (r.get(key) or "").strip() if isinstance(r.get(key), str) else r.get(key)
+        if val:
+            return str(val).strip()
+    return ""
+
+
 def format_results(results: list[dict], query: str = "") -> list[dict]:
     """プロバイダーに関わらず統一フォーマットに変換し、エンティティノイズ除去＆ソースTier評価を自動適用"""
     filtered_results = _filter_entity_noise(query, results)
     formatted = []
     for r in filtered_results[:10]:  # ユーザー要望により10件に拡大
-        formatted.append({
+        item = {
             "title":   r.get("title", ""),
             "snippet": r.get("snippet", "")[:300], # トークン節約のため500->300文字に削減
             "url":     r.get("url", ""),
             "source":  r.get("source", "unknown"),
-        })
+        }
+        pub = _result_published(r)
+        if pub:
+            item["published"] = pub
+        formatted.append(item)
     # ソース評価層によるTier分類 (.edu偽装検知、一次/二次/三次分類と並べ替え)
     annotated = annotate_and_sort_search_results(formatted)
     # 金融・市場分析モード時の Tier 3 (ブログ等) ハードフィルタリング
@@ -70,12 +83,14 @@ def format_for_prompt(results: list[dict], query: str = "") -> str:
         "時事的な事実（人名/役職/数値/レース結果/市場結果等）を断定する文には、"
         "根拠としたソース番号を文末に [n] 形式で必ず付与してください。"
         "番号を付けられない事実は断定せず、『（要確認）』とするか書かないでください。"
+        "各ソースの published 日時を時系列整理に使い、日時不明の水準同士を因果でつなげないでください。"
     ]
     for i, r in enumerate(results, 1):
         display_src = r.get("display_source", r["source"])
         warning = " ⚠️【学術ドメイン偽装疑い】" if r.get("is_spoofed") else ""
+        pub = _result_published(r) or "unknown"
         lines.append(
-            f"[{i}] [{display_src}]{warning} {r['title']}\n"
+            f"[{i}] (published: {pub}) [{display_src}]{warning} {r['title']}\n"
             f"   {r['snippet']}\n"
             f"   URL: {r['url']}"
         )

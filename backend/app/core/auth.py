@@ -18,11 +18,16 @@ _PUBLIC_PREFIXES = (
     "/api/ping",
     "/ping",
     "/api/image/generate",  # <img src> は Authorization を送れない
-    "/docs",
-    "/openapi.json",
-    "/redoc",
     "/assets",
 )
+
+# 開発時のみ OpenAPI を公開パスに含める（KAIRI_RELEASE=1 では docs 自体が無い）
+if os.environ.get("KAIRI_RELEASE", "").strip() not in ("1", "true", "TRUE", "yes"):
+    _PUBLIC_PREFIXES = _PUBLIC_PREFIXES + (
+        "/docs",
+        "/openapi.json",
+        "/redoc",
+    )
 
 
 def _configured_token() -> str:

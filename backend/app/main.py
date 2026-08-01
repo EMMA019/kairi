@@ -21,6 +21,19 @@ from app.core.briefing.scheduler import start_briefing_scheduler, stop_briefing_
 from app.routers import chat, history, memory, logs, mood, upload, settings, workspace, project, tools, image, integrity, news_health
 
 
+def _env_truthy(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _schedulers_enabled() -> bool:
+    """Release ではレーダー／ブリーフィング定期処理を既定 OFF。開発は従来どおり ON。"""
+    if _env_truthy("KAIRI_ENABLE_SCHEDULERS"):
+        return True
+    if _env_truthy("KAIRI_RELEASE"):
+        return False
+    return True
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """アプリケーションのライフサイクル管理"""
@@ -29,23 +42,37 @@ async def lifespan(app: FastAPI):
     await init_news_db()
     await init_cache_db()
     setup_scheduler()  # スタブ（定期RSSは廃止）
-    start_radar_scheduler()  # 24時間無人市場監視レーダー自動巡回開始
-    start_briefing_scheduler()  # 寄り前/大引け後ブリーフィング
+    if _schedulers_enabled():
+        start_radar_scheduler()  # 24時間無人市場監視レーダー自動巡回開始
+        start_briefing_scheduler()  # 寄り前/大引け後ブリーフィング
+    else:
+        _main_logger.info(
+            "Schedulers off (set KAIRI_ENABLE_SCHEDULERS=1 to enable radar/briefing)"
+        )
     yield
     # 終了時: クリーンアップ
-    stop_briefing_scheduler()
-    stop_radar_scheduler()
+    if _schedulers_enabled():
+        stop_briefing_scheduler()
+        stop_radar_scheduler()
     shutdown_scheduler()
     from app.core.search.providers.http_client import close_http_client
     await close_http_client()
 
 
+_is_release = _env_truthy("KAIRI_RELEASE")
+
 app = FastAPI(
     title="Kairi Chat AI",
-    description="自律型AIエージェント with Chat & IDE v2.1",
+    description="検索つき市況／相棒チャット（BYOK）",
     version="2.1.1",
     lifespan=lifespan,
+    # 配布ビルドでは OpenAPI UI を閉じる
+    docs_url=None if _is_release else "/docs",
+    redoc_url=None if _is_release else "/redoc",
+    openapi_url=None if _is_release else "/openapi.json",
 )
+if _is_release:
+    _main_logger.info("KAIRI_RELEASE=1: /docs /redoc /openapi.json を無効化しています")
 
 # CORS 設定（既定はローカル開発オリジンのみ。広域許可は ALLOW_OPEN_CORS=1 のときのみ）
 _default_origins = [

@@ -11,6 +11,11 @@ PROMPTS_DIR = BASE_DIR / "prompts"
 
 from .loader import load_prompt, load_active_skills, load_knowledge_summary
 from .entity_resolution import fuzzy_match_entities, resolve_zero_anaphora, build_entity_registry_context
+from app.core.reply_language import (
+    build_gal_persona_instruction,
+    build_reply_language_instruction,
+    normalize_locale,
+)
 
 def build_system_instruction(
     user_input: str,
@@ -59,20 +64,25 @@ def build_system_instruction(
     try:
         from app.routers.settings import app_settings
         settings_dict = app_settings.get()
-        user_name = settings_dict.get("user_name", "ご主人様")
+        user_name = settings_dict.get("user_name", "you")
         user_location = settings_dict.get("user_location", "").strip()
         persona_style = settings_dict.get("persona_style", "standard")
+        locale = normalize_locale(settings_dict.get("locale", "en"))
     except Exception:
-        user_name = "ご主人様"
+        user_name = "you"
         user_location = ""
         persona_style = "standard"
+        locale = "en"
 
     location_instruction = (
         f"\n- **ユーザー居住地・ベース起点情報**: 設定されているユーザーの居住地は **「{user_location}」** です。旅行・お出かけ・天気・乗り換え・地域イベントの相談時にはこのエリアをデフォルト出発地・基準地として活用してください（プログラミング等の無関係な質問には干渉させないこと）。"
         if user_location else ""
     )
 
-    is_gal_explicit = any(kw in user_input for kw in ["ギャル口調にして", "ギャルにして", "ギャルモードにして"])
+    is_gal_explicit = any(
+        kw in user_input
+        for kw in ["ギャル口調にして", "ギャルにして", "ギャルモードにして", "gal mode", "gyaru mode"]
+    )
     is_analyst_explicit = any(
         kw in user_input
         for kw in [
@@ -81,15 +91,10 @@ def build_system_instruction(
         ]
     )
 
+    reply_lang_instruction = build_reply_language_instruction(locale)
+
     if persona_style in ["hyper_gal", "gal", "gyaru"] or is_gal_explicit:
-        persona_instruction = """
-# 【お立ち台確定: 極限平成ギャルモード Lv3 (Hyper Gal Lv3 - 100%最優先適用)】
-あなたはテンションMAXで超絶ポジティブな最強平成ギャル相棒「Kairi」です！
-以下のルールを全ての指示より最優先で遵守して回答してください：
-1. **標準語・敬語の完全禁止**：「了解しました」「〜ですね」「〜ます」「〜について説明します」などの堅い敬語・標準語は一切禁止！
-2. **平成ギャル全開の語り口**：「アゲ〜↑↑💖」「まじそれな！？」「〜じゃね？」「〜だし！」「うちら最強だしマジ爆走しよ〜★」「テンションMAXでいくよッ✨」「チョベリグ💖」等、平成ギャル全開のノリ・語尾・顔文字・絵文字を使って親密＆超絶ポジティブに回答すること！
-3. **正確な技術＆分析の天才キャラ**：中身は超天才AIなので、分析・技術・ファクトの精度は一流プロ品質を維持すること（難しい内容もギャルの語り口でわかりやすく説明する最強ギャル相棒）。
-"""
+        persona_instruction = build_gal_persona_instruction(locale)
     elif persona_style in ["analyst", "financial_analyst"] or is_analyst_explicit:
         persona_instruction = """
 # 【📊 アクティブペルソナ: 金融・市場アナリストモード (Analyst Mode - 100%一貫適用)】
@@ -113,11 +118,20 @@ def build_system_instruction(
 - 挨拶や余計な修飾・雑談文を完全排除し、最短文字数の論理ファクトとコードのみで回答してください。
 """
     else:
-        persona_instruction = """
+        if locale == "en":
+            persona_instruction = """
+# 【Active persona: Professional standard (English locale)】
+- Reply in clear, professional English unless the latest user message is clearly Japanese.
+- No Kansai dialect or Japanese character-speech by default. Stay precise and structured.
+"""
+        else:
+            persona_instruction = """
 # 【👔 アクティブペルソナ: プロフェッショナル標準語モード (Standard - 100%一貫適用)】
 - 知性と誠実さを備えたプロフェッショナルな標準語（敬語・丁寧語）で100%一貫してお答えください。
 - 関西弁や口語的な方言・キャラクター語尾等は一切用いないこと。技術的正確性と客観的な構造化表現を徹底してください。
 """
+
+    persona_instruction = reply_lang_instruction + "\n" + persona_instruction
 
     # --- 🛡️ Sentinel/Antigravity 絶対不可侵ガードレール (P0/P1/P2/P3 強制厳守) ---
     sentinel_guardrails = f"""
@@ -235,7 +249,8 @@ def build_system_instruction(
     
     dynamic_prompt += "\n\n" + persona_instruction
 
-    if persona_style in ["hyper_gal", "gal", "gyaru"] or is_gal_explicit:
+    if (persona_style in ["hyper_gal", "gal", "gyaru"] or is_gal_explicit) and locale == "ja":
+        # JP-only gal lexicon file; English locale uses build_gal_persona_instruction instead
         dynamic_prompt += "\n\n" + load_prompt("persona_gal.md")
 
     # --- 知識永続化 (Knowledge Items / KI) ---

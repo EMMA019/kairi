@@ -21,6 +21,12 @@ except Exception:
     import datetime as _dt
     JST = _dt.timezone(_dt.timedelta(hours=9))
 
+try:
+    ET = zoneinfo.ZoneInfo("America/New_York")
+except Exception:
+    import datetime as _dt
+    ET = _dt.timezone(_dt.timedelta(hours=-5))
+
 # 固定祝日・年末年始の簡易チェックおよびjpholidayによる判定
 NEW_YEAR_HOLIDAYS = {(12, 31), (1, 1), (1, 2), (1, 3)}
 
@@ -48,6 +54,45 @@ def get_jp_session_bucket(now: Optional[datetime] = None) -> str:
     if mins < 15 * 60:
         return "afternoon"
     return "closed"
+
+
+def get_us_session_bucket(now: Optional[datetime] = None) -> str:
+    """
+    米国株の粗いセッション区分（ET 基準）:
+    pre_market / open / post_market / closed（週末・祝日）。
+    """
+    if now is None:
+        now = datetime.now(JST)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=JST)
+    else:
+        now = now.astimezone(JST)
+
+    et = now.astimezone(ET)
+    et_date = et.date()
+    if et_date.weekday() >= 5:
+        return "closed"
+
+    try:
+        from app.core.market_calendar import get_us_holidays
+
+        for h in get_us_holidays(et_date.year):
+            if h.get("date") == et_date:
+                return "closed"
+    except Exception:
+        pass
+
+    mins = et.hour * 60 + et.minute
+    if mins < 9 * 60 + 30:
+        return "pre_market"
+    if mins < 16 * 60:
+        return "open"
+    return "post_market"
+
+
+def us_session_is_live(now: Optional[datetime] = None) -> bool:
+    """プレ／ザラ場中か（ライブ検索・直近値スナップショット向け）。"""
+    return get_us_session_bucket(now) in ("pre_market", "open")
 
 
 def jp_cash_price_query_word(now: Optional[datetime] = None) -> str:

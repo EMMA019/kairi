@@ -183,6 +183,18 @@ class ToolHandler:
                     current_response = self._handle_file_creations(current_response)
                     current_response = await self._handle_file_edits(current_response)
                     current_response = self._handle_file_replacements(current_response)
+
+                    # Multi-file coordination (path ledger + agent hint)
+                    try:
+                        from app.core.multi_file_coordinator import coordinate_after_writes
+                        written = [p for _, p in set(mod_paths)]
+                        coord = coordinate_after_writes(written)
+                        if len(written) > 1 and coord.get("hint"):
+                            self.tool_results.append(
+                                f"📎 {coord.get('message')}\n{coord.get('hint')}"
+                            )
+                    except Exception as e:
+                        logger.warning(f"multi_file_coordinator: {e}")
                     
                     # 🔴 自律テスト・自動ビルド検証エンジンの完全結合
                     try:

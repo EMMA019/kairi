@@ -41,8 +41,12 @@ from app.core.chat_modes import try_greeting_mode, try_char_mode
 from app.core.chat_orchestrator import (
     build_executor_instruction,
     apply_omakase_hearing_ban,
+    apply_post_spec_approval_gate,
+    compose_hearing_user_text,
+    compose_spec_user_text,
     resolve_memory_inject,
     note_search_inject,
+    should_emit_reasoning,
 )
 
 logger = get_logger(__name__)
@@ -361,9 +365,6 @@ async def chat(request: ChatRequest):
                     })
                     return
             
-            if reasoning:
-                yield _sse_event({"type": "reasoning", "content": reasoning})
-
             # バックグラウンド処理: メモリ抽出 (Supervisor判断 + コード側ゲートで拒否)
             kv_action = supervisor_json.get("kv_action")
             if kv_action and isinstance(kv_action, dict) and kv_action.get("action") in ["add", "update", "delete"]:
@@ -419,6 +420,13 @@ async def chat(request: ChatRequest):
                 mode = supervisor_json["mode"]
 
             mode, supervisor_json = apply_omakase_hearing_ban(user_input, mode, supervisor_json)
+            mode, supervisor_json = apply_post_spec_approval_gate(
+                user_input, mode, supervisor_json, messages
+            )
+
+            # hearing/spec では reasoning を前面に出さない（独白汚染防止）
+            if reasoning and should_emit_reasoning(mode):
+                yield _sse_event({"type": "reasoning", "content": reasoning})
 
             if supervisor_json.get("mode"):
                 yield _sse_event({"type": "mode_switch", "mode": mode})
@@ -427,29 +435,27 @@ async def chat(request: ChatRequest):
                 yield _sse_event({"type": "chart", "data": supervisor_json["chart_data"]})
             
             if mode == "hearing":
-                hearing_state = supervisor_json.get("hearing_state", {})
-                next_q = hearing_state.get("next_question", "どうする？")
-                if is_hyper_gal and next_q:
-                    next_q = to_hyper_gal_v3(next_q)
-                else:
-                    yield _sse_event({"type": "chunk", "content": next_q})
+                body = compose_hearing_user_text(supervisor_json)
+                if is_hyper_gal and body:
+                    body = to_hyper_gal_v3(body)
+                if body:
+                    yield _sse_event({"type": "chunk", "content": body})
                 await _save_messages(
-                    session_id, user_input, next_q, json.dumps(supervisor_json, ensure_ascii=False), supervisor_json, reasoning, search_sources
+                    session_id, user_input, body, json.dumps(supervisor_json, ensure_ascii=False), supervisor_json, reasoning, search_sources
                 )
-                yield _sse_event({"type": "done", "content": next_q, "ok": bool((next_q or "").strip())})
+                yield _sse_event({"type": "done", "content": body, "ok": bool((body or "").strip())})
                 return
             
             if mode == "spec_generation":
-                spec_doc = supervisor_json.get("spec_document", {})
-                surface = spec_doc.get("surface", "仕様書ができました。")
-                if is_hyper_gal and surface:
-                    surface = to_hyper_gal_v3(surface)
-                else:
-                    yield _sse_event({"type": "chunk", "content": surface})
+                body = compose_spec_user_text(supervisor_json)
+                if is_hyper_gal and body:
+                    body = to_hyper_gal_v3(body)
+                if body:
+                    yield _sse_event({"type": "chunk", "content": body})
                 await _save_messages(
-                    session_id, user_input, surface, json.dumps(supervisor_json, ensure_ascii=False), supervisor_json, reasoning, search_sources
+                    session_id, user_input, body, json.dumps(supervisor_json, ensure_ascii=False), supervisor_json, reasoning, search_sources
                 )
-                yield _sse_event({"type": "done", "content": surface, "ok": bool((surface or "").strip())})
+                yield _sse_event({"type": "done", "content": body, "ok": bool((body or "").strip())})
                 return
             
             if mode == "coding":

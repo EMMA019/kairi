@@ -86,7 +86,7 @@ def _validate_and_auto_fix(file_path: str, content: str) -> Optional[tuple[str, 
     SEARCHブロックを検証し、不一致なら自動修復。
     Returns: (メッセージ, 修正後content) または None（失敗）
     """
-    full_path = Path(BASE_WORKSPACE_DIR) / file_path
+    full_path = get_workspace_dir() / file_path
     if not full_path.exists():
         return None  # 新規ファイル
     
@@ -244,3 +244,37 @@ async def execute_multi_file_plan(
                 })
     
     return results
+
+
+def coordinate_after_writes(paths: list[str]) -> dict:
+    """
+    Host-side multi-file write post-step (wired from ToolHandler).
+    Records activity and returns a small summary for the agent loop.
+    """
+    unique = []
+    seen = set()
+    for p in paths or []:
+        if not p or p in seen:
+            continue
+        seen.add(p)
+        unique.append(p.replace("\\", "/"))
+
+    if not unique:
+        return {"ok": True, "paths": [], "message": "no paths"}
+
+    try:
+        from app.core.workspace_state import record_activity
+        record_activity("multi_file_write", f"{len(unique)} files: {', '.join(unique[:8])}")
+    except Exception:
+        pass
+
+    logger.info(f"📎 multi_file_coordinator: {len(unique)} paths written")
+    return {
+        "ok": True,
+        "paths": unique,
+        "message": f"Coordinated {len(unique)} file write(s)",
+        "hint": (
+            "複数ファイル変更後はワークスペースルートでビルド検証し、"
+            "Acceptance 未達項目があれば先に埋めること。"
+        ),
+    }

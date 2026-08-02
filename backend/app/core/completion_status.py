@@ -125,9 +125,24 @@ def response_ok(text: str, user_input: str = "") -> bool:
         return False
     if is_hollow_completion(text, user_input):
         return False
+    try:
+        from app.core.acceptance_checker import response_marks_incomplete
+        if response_marks_incomplete(text):
+            return False
+    except Exception:
+        if "完了ゲート未達" in (text or "") or "最大実行ループ数" in (text or ""):
+            return False
     return bool((text or "").strip())
 
 
 def build_done_payload(content: str, user_input: str = "") -> dict:
     ok = response_ok(content, user_input)
-    return {"type": "done", "content": content or "", "ok": ok}
+    payload = {"type": "done", "content": content or "", "ok": ok}
+    try:
+        from app.core.acceptance_checker import response_marks_incomplete
+        if response_marks_incomplete(content or ""):
+            payload["incomplete"] = True
+    except Exception:
+        if "完了ゲート未達" in (content or ""):
+            payload["incomplete"] = True
+    return payload

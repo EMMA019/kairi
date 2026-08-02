@@ -244,42 +244,57 @@ async def run_auto_test(
             except Exception as read_err:
                 logger.warning(f"ソース検証エラー: {read_err}")
 
-            build_cmd = "npm run build 2>&1 || npx tsc --noEmit 2>&1"
-            logger.info(f"🏗️ フロントエンドビルド検証: {build_cmd}")
-            build_xml = f"<run_command>{build_cmd}</run_command>"
-            await handler.execute_tools(build_xml)
-            if handler.tool_results:
-                build_output = "\n".join(handler.tool_results)
-                fail_keywords = ["FAILED", "failed", "Error:", "error:", "SyntaxError", "TypeError", "Cannot find module"]
-                is_fail = any(kw in build_output for kw in fail_keywords)
-                if is_fail:
-                    logger.warning(f"❌ ビルド/型チェック失敗: {file_path}")
-                    
-                    # 🔴 スマート依存解決ヒントの生成
+            # Exit-code build gate (workspace root), not keyword matching on Docker logs
+            try:
+                from pathlib import Path as PathLib
+                from app.core.build_gate import run_workspace_build
+                from app.routers.workspace import get_workspace_dir
+
+                ws = get_workspace_dir()
+                # If file_path is absolute under a project with package.json, use that dir
+                fp = PathLib(file_path)
+                if fp.is_absolute():
+                    for parent in [fp.parent, *fp.parents]:
+                        if (parent / "package.json").exists():
+                            ws = parent
+                            break
+                build = run_workspace_build(ws)
+                build_output = build.get("output") or ""
+                if not build.get("success"):
+                    logger.warning(
+                        f"❌ ビルドゲート失敗 exit={build.get('exit_code')}: {file_path}"
+                    )
                     smart_hint = ""
-                    missing_mod_match = re.search(r"Cannot find module '([^']+)'|imported from external module '([^']+)' but never renamed", build_output)
+                    missing_mod_match = re.search(
+                        r"Cannot find module '([^']+)'|imported from external module \"([^\"]+)\"",
+                        build_output,
+                    )
                     if missing_mod_match:
                         pkg_name = missing_mod_match.group(1) or missing_mod_match.group(2)
-                        smart_hint = f"\n\n💡 【スマート解決アシスタント】 パッケージ '{pkg_name}' が未インストールです。次ターンの最初に必ず <run_command>npm install {pkg_name}</run_command> を実行して依存関係を解決してください。"
-                        build_output += smart_hint
-
+                        smart_hint = (
+                            f"\n\n💡 パッケージ '{pkg_name}' が未インストールの可能性。"
+                            f"<run_command>npm install {pkg_name}</run_command> を実行すること。"
+                        )
                     return {
                         "success": False,
-                        "output": build_output,
+                        "output": build_output + smart_hint,
                         "fixed": False,
                         "retries": 1,
                         "error_type": "build",
                         "error_detail": (build_output[:1000] + smart_hint),
                         "needs_auto_fix": True,
+                        "exit_code": build.get("exit_code"),
                     }
-                else:
-                    logger.info(f"✅ ビルド/型チェック成功: {file_path}")
-                    return {
-                        "success": True,
-                        "output": build_output,
-                        "fixed": False,
-                        "retries": 0,
-                    }
+                logger.info(f"✅ ビルドゲート成功: {ws}")
+                return {
+                    "success": True,
+                    "output": build_output or "build ok",
+                    "fixed": False,
+                    "retries": 0,
+                    "exit_code": build.get("exit_code", 0),
+                }
+            except Exception as e:
+                logger.warning(f"ビルドゲート例外: {e}")
 
     return {
         "success": True,

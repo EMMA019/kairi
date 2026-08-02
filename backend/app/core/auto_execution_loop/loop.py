@@ -112,6 +112,52 @@ async def auto_execute_with_retry(
     
     executed_tool_signatures = set()
     force_tool_synthesis = False  # 重複ツール停止時など、生ログを本文にせず合成へ回す
+    files_written_this_run = False
+    last_gate_meta: dict | None = None
+    gate_fix_attempts = 0
+    MAX_GATE_REINJECT = 3
+
+    def _spec_internal_from_prompts() -> str | None:
+        blob = f"{executor_sys_prompt or ''}\n{instruction or ''}"
+        m = re.search(
+            r"<spec_internal>\n?(.*?)\n?</spec_internal>",
+            blob,
+            re.DOTALL | re.IGNORECASE,
+        )
+        return m.group(1).strip() if m else None
+
+    def _run_task_completion_gate() -> dict:
+        nonlocal last_gate_meta
+        from app.core.build_gate import run_completion_gate
+
+        meta = run_completion_gate(ws_dir, spec_internal=_spec_internal_from_prompts())
+        last_gate_meta = meta
+        return meta
+
+    def _gate_reinject_message(meta: dict) -> str:
+        from app.core.acceptance_checker import AcceptanceReport
+
+        acc = meta.get("acceptance_report")
+        build = meta.get("build") or {}
+        parts = [
+            "【システム完了ゲート・未達】完了宣言は禁止。次を満たしてから再出力すること。\n",
+        ]
+        if isinstance(acc, AcceptanceReport):
+            parts.append(acc.format_for_agent())
+        else:
+            failed = (meta.get("acceptance") or {}).get("failed_ids") or []
+            if failed:
+                parts.append("Acceptance NG: " + ", ".join(failed))
+        if not build.get("success") and not build.get("skipped"):
+            parts.append(
+                f"\nBuild NG (exit={build.get('exit_code')}):\n"
+                f"```\n{(build.get('output') or '')[-1500:]}\n```\n"
+                "ワークスペースルートでビルドが通るまで修正すること。"
+            )
+        parts.append(
+            "\n未達項目だけを <file>/<replace> で直し、再度ビルドが通る状態にすること。"
+        )
+        return "\n".join(parts)
 
     boundary_instruction = (
         "\n\n【構造的モダリティ分離（出力境界トークン）の厳守ルール】\n"
@@ -507,7 +553,41 @@ async def auto_execute_with_retry(
                     last_good_user_visible = _remember_good(last_good_user_visible, stream_response)
 
                     from app.core.completion_status import wants_code_in_chat
-                    wrote_file = bool(re.search(r'<file\b', stream_response, re.IGNORECASE))
+                    wrote_file = bool(
+                        re.search(
+                            r"<(?:file|replace|edit)\b",
+                            stream_response,
+                            re.IGNORECASE,
+                        )
+                    )
+                    if wrote_file:
+                        files_written_this_run = True
+                    if wrote_file and mode in ("task", "coding"):
+                        # Completion gate: acceptance + build — reinject if not ok
+                        try:
+                            gate = _run_task_completion_gate()
+                            if not gate.get("ok") and gate_fix_attempts < MAX_GATE_REINJECT:
+                                gate_fix_attempts += 1
+                                if yield_sse_func:
+                                    yield_sse_func({
+                                        "type": "status",
+                                        "status": "incomplete",
+                                        "detail": "completion_gate",
+                                    })
+                                loop_history.append({"role": "assistant", "content": stream_response})
+                                loop_history.append({
+                                    "role": "user",
+                                    "content": _gate_reinject_message(gate),
+                                })
+                                _clear_ui_with_progress(
+                                    yield_sse_func,
+                                    "完了ゲート未達 → 未達項目を修正中…",
+                                )
+                                final_accumulated_response = ""
+                                continue
+                        except Exception as gate_err:
+                            logger.warning(f"completion gate error: {gate_err}")
+
                     if wrote_file and mode in ("task", "coding", "research"):
                         if wants_code_in_chat(user_input):
                             loop_history.append({
@@ -662,9 +742,46 @@ async def auto_execute_with_retry(
             
             break  # 通常の会話として終了
             
-    if loop_count >= max_tool_loops:
+    hit_loop_cap = loop_count >= max_tool_loops
+    if hit_loop_cap:
         logger.warning(f"⚠️ 最大ツール実行ループ数 ({max_tool_loops}) に到達したためループを終了しました。")
-        final_accumulated_response += f"\n\n*(⚠️ 最大実行ループ数 {max_tool_loops} に到達しました。作業が途中となっている場合は、「続きを作成して」と指示してください)*"
+        final_accumulated_response += (
+            f"\n\n*(⚠️ 最大実行ループ数 {max_tool_loops} に到達しました。"
+            "作業は未完了の可能性があります。「続きを作成して」と指示してください)*"
+        )
+        if yield_sse_func:
+            yield_sse_func({
+                "type": "status",
+                "status": "incomplete",
+                "detail": f"max_tool_loops_{max_tool_loops}",
+            })
+
+    # Final completion gate for task/coding after file writes
+    if files_written_this_run and mode in ("task", "coding"):
+        try:
+            gate = last_gate_meta or _run_task_completion_gate()
+            if not gate.get("ok"):
+                from app.core.acceptance_checker import format_incomplete_banner
+
+                banner = format_incomplete_banner(
+                    gate.get("acceptance_report"),
+                    gate.get("build"),
+                    hit_loop_cap=hit_loop_cap,
+                )
+                final_accumulated_response += banner
+                acc = gate.get("acceptance_report")
+                if acc and hasattr(acc, "format_for_agent"):
+                    final_accumulated_response += "\n\n" + acc.format_for_agent()
+                if yield_sse_func:
+                    yield_sse_func({
+                        "type": "status",
+                        "status": "incomplete",
+                        "detail": "completion_gate",
+                        "acceptance": gate.get("acceptance"),
+                        "build_ok": (gate.get("build") or {}).get("success"),
+                    })
+        except Exception as e:
+            logger.warning(f"final completion gate: {e}")
     
     tool_results_summary = "\n".join(tool_handler.tool_results) if tool_handler.tool_results else ""
     # 重複停止などで search_results にマージ済みでも、summary が空なら再構築

@@ -44,6 +44,8 @@ from app.core.chat_orchestrator import (
     apply_post_spec_approval_gate,
     compose_hearing_user_text,
     compose_spec_user_text,
+    is_continuation_utterance,
+    is_plan_approval_utterance,
     resolve_memory_inject,
     note_search_inject,
     should_emit_reasoning,
@@ -144,26 +146,40 @@ async def chat(request: ChatRequest):
                 return
             yield _sse_event(ev)
 
-        # --- 🔴 P0: Plan承認検出（前回のプランを「はい」で承認→即実装） ---
+        # --- 🔴 P0: Plan承認検出（短い承認語のみ。続き指示は誤ヒットさせない） ---
         if mode in ["chat", "task"]:
             try:
                 kv_items = await kv_store.filter_by_scope("pending_plan")
-                approval_keywords = ["はい", "OK", "ok", "進めて", "お願い", "やろう", "GO", "go", "yes", "Yes", "うん", "いいよ", "頼む", "承認", "実装", "開始", "作って", "作成", "よろしく", "いいです", "大丈夫", "お願いします"]
                 for item in kv_items:
                     summary = item.get("summary", {})
-                    if summary.get("target") == "pending_plan" and any(kw in user_input for kw in approval_keywords):
-                        logger.info("✅ Plan承認検出: 実装モードに移行")
-                        mode = "task"
-                        # plan内容をユーザー入力に追加
-                        plan_note = summary.get("note", "")
-                        if plan_note:
-                            user_input = f"{user_input}\n\n【承認済みプラン】\n{plan_note}\n上記プランを直ちに実行せよ。"
-                        # pending_planをクリア
+                    if summary.get("target") != "pending_plan":
+                        continue
+                    # 「続きを作成して」等は incomplete 再開用。古い plan 注入を禁止し KV を捨てる
+                    if is_continuation_utterance(user_input):
+                        logger.info(
+                            "続き指示のため pending_plan を破棄（誤承認防止）: %s",
+                            user_input[:40],
+                        )
                         try:
                             await kv_store.delete(item["id"])
                         except Exception as e:
                             logger.warning(f"Failed to delete pending plan {item['id']}: {e}")
                         break
+                    if not is_plan_approval_utterance(user_input):
+                        continue
+                    logger.info("✅ Plan承認検出: 実装モードに移行")
+                    mode = "task"
+                    plan_note = summary.get("note", "")
+                    if plan_note:
+                        user_input = (
+                            f"{user_input}\n\n【承認済みプラン】\n{plan_note}\n"
+                            "上記プランを直ちに実行せよ。"
+                        )
+                    try:
+                        await kv_store.delete(item["id"])
+                    except Exception as e:
+                        logger.warning(f"Failed to delete pending plan {item['id']}: {e}")
+                    break
             except Exception as e:
                 logger.warning(f"Error processing pending plan approval: {e}")
         
@@ -425,8 +441,14 @@ async def chat(request: ChatRequest):
             )
 
             # hearing/spec では reasoning を前面に出さない（独白汚染防止）
+            # Supervisor JSON/独白風も抑制
             if reasoning and should_emit_reasoning(mode):
-                yield _sse_event({"type": "reasoning", "content": reasoning})
+                from app.core.fact_filters.markup import looks_like_supervisor_dump
+
+                if looks_like_supervisor_dump(reasoning):
+                    logger.info("Supervisor 独白風 reasoning を抑制しました")
+                else:
+                    yield _sse_event({"type": "reasoning", "content": reasoning})
 
             if supervisor_json.get("mode"):
                 yield _sse_event({"type": "mode_switch", "mode": mode})

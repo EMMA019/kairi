@@ -12,10 +12,29 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# 仕様書提示後の短い承認語（再 spec 禁止ゲート用）
+# 未完了再開（incomplete バナーの推奨発話）。プラン承認と絶対に混同しない
+_CONTINUATION_PATTERNS = (
+    r"続きを作成して",
+    r"続きを作って",
+    r"続きから",
+    r"続けて(?:ください|下さい|くれ|実装|作成)?",
+    r"^続き$",
+    r"未完了から",
+    r"再開して",
+)
+
+# 仕様書提示後の短い承認語（再 spec 禁止ゲート用）— 全文一致寄り
 _SPEC_APPROVAL_PATTERNS = (
-    r"^(はい|ええ|うん|OK|ok|Okay|okay|yes|Yes|YES|GO|go|◎|〇|○)$",
-    r"(進めて|お願い|よろしく|それで|その方針|その感じ|そんな感じ|とりま|作って|実装|開始|承認|いいよ|いいです|大丈夫|やろう|頼む)",
+    r"^(はい|ええ|うん|OK|ok|Okay|okay|yes|Yes|YES|GO|go|◎|〇|○)[.!！。]?$",
+    r"^(進めて|お願い|よろしく|それで|その方針で|その感じで|そんな感じで|作って|実装して|開始して|承認|いいよ|いいです|大丈夫|やろう|頼む)[.!！。]?$",
+    r"^(とりま|そんな感じ|その感じ).{0,24}$",
+)
+
+# 実装プラン承認（pending_plan）— 部分一致禁止。「作成」が「続きを作成して」に誤ヒットしない
+_PLAN_APPROVAL_PATTERNS = (
+    r"^(はい|ええ|うん|OK|ok|Okay|okay|yes|Yes|YES|GO|go)[.!！。]?$",
+    r"^(進めて|お願い|よろしくお願いします|よろしく|それで|その方針で|いいよ|いいです|大丈夫|やろう|頼む|承認|お願いします)[.!！。]?$",
+    r"^(実装して|実装お願い|開始して|作って|作成して|作ってください|作成してください)[.!！。]?$",
 )
 
 # ユーザー向け本文に出さない委譲・内部指示
@@ -188,13 +207,39 @@ def compose_spec_user_text(supervisor_json: dict) -> str:
     return "\n\n".join(["\n".join(facts), surface])
 
 
+def is_continuation_utterance(user_input: str) -> bool:
+    """未完了作業の再開指示か（プラン承認と分離する）。"""
+    text = (user_input or "").strip()
+    if not text:
+        return False
+    for pat in _CONTINUATION_PATTERNS:
+        if re.search(pat, text, re.IGNORECASE):
+            return True
+    return False
+
+
 def is_spec_approval_utterance(user_input: str) -> bool:
     """仕様書提示後の短い承認・着手指示か。"""
     text = (user_input or "").strip()
-    if not text or len(text) > 80:
+    if not text or len(text) > 40:
+        return False
+    if is_continuation_utterance(text):
         return False
     for pat in _SPEC_APPROVAL_PATTERNS:
-        if re.search(pat, text, re.IGNORECASE):
+        if re.fullmatch(pat, text, re.IGNORECASE):
+            return True
+    return False
+
+
+def is_plan_approval_utterance(user_input: str) -> bool:
+    """pending_plan 承認か。部分一致禁止（「続きを作成して」誤ヒット防止）。"""
+    text = (user_input or "").strip()
+    if not text or len(text) > 40:
+        return False
+    if is_continuation_utterance(text):
+        return False
+    for pat in _PLAN_APPROVAL_PATTERNS:
+        if re.fullmatch(pat, text, re.IGNORECASE):
             return True
     return False
 

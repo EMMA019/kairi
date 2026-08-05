@@ -11,8 +11,24 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 
 TOOL_TAG_NAMES = (
-    r"file|replace|edit|run_command|read_url|read_file|list_dir|search|search_news|"
-    r"search_codebase|grep_search|view_file|mcp_call|escalate"
+    r"file|replace|edit|run_command|read_url|read_file|list_dir|list|search|search_news|"
+    r"search_codebase|grep_search|view_file|mcp_call|escalate|read"
+)
+
+# Supervisor の JSON/独白がユーザー本文に漏れたときの手掛かり（2つ以上で判定）
+_SUPERVISOR_DUMP_MARKERS = (
+    "user_intent_analysis",
+    "facts_to_present",
+    "hearing_state",
+    "spec_document",
+    "kv_action",
+    "violation_risk",
+    "logical_order",
+    "この内容を JSON で出力",
+    '"mode": "task"',
+    '"mode":"task"',
+    "mode は task",
+    "output する JSON",
 )
 
 _TOOL_OPEN = re.compile(rf"<(?:{TOOL_TAG_NAMES})\b", re.IGNORECASE)
@@ -57,14 +73,36 @@ def strip_internal_markup(text: str) -> str:
         text,
         flags=re.MULTILINE | re.IGNORECASE,
     )
-    # 開きだけ残ったタグ（`>` あり・閉じなし）をタグごと除去
+    # 開きだけ残ったタグ（閉じなし）— タグ直後が空白のみのときだけ（本文を巻き込まない）
     text = re.sub(
-        rf"<(?:{TOOL_TAG_NAMES})\b[^>]*>[^<]*$",
+        rf"<(?:{TOOL_TAG_NAMES})\b[^>]*>\s*$",
         "",
         text,
-        flags=re.DOTALL | re.IGNORECASE,
+        flags=re.MULTILINE | re.IGNORECASE,
     )
     text = re.sub(rf"</(?:{TOOL_TAG_NAMES})\s*>", "", text, flags=re.IGNORECASE)
+
+    # 連続したツールタグ断片（`<read_file><edit><list_dir>` など）
+    text = re.sub(
+        rf"(?:<(?:{TOOL_TAG_NAMES})\b[^>\n]*>\s*){{2,}}",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    # 孤立した開始タグ断片（閉じ `>` なしの行）
+    text = re.sub(
+        rf"(?m)^\s*<(?:{TOOL_TAG_NAMES})\b[^>\n]*\s*$",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    # 単独の空ツールタグ行
+    text = re.sub(
+        rf"(?m)^\s*<(?:{TOOL_TAG_NAMES})\b[^>]*>\s*$",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
 
     # バッククォート1個だけの残骸行
     text = re.sub(r"(?m)^\s*`\s*$", "", text)
@@ -73,6 +111,54 @@ def strip_internal_markup(text: str) -> str:
     cleaned = text.strip()
     if cleaned != original.strip():
         logger.info("🧹 内部マークアップ（think/ツールタグ）を除去しました")
+    return cleaned
+
+
+def looks_like_supervisor_dump(text: str) -> bool:
+    """Supervisor の JSON/モード独白が本文に漏れているか。"""
+    if not text or not isinstance(text, str):
+        return False
+    hits = sum(1 for m in _SUPERVISOR_DUMP_MARKERS if m in text)
+    if hits >= 2:
+        return True
+    # ツールタグが本文に大量
+    if len(_TOOL_OPEN.findall(text)) >= 3:
+        return True
+    return False
+
+
+def strip_supervisor_dump(text: str) -> str:
+    """
+    Supervisor 独白っぽい塊を落とす。残りが短すぎる場合は呼び出し側で差し替え。
+    """
+    if not text or not isinstance(text, str):
+        return text
+    original = text
+    text = strip_internal_markup(text)
+    # JSON 風のキー行・「mode は task」系の内部独白行（instruction.facts_to_present 含む）
+    text = re.sub(
+        r"(?m)^\s*(?:[-*]|\d+\.)?\s*"
+        r"(?:[\w.]+\.)?(?:user_intent_analysis|facts_to_present|hearing_state|spec_document|"
+        r"kv_action|violation_risk|logical_order|verified_facts|unverified_facts|"
+        r"tone_directive|search_used|memory_inject|silence)\b.*$",
+        "",
+        text,
+    )
+    text = re.sub(
+        r"(?m)^.*\binstruction\.facts_to_present\b.*$",
+        "",
+        text,
+    )
+    text = re.sub(
+        r"(?m)^\s*(?:mode\s*は\s*task|この内容を JSON で出力|output する JSON).*$",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    cleaned = text.strip()
+    if cleaned != original.strip():
+        logger.info("🧹 Supervisor 独白風の本文を除去しました")
     return cleaned
 
 

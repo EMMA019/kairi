@@ -989,6 +989,10 @@ async def auto_execute_with_retry(
 
     from app.core.fact_filters.markup import (
         strip_internal_markup,
+        strip_supervisor_dump,
+        looks_like_supervisor_dump,
+        looks_like_tool_dump,
+        strip_tool_dump_blocks,
         looks_incomplete_output,
         sanitize_preserving_body,
     )
@@ -1001,6 +1005,22 @@ async def auto_execute_with_retry(
         final_accumulated_response,
     )
     final_accumulated_response = strip_tool_dump_blocks(final_accumulated_response)
+    if looks_like_supervisor_dump(final_accumulated_response):
+        logger.warning("⚠️ 最終本文に Supervisor 独白を検出したため除去します")
+        stripped_sup = strip_supervisor_dump(final_accumulated_response)
+        # incomplete バナーだけは残す
+        banner_m = re.search(
+            r"\*\(\s*⚠️[^)]*(?:続きを作成して|未完了)[^)]*\)\*",
+            final_accumulated_response,
+        )
+        if stripped_sup.strip() and not looks_like_supervisor_dump(stripped_sup):
+            final_accumulated_response = stripped_sup
+        elif banner_m:
+            final_accumulated_response = banner_m.group(0)
+        else:
+            final_accumulated_response = (
+                "*(作業中に内部メモが本文へ漏れました。状態を確認のうえ「続きを作成して」で再開してください)*"
+            )
 
     # ツール生ダンプが残っていたら破棄して再合成（エコー対策）
     if looks_like_tool_dump(final_accumulated_response):

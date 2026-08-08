@@ -1,8 +1,0 @@
-# 環境変数ファイル（絶対に公開しない）
-.env
-
-# キャッシュや不要なファイル
-__pycache__/
-.backtest_cache/
-node_modules/
-.DS_Store

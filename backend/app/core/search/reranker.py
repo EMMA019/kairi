@@ -133,6 +133,9 @@ def _freshness_score(query: str, title: str, snippet: str) -> float:
         # 日付なしの英語プレマーケット雑多は市況クエリで弱体化
         if re.search(r"\b(?:premarket|after hours|biggest moves)\b", blob, re.I):
             score -= 30.0
+        # 市況クエリで日付が全くない記事は基本的に鮮度不明として減点
+        else:
+            score -= 15.0
 
     # 下落相場なのに「最高値更新」「大幅続伸」だけの古い文脈を落とす
     if freshness_query and re.search(r"最高値|大幅続伸|1636円高|6万6", blob):

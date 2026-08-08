@@ -201,13 +201,17 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
             # Tavily結果なし時は Brave Search API へ自動フォールバック
             if not results and "duckduckgo" not in providers and "jina" not in providers:
                 logger.info("🔍 Tavily結果なし、Brave APIに自動フォールバックします")
-                results = await search_brave(_search_query)
+                # 市況系クエリは日付フィルタを伝播（古い記事混入防止）
+                _brave_query = _date_filtered_query if _market_fresh else _search_query
+                results = await search_brave(_brave_query)
 
             # Tavily結果なし時は Jina Search API へ自動フォールバック
             if not results and "duckduckgo" not in providers:
                 logger.info("🔍 Tavily/Brave結果なし、Jina Search API (s.jina.ai) に自動フォールバックします")
                 _clean_query = re.sub(r'site:[^\s]+\s*', '', _search_query).strip()
-                results = await search_jina(_clean_query)
+                # 市況系クエリは日付フィルタを伝播
+                _jina_query = re.sub(r'site:[^\s]+\s*', '', _date_filtered_query if _market_fresh else _search_query).strip()
+                results = await search_jina(_jina_query)
 
             # Jina結果なし・あるいはDuckDuckGo指定時は DuckDuckGo へ自動フォールバック
             if not results:

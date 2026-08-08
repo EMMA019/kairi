@@ -38,95 +38,38 @@ BOOTH 配布: `start_kairi.bat` → 初回 DeepSeek キー → 会話。同梱 P
 
 ## ✨ 主要機能
 
-### 1. デュアルエージェント・アーキテクチャ
+### 本命 — 市況チャット
 
-| 役割 | モデル | 責務 |
-|------|--------|------|
-| **Supervisor** | DeepSeek V4 Pro / Claude Opus | ユーザーの意図分析、実装計画策定、検索判断、KVメモリ更新 |
-| **Executor** | DeepSeek V4 Flash / Gemini | コード生成・修正、コマンド実行、ファイル操作、テスト実行 |
+| 機能 | 説明 |
+|------|------|
+| **市況 Q&A** | 「今日の米国市場どうだった？」に、セッション判定（場中/live・引け後/settled）と日付アンカーで正確に回答 |
+| **個別銘柄フォロー** | 「Google なにかあった？」に、株価クォート＋検索 grounding で材料を回答 |
+| **普通のチャット** | 雑談・ラボのメモは検索を走らせず、そのまま会話。市況と日常のメリハリを自動判定 |
+| **検索 grounding＋出典** | 検索結果に出典リンクを明示し、ヒットしなければ「埋めない」。捏造禁止 |
+| **ローカル保存** | 会話・設定はすべて SQLite（あなたのPC内）。APIキーは持ち込み（BYOK）|
 
-SupervisorはJSON形式で回答方針を出力し、Executorがそれに厳密に従って実行します。「口頭でやったふり」をするとExecutorは自動で差し戻されます。
-
-### 2. 自律実行ループ（New）
-
-コード生成→エラー検出→Supervisor分析→修正→再実行のサイクルを**完全自動**で行います。
-
-```
-指示「ReactのTODOアプリ作って」
-  → Supervisor: 実装プラン作成（3ファイル構成）
-  → Executor: ファイル作成 + コマンド実行
-  → エラー検出 → Supervisorがログ分析
-  → 修正指示 → Executorが再実行
-  → 成功確認 → 完了報告
-```
-
-### 3. スマートなコード編集
-
-- **新規作成**: `<file path="...">` タグでファイル全体を作成
-- **差分修正**: `<replace>` タグで既存ファイルの一部分だけを修正
-- **フォールバック置換**: SEARCH対象が見つからない場合、空白・句読点を正規化して再試行、さらに範囲マッチでリカバリ
-- **構文チェック**: Python / JSON / TSXの自動リント、エラー時は自動ロールバック
-
-### 4. 2段階コンテキスト圧縮（New）
-
-長大な会話履歴を自動圧縮してトークンを節約：
-- **第1段階**: コードブロックは先頭10行+末尾10行を保持
-- **第2段階**: 古い会話ターンを圧縮、最新6ターンを完全保持
-
-### 5. LLM応答キャッシュ（New）
-
-**KVメモリの勝手参照は絶対に行わず**、同じ質問+同じコンテキストのLLM応答をキャッシュ：
-- セマンティックキャッシュ（クエリ正規化→MD5ハッシュ→SQLite保存）
-- 検索結果キャッシュ（60秒TTL）
-- コマンド実行キャッシュ（git hashベース）
-- 定型応答ショートサーキット（「おはよう」等はSupervisor呼び出しゼロ）
-
-### 6. ニュースプールと市況ブリーフィング
-
-RSS を並列取得し、72時間のローリングプールに蓄積します（ペイウォール記事は無料ソースで差し替え）。
+### ブリーフィング / ニュースプール（オプション）
 
 | 項目 | 内容 |
 |------|------|
 | **寄り前** | JST 08:15 — 米国確定値（DIA/SPY/QQQ/SOXX/USDJPY）＋解説＋ヘッドライン |
 | **大引け後** | JST 16:00 — 日経/TOPIX スナップショット＋前日比＋解説＋ヘッドライン |
-| **UI** | Market Desk → Briefing タブ（一覧・プレビュー・手動生成・フィード健全性） |
+| **ニュースプール** | RSS 並列取得、72時間ローリング蓄積。ペイウォール記事は無料ソースで差し替え |
 | **配信** | Discord Webhook へ全文分割送信（未設定時はログのみ） |
 
-手動生成例:
+### 上級モード（既定オフ）
 
-```bash
-curl -X POST -H "X-API-Token: $KAIRI_API_TOKEN" \
-  "$KAIRI_BACKEND_URL/api/briefing/generate?kind=preopen"
-```
+Settings → System → Advanced modes で有効化。IDE / Char / Radar / 定期ブリーフィングスケジューラ（`KAIRI_ENABLE_SCHEDULERS=1`）。
 
-試験運用チェックリスト: [docs/BRIEFING_OPS.md](docs/BRIEFING_OPS.md)
-
-### 7. デュアルモードUI
-
-| モード | 説明 |
-|--------|------|
-| **💬 チャット** | 画面全体でAIと会話。挨拶・雑談・質問・実装依頼まで全てここから |
-| **💻 IDE** | 左にチャット、右にMonaco Editor + ファイルエクスプローラー。コードをリアルタイム編集・保存 |
-| **📈 Market** | Market Desk（紙トレード概況）と Briefing パネル |
-
-- **コードパネル**: AIが生成したコードをMonaco Editorで直接編集・保存
-- **Markdown/Mermaid/HTMLプレビュー**: コードブロックをその場でプレビュー
-- **ファイルエクスプローラー**: ワークスペースのファイルを表示・選択
-- **リサイズ可能**: チャットエリアの幅をドラッグで調整
-
-### 8. ギャル文字コンパイラ（おまけ）
-
-「ギャルモードON！」で起動する3レイヤー・コンパイラ。LLMのIQを落とさずに、出力だけを極限ギャル文字に変換します。
-
-### 9. マルチLLM対応
+### マルチLLM対応
 
 | プロバイダ | モデル例 | 用途 |
 |-----------|---------|------|
-| DeepSeek | V4 Pro / V4 Flash | デフォルト（高コスパ） |
-| Anthropic | Claude Opus / Haiku | 高品質思考 |
-| OpenAI | GPT-5.5 | 汎用 |
-| Gemini | 3.1 Pro / Flash | 高品質・低コスト |
-| ローカル | Ollama / llama3 | オフライン |
+| DeepSeek | V4 / Chat | デフォルト（高コスパ） |
+| Anthropic | Claude | 高品質思考 |
+| OpenAI | GPT-5 | 汎用 |
+| Gemini | 3.1 | 高品質・低コスト |
+| ローカル | Ollama | オフライン |
 
 ---
 
@@ -158,7 +101,7 @@ GEMINI_API_KEY=xxxxx
 
 起動:
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ### フロントエンド
@@ -176,108 +119,75 @@ npm run dev
 ## 🏗️ アーキテクチャ
 
 ```
-                           ┌────────────────────────┐
-                           │    User Input           │
-                           └───────────┬────────────┘
-                                       │
-                    ┌──────────────────┼──────────────────┐
-                    │                  │                  │
-              定型応答?             指示?              雑談?
-            (ショートサーキット)       │                  │
-                    │                  ▼                  │
-                    │    ┌──────────────────────┐        │
-                    │    │  Search Planner      │        │
-                    │    │  (検索判定 + Intent   │        │
-                    │    │   Routing)           │        │
-                    │    └──────────┬───────────┘        │
-                    │               │                    │
-                    │    ┌──────────▼───────────┐        │
-                    │    │  Supervisor (思考)    │        │
-                    │    │  - 意図分析           │        │
-                    │    │  - 検索/メモリ判断    │        │
-                    │    │  - 実装プラン作成     │        │
-                    │    │  - エラー分析         │        │
-                    │    └──────────┬───────────┘        │
-                    │               │                    │
-                    │               ▼                    │
-                    │    ┌──────────────────────┐        │
-                    │    │  Executor (実行)      │◄───────┘
-                    │    │  - ファイル作成/編集  │
-                    │    │  - コマンド実行       │
-                    │    │  - 検索/スクレイピング │
-                    │    └──────────┬───────────┘
-                    │               │
-                    │    ┌──────────▼───────────┐
-                    │    │  ToolHandler         │
-                    │    │  - XMLタグパース      │
-                    │    │  - Docker Sandbox     │
-                    │    │  - Git Snapshot       │
-                    │    │  - 構文チェック       │
-                    │    └──────────┬───────────┘
-                    │               │
-                    │    ┌──────────▼───────────┐
-                    │    │  Auto-Execution Loop  │
-                    │    │  エラー検出→修正→再実行│
-                    │    └──────────────────────┘
-                    │
-                    ▼
-            ┌────────────────┐
-            │   Response     │
-            │  (SSE Stream)  │
-            └────────────────┘
+User Input
+    │
+    ▼
+┌──────────────────────┐
+│  Search Planner       │  ← ルールベース判定（今日系/個別株/為替等は即検索）
+│  + Search Trigger     │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│  LLM 呼び出し          │  ← DeepSeek/Claude/GPT/Gemini
+│  （必要時のみ検索結果注入）│
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│  Fact Filter Pipeline │  ← 捏造防止 / 出典強制 / 文末トリミング
+│  + Reply Language     │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│  Response             │
+│  (SSE Stream)        │
+└──────────────────────┘
 ```
 
 ### キャッシュ戦略
 
-```
-User Input → Normalize → Hash → Cache Hit? → 応答
-                                    ↓
-                               Cache Miss
-                                    ↓
-                              Supervisor Call
-                                    ↓
-                              Cacheに保存
-```
+- **検索結果キャッシュ**: 30分TTL（メモリ内）＋ 市況系は2日以内ルックバック
+- **定型応答ショートサーキット**: 「おはよう」等はLLM呼び出しゼロ
+- **KV メモリ**: 明示要求時のみ保存・参照（勝手読み出し禁止）
 
 ---
 
-## 🗂️ ディレクトリ構成
+## 🗂️ ディレクトリ構成（主要部分）
 
 ```
 backend/
 ├── app/
-│   ├── main.py                     # FastAPI エントリーポイント
+│   ├── main.py                     # FastAPI エントリーポイント（SPA静的配信含む）
 │   ├── core/
-│   │   ├── briefing/               # 寄り前/大引け後ブリーフィング生成
+│   │   ├── market_session.py       # 東証/米国 セッション判定（場中/引け後）
+│   │   ├── market_calendar.py      # 祝日カレンダー
+│   │   ├── chat_search.py          # チャット検索（日付アンカー/キャリーオーバー）
+│   │   ├── search_planner.py       # 検索プランナー（今日系/個別株/為替 即検索）
+│   │   ├── search_trigger.py       # 検索トリガー判定
+│   │   ├── search/                # 検索プロバイダ統合
+│   │   │   ├── router.py           # 天気/Wiki/Brave/Tavily/Jina/News ルーティング
+│   │   │   ├── reranker.py         # キーワード+鮮度リランカー
+│   │   │   └── providers/          # brave/tavily/jina/duckduckgo/news/weather/wiki
+│   │   ├── fact_filters/           # 捏造防止パイプライン（出典/通貨/数値/日付）
+│   │   ├── reply_language.py       # 言語（locale）判定
 │   │   ├── news/                   # RSS プール・ペイウォール差し替え
+│   │   ├── briefing/               # 寄り前/大引け後ブリーフィング生成
 │   │   ├── notify/discord.py       # Discord Webhook（アラート＋全文配信）
-│   │   ├── supervisor.py           # 思考モデル (プロンプト+実行)
-│   │   ├── executor.py             # 実行モデル (プロンプト+ストリーミング)
-│   │   ├── cache_manager.py        # セマンティックキャッシュ
-│   │   ├── auto_execution_loop.py   # 自律実行ループ
-│   │   ├── multi_file_coordinator.py # マルチファイル一貫変更
-│   │   ├── context_compressor.py   # 2段階コンテキスト圧縮
-│   │   ├── file_edit_fallback.py   # ファイル編集フォールバック
-│   │   ├── auto_test_pipeline.py   # 自動テスト実行
-│   │   ├── kv_store.py             # KVメモリ管理
+│   │   ├── ibkr/                   # IBKR 口座連携（株価クォート）
+│   │   ├── monitor/                # レーダー（無人市場監視・上級）
+│   │   ├── cache_manager.py        # 検索結果キャッシュ
 │   │   ├── llm_client.py           # マルチLLM統合ラッパー
-│   │   ├── gyaru.py                # ギャル文字コンパイラ
-│   │   ├── sandbox.py              # Dockerサンドボックス
-│   │   └── search/
-│   │       ├── router.py           # 検索ルーター（天気/Wiki/Brave/News）
-│   │       ├── reranker.py         # キーワードリランカー
-│   │       └── providers/          # 各検索プロバイダ
+│   │   ├── kv_store.py             # KVメモリ（明示要求時のみ）
+│   │   └── memory.py               # 会話メモリ管理
 │   ├── routers/
 │   │   ├── chat.py                 # チャットAPI（SSEストリーミング）
 │   │   ├── history.py              # 会話履歴API
-│   │   ├── memory.py               # KVメモリAPI
-│   │   ├── workspace.py            # ワークスペースAPI
+│   │   ├── settings.py             # 設定API
 │   │   ├── news_health.py          # ニュース健全性・ブリーフィング API
-│   │   └── settings.py             # 設定API
-│   └── utils/
-│       ├── logger.py               # 構造化ログ
-│       └── parser.py               # XML/JSONパース
-├── cache/                          # LLM応答・検索結果キャッシュ
+│   │   └── workspace.py            # ワークスペースAPI（上級）
+│   └── models/
 ├── storage/                        # 会話履歴DB・briefings/
 └── requirements.txt
 
@@ -287,17 +197,16 @@ frontend/
 │   ├── components/
 │   │   ├── ChatArea.tsx            # 会話表示エリア
 │   │   ├── InputArea.tsx           # 入力欄
-│   │   ├── IDEView.tsx             # IDEモード全体
 │   │   ├── MarketDesk.tsx          # 市況デスク
 │   │   ├── BriefingPanel.tsx       # ブリーフィング一覧・生成
-│   │   ├── CodePanel.tsx           # Monacoエディタ+プレビュー
-│   │   ├── FileExplorer.tsx        # ファイルエクスプローラー
-│   │   └── Sidebar.tsx             # サイドバー
+│   │   └── SettingsModal.tsx       # 設定（APIキー/locale）
 │   └── hooks/
 │       ├── useChat.ts              # チャットAPI連携
 │       └── useStreaming.ts         # SSEストリーミング受信
 └── package.json
 ```
+
+その他、上級モード（IDE/コード編集）用のモジュール（`supervisor` / `executor` / `auto_execution_loop` / `context_compressor` / `file_edit_fallback` / `sandbox` / `mcp` 等）は `backend/app/core/` 配下に存在しますが、**既定オフの実験機能**です。
 
 ---
 

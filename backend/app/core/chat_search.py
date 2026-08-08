@@ -635,12 +635,14 @@ def balance_search_queries(
 
 
 def should_skip_deep_fetch(user_input: str) -> bool:
-    """終値・大引け・今日の市況はスニペットで足りるのでディープフェッチ省略。"""
+    """終値・大引け・今日の市況はスニペットで足りるのでディープフェッチ省略。
+    ただし明示日付（8/6 等）を含む市況クエリはスニペットが薄いリスクがあるため skip しない。"""
     text = user_input or ""
+    # 明示日付つき市況クエリ → 終値確定値を得るため deep fetch を許可
     if parse_explicit_calendar_date(text) and any(
         k in text for k in ("市場", "市況", "前場", "後場", "終値", "どうだった", "どんな感じ")
     ):
-        return True
+        return False
     return any(
         k in text
         for k in (
@@ -723,10 +725,12 @@ def _format_us_market_snapshot_for_prompt(user_input: str = "") -> str:
         "※ 指数レベルは ETF 日足の近似。記事の物語と数値は as_of 日付で照合すること。",
         "※ 表は DIA / SPY / QQQ / SOXX を欠落させず、未取得は『当該日終値バー未取得』と明示すること。",
     ]
+    unmatched_count = 0
     for ticker, label in tickers:
         q = quotes.get(ticker) or {}
         if not q.get("ok") or q.get("close") is None:
             lines.append(f"- {label}: 当該日終値バー未取得")
+            unmatched_count += 1
             continue
         close = float(q["close"])
         as_of = q.get("as_of") or "?"
@@ -744,11 +748,14 @@ def _format_us_market_snapshot_for_prompt(user_input: str = "") -> str:
                 f"- {label} 終値 as_of={as_of}: {' '.join(parts)} | 前日終値: {prev_s}"
             )
         else:
+            unmatched_count += 1
             lines.append(
                 f"- {label}: session_date={anchor.isoformat()} のバー無し。"
                 f"直近バー as_of={as_of} 終値 {' '.join(parts)} "
                 f"（前日終値扱い・{anchor.isoformat()}終値として断定するな）| その前: {prev_s}"
             )
+    if unmatched_count >= 2:
+        lines.insert(1, f"🔴 警告: {unmatched_count}/{len(tickers)} ETFが指定日確定バー未取得。以下のETF数値は前営業日ベースの可能性が高く、当日終値と断定してはならない。可能なら検索結果の引け後記事を優先せよ。")
     return "\n".join(lines)
 
 

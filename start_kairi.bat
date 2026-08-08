@@ -72,7 +72,7 @@ if not exist "backend\storage\settings.json" (
 
 if "%USE_EMBED%"=="1" (
   if not exist "runtime\python\.kairi_deps_ok" (
-    echo [2/3] Installing dependencies into bundled Python (first run only)...
+    echo [2/3] Installing dependencies into bundled Python.
     "%PYEXE%" -m pip install --upgrade pip >nul
     "%PYEXE%" -m pip install -r "backend\requirements.txt"
     if errorlevel 1 (

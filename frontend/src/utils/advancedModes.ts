@@ -1,11 +1,11 @@
 const KEY = "kairi_show_advanced_modes";
 
-/** IDE / Char / Radar など上級 UI。既定は OFF（市況＋チャット本命）。 */
+/** IDE / Char / Radar など上級 UI。個人用途メインルートでは既定 ON（設定から OFF も可）。 */
 export function getShowAdvancedModes(): boolean {
   try {
-    return localStorage.getItem(KEY) === "1";
+    return localStorage.getItem(KEY) !== "0";
   } catch {
-    return false;
+    return true;
   }
 }
 

@@ -79,7 +79,7 @@ export const en = {
   "settings.localeJaDesc": "Japanese UI & replies",
   "settings.advancedModes": "Advanced modes (IDE / Char / Radar)",
   "settings.advancedModesDesc":
-    "Off by default. Core product is chat + market Q&A; enable only for experimental UI.",
+    "Enabled by default in this personal build. Shows IDE (system development) / Char / Radar modes.",
   "settings.cancel": "Cancel",
   "settings.save": "Save",
   "settings.saving": "Saving…",

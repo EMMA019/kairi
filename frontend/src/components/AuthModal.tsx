@@ -198,7 +198,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       DeepSeek
                     </a>
                   </li>
-                  <li>Use the first-run wizard, or Settings → API Keys, to save DeepSeek</li>
+                  <li>Open the ⚙️ Settings (gear) icon in the bottom-left Activity Bar, then the
+                      API Keys tab, and save your DeepSeek key.</li>
                   <li>Optional: Brave Search key improves web search quality</li>
                 </ol>
                 <p className="text-[11px] text-gray-500 leading-relaxed">

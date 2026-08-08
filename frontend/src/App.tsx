@@ -243,14 +243,6 @@ function App() {
     }
   }, [showAdvancedModes, mode]);
 
-  const handleToggleMarket = useCallback(() => {
-    setMode((prev) => {
-      if (prev === "market") return "chat";
-      setIsSidebarOpen(false);
-      return "market";
-    });
-  }, []);
-
   const handleNewSession = async () => {
     try {
       const res = await apiFetch("/api/history", { 
@@ -264,6 +256,8 @@ function App() {
         setSessionId(newId);
         localStorage.setItem("antigravity_session_id", newId);
         setHistoryRefreshTrigger(prev => prev + 1);
+        // 新規チャットは必ずチャット画面で開始する
+        setMode("chat");
       }
     } catch (e) {
       console.error(e);
@@ -273,6 +267,8 @@ function App() {
   const handleSelectSession = (id: string) => {
     setSessionId(id);
     localStorage.setItem("antigravity_session_id", id);
+    // チャット履歴を開いたら必ずチャット画面に戻す（マーケットままになるのを防止）
+    setMode("chat");
   };
 
   const handleDeleteSession = async (id: string) => {
@@ -302,7 +298,6 @@ function App() {
         mode={mode}
         showAdvancedModes={showAdvancedModes}
         onToggleMode={handleToggleMode}
-        onToggleMarket={handleToggleMarket}
         onOpenKVMemory={() => setIsKVPanelOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenToolPanel={() => setIsToolPanelOpen(true)}

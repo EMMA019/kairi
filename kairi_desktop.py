@@ -65,7 +65,7 @@ def main():
     else:
         port = pick_port(preferred)
         if port != preferred:
-            print(f"[info] Port {preferred} busy — using {port} instead.")
+            print(f"[info] Port {preferred} busy - using {port} instead.")
 
     # Remember for support / scripts
     try:

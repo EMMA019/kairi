@@ -199,7 +199,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               }}
               className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3 py-2 text-xs text-gray-200 focus:border-blue-500 focus:outline-none leading-normal"
             >
-              {settings.available_providers.map(p => (
+              {(settings.available_providers || []).map(p => (
                 <option key={p} value={p}>{p}</option>
               ))}
             </select>

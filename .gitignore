@@ -72,3 +72,4 @@ backend/extract_prompt.py
 backend/read_db.py
 
 *.safetensors
+backend/storage/runtime_port.txt

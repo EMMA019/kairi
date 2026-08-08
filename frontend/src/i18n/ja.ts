@@ -81,7 +81,7 @@ export const ja: Record<MessageKey, string> = {
   "settings.localeJaDesc": "日本語 UI・回答",
   "settings.advancedModes": "上級モード（IDE / キャラ / レーダー）",
   "settings.advancedModesDesc":
-    "既定はオフ。本製品の中心はチャット＋市況Q&Aです。実験UIのみ有効化してください。",
+    "この個人版では既定で有効です。IDE（システム開発）/ キャラ / レーダーを表示します。",
   "settings.cancel": "キャンセル",
   "settings.save": "保存",
   "settings.saving": "保存中…",

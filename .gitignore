@@ -73,3 +73,5 @@ backend/read_db.py
 
 *.safetensors
 backend/storage/runtime_port.txt
+
+backend/storage/logs/

@@ -415,12 +415,20 @@ def rank_news_items_for_chat(items: list[dict], limit: int = 15) -> list[dict]:
     return demoted[:limit]
 
 
+def _board_sort_key(item: dict) -> tuple:
+    """最新が上: published → fetched_at → created_at の新しい順。同刻は重要度で並べる。"""
+    dt = _parse_news_datetime(item)
+    # 日付不明は末尾へ（epoch=0）
+    ts = dt.timestamp() if dt else 0.0
+    return (ts, int(item.get("importance") or 0))
+
+
 def rank_news_items_for_board(items: list[dict], limit: int = 60) -> list[dict]:
     """
     ボード向け採点。chat 用より寛容:
     - スパム(importance<=0)は落とす
-    - ウォッチリスト未ヒットの一般市況も残す（base score があるもの）
-    - 採点後が薄ければ、ノイズ除外の新しい順で埋める
+    - ウォッチリスト未ヒットの一般市況も残す
+    - 並びは常に最新順（重要度は同刻のタイブレーク）
     """
     from app.core.monitor.watchlist import systematic_screen_and_score
     from app.core.news.syndication import demote_syndicated
@@ -434,29 +442,23 @@ def rank_news_items_for_board(items: list[dict], limit: int = 60) -> list[dict]:
             continue
         scored.append(s)
     demoted = demote_syndicated(scored)
-    demoted.sort(
-        key=lambda x: (
-            int(x.get("importance") or 0),
-            str(x.get("fetched_at") or x.get("published") or ""),
-        ),
-        reverse=True,
-    )
-    if len(demoted) >= min(8, limit):
-        return demoted[:limit]
 
-    # フォールバック: 採点が薄すぎるときは新しい順で埋める
-    seen = {d.get("url") for d in demoted}
-    for item in items:
-        if _is_noise_news_source(item):
-            continue
-        if item.get("url") in seen:
-            continue
-        filled = dict(item)
-        filled.setdefault("importance", 15)
-        demoted.append(filled)
-        seen.add(item.get("url"))
-        if len(demoted) >= limit:
-            break
+    if len(demoted) < min(8, limit):
+        # フォールバック: 採点が薄すぎるときはノイズ除外で埋める
+        seen = {d.get("url") for d in demoted}
+        for item in items:
+            if _is_noise_news_source(item):
+                continue
+            if item.get("url") in seen:
+                continue
+            filled = dict(item)
+            filled.setdefault("importance", 15)
+            demoted.append(filled)
+            seen.add(item.get("url"))
+            if len(demoted) >= limit * 2:
+                break
+
+    demoted.sort(key=_board_sort_key, reverse=True)
     return demoted[:limit]
 
 

@@ -8,6 +8,41 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 
+def test_board_rank_newest_first():
+    from app.core.news.database import rank_news_items_for_board
+
+    items = [
+        {
+            "title": "Old NVDA story about earnings",
+            "url": "https://example.com/old",
+            "source": "CNBC Market News",
+            "summary": "NVDA earnings",
+            "published": "2026-08-10 10:00:00",
+            "fetched_at": "2026-08-10 10:00:00",
+        },
+        {
+            "title": "Fresh NVDA story about earnings",
+            "url": "https://example.com/fresh",
+            "source": "CNBC Market News",
+            "summary": "NVDA earnings beat",
+            "published": "2026-08-12 12:00:00",
+            "fetched_at": "2026-08-12 12:00:00",
+        },
+        {
+            "title": "Mid NVDA story about guidance",
+            "url": "https://example.com/mid",
+            "source": "CNBC Market News",
+            "summary": "NVDA guidance",
+            "published": "2026-08-11 15:00:00",
+            "fetched_at": "2026-08-11 15:00:00",
+        },
+    ]
+    ranked = rank_news_items_for_board(items, limit=10)
+    urls = [r["url"] for r in ranked]
+    assert urls.index("https://example.com/fresh") < urls.index("https://example.com/mid")
+    assert urls.index("https://example.com/mid") < urls.index("https://example.com/old")
+
+
 def test_infer_region_from_feed_and_item():
     from app.core.news.region import infer_region, infer_region_from_feed
 

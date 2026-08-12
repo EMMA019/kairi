@@ -183,16 +183,25 @@ async def save_files(request: SaveRequest):
     指定されたパスにファイルを保存する。
     ディレクトリ・トラバーサルを防ぐため、現在のワークスペース配下のみ許可。
     """
+    from app.core.sandbox import resolve_workspace_target
+
     saved_files = []
     ws_dir = get_workspace_dir()
     
     for file_req in request.files:
-        # パスをサニタイズ（上位ディレクトリへの参照を禁止）
-        safe_path = file_req.path.replace("..", "").lstrip("/\\")
-        target_path = ws_dir / safe_path
-        
+        try:
+            target_path = resolve_workspace_target(ws_dir, file_req.path)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"ワークスペース外のパスは拒否しました: {file_req.path}",
+            )
+        if target_path == ws_dir.resolve():
+            raise HTTPException(status_code=400, detail="ファイルパスが空です")
+
         # 保存先ディレクトリを作成
         target_path.parent.mkdir(parents=True, exist_ok=True)
+        rel = target_path.relative_to(ws_dir.resolve()).as_posix()
         
         try:
             with open(target_path, "w", encoding="utf-8") as f:
@@ -201,7 +210,7 @@ async def save_files(request: SaveRequest):
             logger.info(f"ファイルを保存しました: {target_path}")
         except Exception as e:
             logger.error(f"ファイル保存エラー ({target_path}): {e}")
-            raise HTTPException(status_code=500, detail=f"ファイル保存に失敗しました: {safe_path}")
+            raise HTTPException(status_code=500, detail=f"ファイル保存に失敗しました: {rel}")
             
     return {"success": True, "saved_files": saved_files, "base_dir": str(ws_dir)}
 
@@ -282,9 +291,13 @@ async def get_workspace_tree():
 @router.get("/workspace/file")
 async def get_workspace_file(path: str):
     """ファイルの内容を返す"""
+    from app.core.sandbox import resolve_workspace_target
+
     ws_dir = get_workspace_dir()
-    safe_path = path.replace("..", "").lstrip("/\\")
-    target = ws_dir / safe_path
+    try:
+        target = resolve_workspace_target(ws_dir, path)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ワークスペース外のパスは拒否しました")
     
     if not target.exists() or not target.is_file():
         raise HTTPException(status_code=404, detail="File not found")
@@ -350,12 +363,17 @@ async def workspace_changes():
 @router.post("/workspace/discard")
 async def discard_change(request: DiscardRequest):
     """指定パスの変更を破棄して before 内容に戻す"""
-    safe_path = request.path.replace("..", "").lstrip("/\\")
-    change = pop_change(safe_path)
+    from app.core.sandbox import resolve_workspace_target
+
+    ws_dir = get_workspace_dir()
+    try:
+        target = resolve_workspace_target(ws_dir, request.path)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ワークスペース外のパスは拒否しました")
+    safe_path = target.relative_to(ws_dir.resolve()).as_posix()
+    change = pop_change(safe_path) or pop_change(request.path.replace("..", "").lstrip("/\\"))
     if change is None:
         raise HTTPException(status_code=404, detail="No recorded change for path")
-    ws_dir = get_workspace_dir()
-    target = ws_dir / safe_path
     try:
         if not change.before:
             if target.exists():
@@ -380,11 +398,16 @@ async def workspace_activity(limit: int = 40):
 @router.post("/workspace/save-spec")
 async def save_spec(request: SaveSpecRequest):
     """ユーザー向け仕様書をワークスペースに SPEC.md として保存"""
+    from app.core.sandbox import resolve_workspace_target
+
     ws_dir = get_workspace_dir()
-    name = (request.filename or "SPEC.md").replace("..", "").lstrip("/\\")
-    if not name:
-        name = "SPEC.md"
-    target = ws_dir / name
+    try:
+        target = resolve_workspace_target(ws_dir, request.filename or "SPEC.md")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ワークスペース外のパスは拒否しました")
+    if target == ws_dir.resolve():
+        target = resolve_workspace_target(ws_dir, "SPEC.md")
+    name = target.relative_to(ws_dir.resolve()).as_posix()
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(request.content or "", encoding="utf-8")

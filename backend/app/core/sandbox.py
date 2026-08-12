@@ -183,12 +183,11 @@ class DockerSandbox:
 
 def safe_read_file(workspace_dir: str, file_path: str) -> str:
     """安全なファイル読み込み（Docker非依存のフォールバック対応）"""
-    safe_path = normalize_safe_path(workspace_dir, file_path)
-    target_path = os.path.join(workspace_dir, safe_path)
-    target_abs = os.path.normcase(os.path.abspath(target_path))
-    workspace_abs = os.path.normcase(os.path.abspath(workspace_dir))
-    if not target_abs.startswith(workspace_abs):
+    try:
+        target = resolve_workspace_target(workspace_dir, file_path)
+    except ValueError:
         return "[エラー: ワークスペース外のファイルにはアクセスできません]"
+    target_path = str(target)
         
     try:
         with open(target_path, "r", encoding="utf-8") as f:
@@ -203,12 +202,11 @@ def safe_read_file(workspace_dir: str, file_path: str) -> str:
 
 def safe_list_dir(workspace_dir: str, dir_path: str = ".") -> str:
     """安全なディレクトリ一覧取得（Docker非依存のフォールバック対応）"""
-    safe_path = normalize_safe_path(workspace_dir, dir_path)
-    target_path = os.path.join(workspace_dir, safe_path)
-    target_abs = os.path.normcase(os.path.abspath(target_path))
-    workspace_abs = os.path.normcase(os.path.abspath(workspace_dir))
-    if not target_abs.startswith(workspace_abs):
+    try:
+        target = resolve_workspace_target(workspace_dir, dir_path or ".")
+    except ValueError:
         return "[エラー: ワークスペース外のディレクトリにはアクセスできません]"
+    target_path = str(target)
         
     try:
         if not os.path.exists(target_path):
@@ -284,6 +282,39 @@ def normalize_safe_path(base_dir_str: str, raw_path: str) -> str:
     if os.path.splitdrive(safe_path)[0]:
         safe_path = os.path.basename(safe_path)
     return safe_path
+
+
+def resolve_workspace_target(workspace_dir: str | Path, raw_path: str) -> Path:
+    """
+    Resolve raw_path under workspace. Raises ValueError if it escapes.
+
+    Uses normalize_safe_path then Path.resolve() + relative_to so Windows
+    drive-absolute paths (C:/...) cannot escape via Path join semantics.
+    """
+    ws = Path(workspace_dir).expanduser().resolve()
+    safe = normalize_safe_path(str(ws), raw_path or "")
+    # Empty / "." means the workspace root itself
+    target = (ws / safe).resolve() if safe not in ("", ".") else ws
+    try:
+        target.relative_to(ws)
+    except ValueError as e:
+        raise ValueError(f"path escapes workspace: {raw_path!r}") from e
+    return target
+
+
+def is_under_workspace(workspace_dir: str | Path, target: str | Path) -> bool:
+    try:
+        resolve_workspace_target(workspace_dir, str(target))
+        return True
+    except ValueError:
+        # If target is already absolute under ws, compare resolved paths
+        try:
+            ws = Path(workspace_dir).expanduser().resolve()
+            tgt = Path(target).expanduser().resolve()
+            tgt.relative_to(ws)
+            return True
+        except Exception:
+            return False
 
 # グローバルなSandboxキャッシュ (セッションごと、最大20コンテナ)
 _sandboxes: dict[str, DockerSandbox] = {}

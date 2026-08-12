@@ -29,7 +29,14 @@ from typing import Tuple, List
 
 from app.utils.logger import get_logger
 from app.routers.workspace import BASE_WORKSPACE_DIR
-from app.core.sandbox import git_snapshot, get_sandbox, normalize_safe_path, safe_read_file, safe_list_dir
+from app.core.sandbox import (
+    git_snapshot,
+    get_sandbox,
+    normalize_safe_path,
+    resolve_workspace_target,
+    safe_read_file,
+    safe_list_dir,
+)
 from app.core.search.router import fetch_url
 from app.core.search import web_search
 
@@ -380,8 +387,12 @@ class ToolHandler:
 
             try:
                 clean_content = self.clean_markdown_block(content)
-                safe_path = normalize_safe_path(str(BASE_WORKSPACE_DIR), path_str)
-                target_path = BASE_WORKSPACE_DIR / safe_path
+                try:
+                    target_path = resolve_workspace_target(BASE_WORKSPACE_DIR, path_str)
+                except ValueError as ve:
+                    self.tool_results.append(f"ファイル保存拒否: {ve}")
+                    continue
+                safe_path = target_path.relative_to(Path(BASE_WORKSPACE_DIR).resolve()).as_posix()
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 
                 is_new_file = not target_path.exists()
@@ -460,8 +471,12 @@ class ToolHandler:
 
             try:
                 clean_snippet = self.clean_markdown_block(snippet)
-                safe_path = normalize_safe_path(str(BASE_WORKSPACE_DIR), path_str)
-                target_path = BASE_WORKSPACE_DIR / safe_path
+                try:
+                    target_path = resolve_workspace_target(BASE_WORKSPACE_DIR, path_str)
+                except ValueError as ve:
+                    self.tool_results.append(f"Fast Apply拒否: {ve}")
+                    continue
+                safe_path = target_path.relative_to(Path(BASE_WORKSPACE_DIR).resolve()).as_posix()
 
                 if not target_path.exists():
                     err_msg = f"Fast Apply編集エラー: ファイルが存在しません ({path_str})。新規作成する場合は <file path=\"{path_str}\"> を使用してください。"
@@ -525,8 +540,12 @@ class ToolHandler:
             try:
                 clean_search = self.clean_markdown_block(search_text)
                 clean_replace = self.clean_markdown_block(replace_text)
-                safe_path = normalize_safe_path(str(BASE_WORKSPACE_DIR), path_str)
-                target_path = BASE_WORKSPACE_DIR / safe_path
+                try:
+                    target_path = resolve_workspace_target(BASE_WORKSPACE_DIR, path_str)
+                except ValueError as ve:
+                    self.tool_results.append(f"差分置換拒否: {ve}")
+                    continue
+                safe_path = target_path.relative_to(Path(BASE_WORKSPACE_DIR).resolve()).as_posix()
                 
                 if not target_path.exists():
                     err_msg = f"差分置換エラー: ファイルが存在しません ({path_str})。新規作成する場合は <file path=\"{path_str}\"> を使用してください。"

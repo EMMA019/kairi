@@ -44,6 +44,22 @@ async def lifespan(app: FastAPI):
     await init_db()
     await init_news_db()
     await init_cache_db()
+    # API token 未設定は開発向け。配布時は必須化を推奨。
+    try:
+        from app.core.auth import _configured_token
+
+        if not _configured_token():
+            _main_logger.warning(
+                "API token / app_pin 未設定: /api/* は認証なしで全開放です。"
+                "設定の api_token か環境変数 KAIRI_API_TOKEN を設定してください。"
+                + (
+                    " (KAIRI_RELEASE=1 では必須化を強く推奨)"
+                    if _env_truthy("KAIRI_RELEASE")
+                    else ""
+                )
+            )
+    except Exception as e:
+        _main_logger.debug(f"auth token check skipped: {e}")
     setup_scheduler()  # スタブ（定期RSSは廃止）
     if _schedulers_enabled():
         start_radar_scheduler()  # 24時間無人市場監視レーダー自動巡回開始

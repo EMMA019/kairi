@@ -84,8 +84,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     setExporting(true);
     setExportMsg(null);
     try {
-      const q = exportSecrets ? "?include_secrets=true" : "";
-      const res = await apiFetch(`/api/export${q}`);
+      const res = exportSecrets
+        ? await apiFetch("/api/export/with-secrets", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ confirm_export_secrets: true }),
+          })
+        : await apiFetch("/api/export");
       if (!res.ok) {
         setExportMsg(t("settings.exportFail"));
         return;

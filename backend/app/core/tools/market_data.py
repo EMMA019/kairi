@@ -198,6 +198,8 @@ def _format_dividend_yield(
 
 
 def _quote_dict_yf(ticker: str, *, enrich_vol_atr: bool = False) -> dict[str, Any]:
+    from app.core.content_age import stamp_quote_freshness
+
     ticker = _normalize_ticker(ticker)
     t = yf.Ticker(ticker)
     info = t.info or {}
@@ -208,6 +210,7 @@ def _quote_dict_yf(ticker: str, *, enrich_vol_atr: bool = False) -> dict[str, An
     day_open = None
     day_high = None
     day_low = None
+    bar_as_of = None
     if history is not None and not history.empty:
         current_price = float(history["Close"].iloc[-1])
         if len(history) > 1:
@@ -215,6 +218,10 @@ def _quote_dict_yf(ticker: str, *, enrich_vol_atr: bool = False) -> dict[str, An
         day_open = float(history["Open"].iloc[-1]) if "Open" in history.columns else None
         day_high = float(history["High"].iloc[-1]) if "High" in history.columns else None
         day_low = float(history["Low"].iloc[-1]) if "Low" in history.columns else None
+        try:
+            bar_as_of = history.index[-1]
+        except Exception:
+            bar_as_of = None
 
     price_kind = "session_close_or_last"
     if current_price is None:
@@ -281,33 +288,36 @@ def _quote_dict_yf(ticker: str, *, enrich_vol_atr: bool = False) -> dict[str, An
         except (TypeError, ValueError, ZeroDivisionError):
             volume_ratio = None
 
-    return {
-        "ticker": ticker,
-        "name": info.get("shortName", ticker),
-        "current_price": current_price,
-        "previous_close": previous_close,
-        "price_kind": price_kind,
-        "change": change,
-        "change_pct": change_pct,
-        "open": day_open if day_open is not None else info.get("open"),
-        "day_low": dl,
-        "day_high": dh,
-        "52_week_low": info.get("fiftyTwoWeekLow"),
-        "52_week_high": info.get("fiftyTwoWeekHigh"),
-        "volume": volume,
-        "average_volume": avg_vol,
-        "volume_ratio": volume_ratio,
-        "atr": atr,
-        "day_range": day_range,
-        "ret_5d": ret_5d,
-        "ret_20d": ret_20d,
-        "dividend_yield": dividend_yield,
-        "trailing_pe": info.get("trailingPE"),
-        "forward_pe": info.get("forwardPE"),
-        "market_cap": info.get("marketCap"),
-        "currency": info.get("currency", "USD"),
-        "source": "yfinance",
-    }
+    return stamp_quote_freshness(
+        {
+            "ticker": ticker,
+            "name": info.get("shortName", ticker),
+            "current_price": current_price,
+            "previous_close": previous_close,
+            "price_kind": price_kind,
+            "change": change,
+            "change_pct": change_pct,
+            "open": day_open if day_open is not None else info.get("open"),
+            "day_low": dl,
+            "day_high": dh,
+            "52_week_low": info.get("fiftyTwoWeekLow"),
+            "52_week_high": info.get("fiftyTwoWeekHigh"),
+            "volume": volume,
+            "average_volume": avg_vol,
+            "volume_ratio": volume_ratio,
+            "atr": atr,
+            "day_range": day_range,
+            "ret_5d": ret_5d,
+            "ret_20d": ret_20d,
+            "dividend_yield": dividend_yield,
+            "trailing_pe": info.get("trailingPE"),
+            "forward_pe": info.get("forwardPE"),
+            "market_cap": info.get("marketCap"),
+            "currency": info.get("currency", "USD"),
+            "source": "yfinance",
+        },
+        content_as_of=bar_as_of,
+    )
 
 
 def fetch_us_etf_session_closes(
@@ -324,11 +334,15 @@ def fetch_us_etf_session_closes(
     if not isinstance(session_date, date_cls):
         session_date = date_cls.fromisoformat(str(session_date)[:10])
 
+    from app.core.content_age import stamp_quote_freshness, utc_now_iso
+
+    fetched_at = utc_now_iso()
     out: dict[str, Any] = {
         "session_date": session_date.isoformat(),
         "quotes": {},
         "all_matched": True,
         "source": "yfinance",
+        "fetched_at": fetched_at,
     }
     start = (session_date - timedelta(days=10)).isoformat()
     end = (session_date + timedelta(days=3)).isoformat()
@@ -343,6 +357,7 @@ def fetch_us_etf_session_closes(
             "change_pct": None,
             "as_of": None,
             "matched_session": False,
+            "fetched_at": fetched_at,
         }
         try:
             hist = yf.Ticker(ticker).history(start=start, end=end)
@@ -403,7 +418,11 @@ def fetch_us_etf_session_closes(
                 entry["change_pct"] = (chg / prev) * 100.0
             if not entry["matched_session"]:
                 out["all_matched"] = False
-            out["quotes"][ticker] = entry
+                entry["content_stale"] = True
+                entry["content_stale_reason"] = "session_bar_missing"
+            out["quotes"][ticker] = stamp_quote_freshness(
+                entry, content_as_of=entry["as_of"], fetched_at=fetched_at
+            )
         except Exception as e:
             logger.warning(f"US session close fetch failed {ticker}: {e}")
             out["quotes"][ticker] = entry
@@ -412,6 +431,8 @@ def fetch_us_etf_session_closes(
 
 
 def _try_ibkr_quote(ticker: str) -> dict[str, Any] | None:
+    from app.core.content_age import stamp_quote_freshness, utc_now_iso
+
     try:
         from app.core.ibkr.client import fetch_quote, ibkr_market_data_enabled
 
@@ -424,7 +445,9 @@ def _try_ibkr_quote(ticker: str) -> dict[str, Any] | None:
         data = payload.get("data") or {}
         if data.get("current_price") is None:
             return None
-        return data
+        # Live IBKR ticks: observation time ≈ fetch time
+        now = utc_now_iso()
+        return stamp_quote_freshness(data, content_as_of=now, fetched_at=now)
     except Exception as e:
         logger.warning(f"IBKR quote path error {ticker}: {e}")
         return None
@@ -502,10 +525,14 @@ def _quotes_batch(
             errors.append(f"ibkr_batch: {e}")
             logger.warning(f"quotes batch IBKR failed: {e}")
 
+    from app.core.content_age import stamp_quote_freshness, utc_now_iso
+
     for ticker in tickers:
         q = ib_quotes.get(ticker)
         if q and not q.get("error") and q.get("current_price") is not None:
-            result = _merge_vol_atr(q) if enrich_vol_atr else q
+            now = utc_now_iso()
+            stamped = stamp_quote_freshness(q, content_as_of=now, fetched_at=now)
+            result = _merge_vol_atr(stamped) if enrich_vol_atr else stamped
             out[ticker] = result
             sources.add(str(result.get("source") or "ibkr"))
             continue
@@ -675,6 +702,9 @@ def get_jp_market_snapshot(
     include_sectors = _as_bool(include_sectors, True)
     prefer_yfinance = _as_bool(prefer_yfinance, False)
 
+    from app.core.content_age import stamp_quote_freshness, utc_now_iso
+
+    fetched_at = utc_now_iso()
     out: dict[str, Any] = {
         "indices": {},
         "sectors": {},
@@ -682,6 +712,7 @@ def get_jp_market_snapshot(
         "source": "mixed",
         "session": _jp_session_bucket(),
         "n225_intraday": {},
+        "fetched_at": fetched_at,
     }
     symbols = list(JP_INDEX_TICKERS.keys())
     if include_sectors:
@@ -708,7 +739,9 @@ def get_jp_market_snapshot(
         for ticker, label in mapping.items():
             q = ib_quotes.get(ticker)
             if q and not q.get("error") and q.get("current_price") is not None:
-                q = dict(q)
+                q = stamp_quote_freshness(
+                    dict(q), content_as_of=fetched_at, fetched_at=fetched_at
+                )
                 q["label"] = label
                 out[bucket][ticker] = q
                 sources_used.add(q.get("source") or "ibkr")
@@ -792,12 +825,21 @@ def format_jp_market_snapshot_for_prompt(user_input: str = "") -> str:
     チャット注入は常に Yahoo 即時（IBKR 不通待ちでスマホ応答が途切れないようにする）。
     セッション別に『前場終値』と『直近値』を分離して誤認を防ぐ。
     """
+    from app.core.content_age import format_quote_clocks
+
     snap = get_jp_market_snapshot(include_sectors=True, prefer_yfinance=True)
     src = snap.get("source") or "mixed"
     session = snap.get("session") or _jp_session_bucket()
+    fetched_at = snap.get("fetched_at") or ""
     intra = snap.get("n225_intraday") or {}
+    header = f"【市場スナップショット source={src} session={session}"
+    if fetched_at:
+        header += f" fetched_at={fetched_at}"
+    header += "（推測禁止・この数値を優先）】"
     lines = [
-        f"【市場スナップショット source={src} session={session}（推測禁止・この数値を優先）】",
+        header,
+        "※ content_as_of は観測時刻、fetched_at は取得時刻。混同禁止。"
+        " content_as_of が古い数値を『現在値』と呼ぶな。",
         "※ TOPIX・業種別騰落がここに無い／取得失敗の場合は推測で埋めず『未確認』と書くこと。",
     ]
     if session in ("morning", "preopen"):
@@ -853,11 +895,15 @@ def format_jp_market_snapshot_for_prompt(user_input: str = "") -> str:
 
     for ticker, q in (snap.get("indices") or {}).items():
         label = q.get("label") or ticker
-        lines.append(f"- {label} ({ticker}) 直近: {_fmt_pct(q)}")
+        clocks = format_quote_clocks(q)
+        suffix = f" | {clocks}" if clocks else ""
+        lines.append(f"- {label} ({ticker}) 直近: {_fmt_pct(q)}{suffix}")
     lines.append("主要業種ETF（参考・東証業種代理・直近）:")
     for ticker, q in (snap.get("sectors") or {}).items():
         label = q.get("label") or ticker
-        lines.append(f"- {label} ({ticker}): {_fmt_pct(q)}")
+        clocks = format_quote_clocks(q)
+        suffix = f" | {clocks}" if clocks else ""
+        lines.append(f"- {label} ({ticker}): {_fmt_pct(q)}{suffix}")
     errs = snap.get("errors") or {}
     if isinstance(errs, list) and errs:
         lines.append("取得エラー: " + "; ".join(errs[:5]))

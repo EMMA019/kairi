@@ -685,10 +685,14 @@ def _format_us_market_snapshot_for_prompt(user_input: str = "") -> str:
     )
 
     if live:
+        from app.core.content_age import format_quote_clocks
+
         lines = [
             f"【米国市場スナップショット session_date={anchor.isoformat()} status=取引中（推測禁止・指数はここを優先）】",
             "※【P0】現在はレギュラー/プレマーケット取引中。下記は直近値であり終値ではない。",
             "  『終値』『大引け』と呼ぶこと、前日確定終値を本日の市況として語ることを禁止。",
+            "※ content_as_of は観測時刻、fetched_at は取得時刻、session_date はカレンダー日。"
+            " session_date を終値日付と混同するな。",
             "※ 指数レベルは ETF 近似。記事の物語と数値は日付・時刻で照合すること。",
             "※ 表は DIA / SPY / QQQ / SOXX を欠落させず、未取得は『直近値未取得』と明示すること。",
         ]
@@ -709,20 +713,32 @@ def _format_us_market_snapshot_for_prompt(user_input: str = "") -> str:
                 sign = "+" if chg >= 0 else ""
                 parts.append(f"{sign}{float(chg):,.2f}（{sign}{float(pct):.2f}%）")
             prev_s = f"{float(prev):,.2f}" if prev is not None else "未確認"
+            clocks = format_quote_clocks(q, session_date=anchor.isoformat())
+            stale_note = ""
+            if q.get("content_stale") or q.get("price_kind") == "previous_close_fallback":
+                stale_note = " ⚠STALE_CONTENT(previous_close_fallback・終値扱い禁止)"
             lines.append(
-                f"- {label} 直近値（取引中） as_of={anchor.isoformat()}: "
-                f"{' '.join(parts)} | 前日終値: {prev_s}"
+                f"- {label} 直近値（取引中） {clocks}: "
+                f"{' '.join(parts)} | 前日終値: {prev_s}{stale_note}"
             )
         return "\n".join(lines)
+
+    from app.core.content_age import format_quote_clocks
 
     batch = fetch_us_etf_session_closes(anchor, [t for t, _ in tickers])
     quotes = (batch or {}).get("quotes") or {}
     src = (batch or {}).get("source") or "yfinance"
+    fetched_at = (batch or {}).get("fetched_at") or ""
+    header = f"【米国市場スナップショット session_date={anchor.isoformat()} source={src}"
+    if fetched_at:
+        header += f" fetched_at={fetched_at}"
+    header += "（推測禁止・指数はここを優先）】"
     lines = [
-        f"【米国市場スナップショット session_date={anchor.isoformat()} source={src}（推測禁止・指数はここを優先）】",
+        header,
         "※【P0】朝刊ラップ（News-for-DATE / Premarket / Before-the-Open）は前日終値＋当日見通しのことが多い。",
-        "  それを DATE の確定終値として書いてはならない。引け後記事（Wall Street ends / stocks close）と下記 as_of を優先。",
-        "※ 指数レベルは ETF 日足の近似。記事の物語と数値は as_of 日付で照合すること。",
+        "  それを DATE の確定終値として書いてはならない。引け後記事（Wall Street ends / stocks close）と下記 content_as_of を優先。",
+        "※ content_as_of=観測日、fetched_at=取得時刻、session_date=要求カレンダー日。混同禁止。",
+        "※ 指数レベルは ETF 日足の近似。記事の物語と数値は content_as_of 日付で照合すること。",
         "※ 表は DIA / SPY / QQQ / SOXX を欠落させず、未取得は『当該日終値バー未取得』と明示すること。",
     ]
     unmatched_count = 0
@@ -733,7 +749,7 @@ def _format_us_market_snapshot_for_prompt(user_input: str = "") -> str:
             unmatched_count += 1
             continue
         close = float(q["close"])
-        as_of = q.get("as_of") or "?"
+        as_of = q.get("content_as_of") or q.get("as_of") or "?"
         prev = q.get("previous_close")
         chg = q.get("change")
         pct = q.get("change_pct")
@@ -743,15 +759,17 @@ def _format_us_market_snapshot_for_prompt(user_input: str = "") -> str:
             sign = "+" if chg >= 0 else ""
             parts.append(f"{sign}{chg:,.2f}（{sign}{pct:.2f}%）")
         prev_s = f"{float(prev):,.2f}" if prev is not None else "未確認"
+        clocks = format_quote_clocks(q, session_date=anchor.isoformat())
         if matched:
             lines.append(
-                f"- {label} 終値 as_of={as_of}: {' '.join(parts)} | 前日終値: {prev_s}"
+                f"- {label} 終値 {clocks or f'content_as_of={as_of}'}: "
+                f"{' '.join(parts)} | 前日終値: {prev_s}"
             )
         else:
             unmatched_count += 1
             lines.append(
                 f"- {label}: session_date={anchor.isoformat()} のバー無し。"
-                f"直近バー as_of={as_of} 終値 {' '.join(parts)} "
+                f"直近バー {clocks or f'content_as_of={as_of}'} 終値 {' '.join(parts)} "
                 f"（前日終値扱い・{anchor.isoformat()}終値として断定するな）| その前: {prev_s}"
             )
     if unmatched_count >= 2:

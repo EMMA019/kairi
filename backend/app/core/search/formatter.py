@@ -34,15 +34,13 @@ def _filter_entity_noise(query: str, results: list[dict]) -> list[dict]:
     return filtered if filtered else results
 
 
+from app.core.content_age import format_source_clocks, result_content_time, result_fetch_time
 from app.core.source_evaluator import annotate_and_sort_search_results, filter_untrusted_sources_for_finance
 
+
 def _result_published(r: dict) -> str:
-    """既存パイプラインの published / fetched_at を拾う（無いなら空。捏造しない）。"""
-    for key in ("published", "pub_date", "published_at", "fetched_at", "date"):
-        val = (r.get(key) or "").strip() if isinstance(r.get(key), str) else r.get(key)
-        if val:
-            return str(val).strip()
-    return ""
+    """観測/公開時刻のみ。fetched_at へのフォールバックはしない（Content-Age Contract）。"""
+    return result_content_time(r)
 
 
 def format_results(results: list[dict], query: str = "") -> list[dict]:
@@ -56,9 +54,12 @@ def format_results(results: list[dict], query: str = "") -> list[dict]:
             "url":     r.get("url", ""),
             "source":  r.get("source", "unknown"),
         }
-        pub = _result_published(r)
+        pub = result_content_time(r)
         if pub:
             item["published"] = pub
+        fetched = result_fetch_time(r)
+        if fetched:
+            item["fetched_at"] = fetched
         formatted.append(item)
     # ソース評価層によるTier分類 (.edu偽装検知、一次/二次/三次分類と並べ替え)
     annotated = annotate_and_sort_search_results(formatted)
@@ -83,14 +84,16 @@ def format_for_prompt(results: list[dict], query: str = "") -> str:
         "時事的な事実（人名/役職/数値/レース結果/市場結果等）を断定する文には、"
         "根拠としたソース番号を文末に [n] 形式で必ず付与してください。"
         "番号を付けられない事実は断定せず、『（要確認）』とするか書かないでください。"
-        "各ソースの published 日時を時系列整理に使い、日時不明の水準同士を因果でつなげないでください。"
+        "published は観測/公開時刻、fetched_at は取得時刻。"
+        "時系列整理には published を使い、fetched_at を公開日時とみなすな。"
+        "日時不明の水準同士を因果でつなげないでください。"
     ]
     for i, r in enumerate(results, 1):
         display_src = r.get("display_source", r["source"])
         warning = " ⚠️【学術ドメイン偽装疑い】" if r.get("is_spoofed") else ""
-        pub = _result_published(r) or "unknown"
+        clocks = format_source_clocks(r)
         lines.append(
-            f"[{i}] (published: {pub}) [{display_src}]{warning} {r['title']}\n"
+            f"[{i}] ({clocks}) [{display_src}]{warning} {r['title']}\n"
             f"   {r['snippet']}\n"
             f"   URL: {r['url']}"
         )

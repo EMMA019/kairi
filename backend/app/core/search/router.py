@@ -100,7 +100,8 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
                         continue
                     if url:
                         seen_urls.add(url)
-                    pub = (r.get("published") or r.get("fetched_at") or "").strip()
+                    pub = (r.get("published") or "").strip()
+                    fetched = (r.get("fetched_at") or "").strip()
                     item = {
                         "title": r.get("title", ""),
                         "snippet": (r.get("summary") or r.get("verified_fact") or "")[:500],
@@ -110,6 +111,8 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
                     }
                     if pub:
                         item["published"] = pub
+                    if fetched:
+                        item["fetched_at"] = fetched
                     formatted_news.append(item)
                     pool_hits += 1
                 if pool_hits:
@@ -129,7 +132,8 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
                         continue
                     if url:
                         seen_urls.add(url)
-                    pub = (r.get("published") or r.get("fetched_at") or "").strip()
+                    pub = (r.get("published") or "").strip()
+                    fetched = (r.get("fetched_at") or "").strip()
                     item = {
                         "title": r.get("title", ""),
                         "snippet": (r.get("summary") or "")[:500],
@@ -139,6 +143,8 @@ async def search(query: str, providers: list[str] = None) -> list[dict]:
                     }
                     if pub:
                         item["published"] = pub
+                    if fetched:
+                        item["fetched_at"] = fetched
                     formatted_news.append(item)
 
             # 高スコア優先で上限

@@ -3,10 +3,12 @@ News Scheduler — 定期RSS巡回でローリングプールを満たす。
 
 LLM は呼ばない。feed_health 記録と save_news のみ。
 間隔は 10 分（radar の 30 分より細かく、ボード表示を鮮度良く保つ）。
+スケジューラOFF時も、ボード空なら ensure_fresh_pool() でオンデマンド取得できる。
 """
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Optional
 
 from app.utils.logger import get_logger
@@ -17,11 +19,21 @@ _news_task: Optional[asyncio.Task] = None
 _is_running: bool = False
 NEWS_INTERVAL_SECONDS = 600  # 10分
 _STARTUP_DELAY_SECONDS = 20
+_ingest_lock = asyncio.Lock()
+_last_ingest_at: float = 0.0
+MIN_INGEST_GAP_SECONDS = 90
 
 
 async def run_news_ingest_once() -> dict:
     """1回分のRSS取得→プール保存。戻り値は統計。"""
-    from app.core.news.database import init_db, save_news, purge_old_news, RETENTION_HOURS
+    global _last_ingest_at
+    from app.core.news.database import (
+        init_db,
+        save_news,
+        purge_old_news,
+        backfill_missing_regions,
+        RETENTION_HOURS,
+    )
     from app.core.news.fetcher import fetch_rss_on_demand
     from app.core.news.region import annotate_items_with_region
 
@@ -29,10 +41,13 @@ async def run_news_ingest_once() -> dict:
     raw = await fetch_rss_on_demand()
     items = annotate_items_with_region(raw)
     inserted = await save_news(items)
+    backfilled = await backfill_missing_regions()
     purged = await purge_old_news(RETENTION_HOURS)
+    _last_ingest_at = time.time()
     stats = {
         "fetched": len(raw),
         "inserted": inserted,
+        "backfilled_regions": backfilled,
         "purged": purged,
     }
     logger.info(
@@ -40,6 +55,53 @@ async def run_news_ingest_once() -> dict:
         f"inserted={stats['inserted']} purged={stats['purged']}"
     )
     return stats
+
+
+async def ensure_fresh_pool(
+    *,
+    hours: float = 18,
+    min_recent: int = 5,
+    force: bool = False,
+) -> dict:
+    """
+    直近プールが薄い／force のときだけ RSS を取りに行く。
+    スケジューラ無効環境でも News Board を埋められるようにする。
+    """
+    from app.core.news.database import get_pool_news, init_db
+
+    await init_db()
+    recent = await get_pool_news(hours=hours, limit=max(min_recent, 20))
+    if not force and len(recent) >= min_recent:
+        return {
+            "skipped": True,
+            "reason": "fresh_enough",
+            "recent": len(recent),
+            "fetched": 0,
+            "inserted": 0,
+        }
+
+    async with _ingest_lock:
+        recent = await get_pool_news(hours=hours, limit=max(min_recent, 20))
+        if not force and len(recent) >= min_recent:
+            return {
+                "skipped": True,
+                "reason": "fresh_enough",
+                "recent": len(recent),
+                "fetched": 0,
+                "inserted": 0,
+            }
+        gap = time.time() - _last_ingest_at
+        if not force and _last_ingest_at and gap < MIN_INGEST_GAP_SECONDS:
+            return {
+                "skipped": True,
+                "reason": "rate_limited",
+                "retry_after": int(MIN_INGEST_GAP_SECONDS - gap),
+                "recent": len(recent),
+                "fetched": 0,
+                "inserted": 0,
+            }
+        stats = await run_news_ingest_once()
+        return {"skipped": False, "reason": "ingested", **stats}
 
 
 async def _news_background_loop():

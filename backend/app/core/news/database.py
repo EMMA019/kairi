@@ -84,7 +84,14 @@ async def init_db():
         await db.commit()
 
     purged = await purge_old_news(RETENTION_HOURS)
-    logger.info(f"News DB initialized (rolling pool, purged={purged}).")
+    try:
+        backfilled = await backfill_missing_regions()
+    except Exception as e:
+        logger.debug(f"region backfill skipped: {e}")
+        backfilled = 0
+    logger.info(
+        f"News DB initialized (rolling pool, purged={purged}, region_backfill={backfilled})."
+    )
 
 
 async def purge_old_news(retention_hours: int = RETENTION_HOURS) -> int:
@@ -204,7 +211,7 @@ async def get_pool_news(hours: float = 18, limit: int = 200) -> list[dict]:
             """
             SELECT * FROM news
             WHERE COALESCE(fetched_at, created_at) >= ?
-            ORDER BY COALESCE(fetched_at, created_at) DESC
+            ORDER BY COALESCE(fetched_at, created_at) DESC, id DESC
             LIMIT ?
             """,
             (cutoff, limit),
@@ -409,8 +416,87 @@ def rank_news_items_for_chat(items: list[dict], limit: int = 15) -> list[dict]:
 
 
 def rank_news_items_for_board(items: list[dict], limit: int = 60) -> list[dict]:
-    """ボード向け: chat と同じ採点だが件数を多めに返す。"""
-    return rank_news_items_for_chat(items, limit=limit)
+    """
+    ボード向け採点。chat 用より寛容:
+    - スパム(importance<=0)は落とす
+    - ウォッチリスト未ヒットの一般市況も残す（base score があるもの）
+    - 採点後が薄ければ、ノイズ除外の新しい順で埋める
+    """
+    from app.core.monitor.watchlist import systematic_screen_and_score
+    from app.core.news.syndication import demote_syndicated
+
+    scored: list[dict] = []
+    for item in items:
+        if _is_noise_news_source(item):
+            continue
+        s = systematic_screen_and_score(item)
+        if (s.get("importance") or 0) <= 0:
+            continue
+        scored.append(s)
+    demoted = demote_syndicated(scored)
+    demoted.sort(
+        key=lambda x: (
+            int(x.get("importance") or 0),
+            str(x.get("fetched_at") or x.get("published") or ""),
+        ),
+        reverse=True,
+    )
+    if len(demoted) >= min(8, limit):
+        return demoted[:limit]
+
+    # フォールバック: 採点が薄すぎるときは新しい順で埋める
+    seen = {d.get("url") for d in demoted}
+    for item in items:
+        if _is_noise_news_source(item):
+            continue
+        if item.get("url") in seen:
+            continue
+        filled = dict(item)
+        filled.setdefault("importance", 15)
+        demoted.append(filled)
+        seen.add(item.get("url"))
+        if len(demoted) >= limit:
+            break
+    return demoted[:limit]
+
+
+async def backfill_missing_regions(limit: int = 500) -> int:
+    """region が空の既存行を決定的ルールで埋める。"""
+    from app.core.news.region import infer_region
+
+    updated = 0
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        rows = await (
+            await db.execute(
+                """
+                SELECT id, title, url, source, stock_codes, region
+                FROM news
+                WHERE region IS NULL OR TRIM(region) = ''
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+        ).fetchall()
+        for row in rows:
+            item = dict(row)
+            try:
+                item["stock_codes"] = (
+                    json.loads(item["stock_codes"]) if item.get("stock_codes") else []
+                )
+            except Exception:
+                item["stock_codes"] = []
+            region = infer_region(item)
+            await db.execute(
+                "UPDATE news SET region = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (region, item["id"]),
+            )
+            updated += 1
+        await db.commit()
+    if updated:
+        logger.info(f"News region backfill: {updated} rows")
+    return updated
 
 
 def _board_item_payload(item: dict) -> dict:
@@ -453,21 +539,37 @@ async def get_news_board(
         normalize_region,
     )
 
-    pool_limit = max(int(limit) * 4, 200)
+    # 地域偏りを避けるため多めに掃き、各地域から均等に候補を取る
+    pool_limit = max(int(limit) * 8, 400)
     raw = await get_pool_news(hours=hours, limit=pool_limit)
     annotated = annotate_items_with_region(raw)
 
     region_counts: dict[str, int] = {r: 0 for r in REGIONS}
+    by_region: dict[str, list[dict]] = {r: [] for r in REGIONS}
     for it in annotated:
         r = it.get("region") or "GLOBAL"
         if r not in region_counts:
             region_counts[r] = 0
+            by_region[r] = []
         region_counts[r] += 1
+        by_region[r].append(it)
 
-    filtered = annotated
     region_norm = normalize_region(region) if region else None
     if region_norm:
-        filtered = [it for it in annotated if it.get("region") == region_norm]
+        filtered = list(by_region.get(region_norm) or [])
+    else:
+        # ラウンドロビンで地域を混ぜてから採点（US 一色を防ぐ）
+        filtered = []
+        buckets = [list(by_region[r]) for r in REGIONS if by_region.get(r)]
+        while buckets and len(filtered) < pool_limit:
+            next_buckets = []
+            for bucket in buckets:
+                if not bucket:
+                    continue
+                filtered.append(bucket.pop(0))
+                if bucket:
+                    next_buckets.append(bucket)
+            buckets = next_buckets
 
     ranked = rank_news_items_for_board(filtered, limit=limit)
     # ensure region survives scoring copy

@@ -51,11 +51,16 @@ async def news_board(
         None,
         description="US | JP | EU | CN_ASIA | GLOBAL。省略時は全地域。",
     ),
+    refresh: bool = Query(
+        False,
+        description="true のとき RSS を取り直してから返す（スケジューラOFFでも可）",
+    ),
 ):
     """News Desk 向け: 地域タグ付きのランキング済み記事ボード。"""
     from app.core.news.database import init_db, get_news_board, get_feed_health, count_pool
     from app.core.news.health_status import grade_fleet
     from app.core.news.region import REGIONS, normalize_region
+    from app.core.news.scheduler import ensure_fresh_pool
 
     if region is not None and normalize_region(region) is None:
         raise HTTPException(
@@ -65,6 +70,20 @@ async def news_board(
 
     await init_db()
     board = await get_news_board(hours=hours, limit=limit, region=region)
+    ingest_info = None
+    # 直近プールが空、または明示 refresh → オンデマンド取得
+    if refresh or board["pool_scanned"] == 0:
+        try:
+            ingest_info = await ensure_fresh_pool(
+                hours=hours,
+                min_recent=5,
+                force=refresh,
+            )
+            board = await get_news_board(hours=hours, limit=limit, region=region)
+        except Exception as e:
+            logger.warning(f"news board auto-ingest failed: {e}")
+            ingest_info = {"skipped": False, "reason": "error", "error": str(e)}
+
     feeds = await get_feed_health()
     fleet = grade_fleet(
         feeds,
@@ -76,7 +95,21 @@ async def news_board(
         "verdict": fleet["verdict"],
         "ok": fleet["ok"],
         "regions": list(REGIONS),
+        "ingest": ingest_info,
     }
+
+
+@router.post("/news/ingest")
+async def news_ingest(force: bool = Query(True)):
+    """手動で RSS→プール取り込み（ボードの「いま取得」用。LLMなし）。"""
+    from app.core.news.scheduler import ensure_fresh_pool
+
+    try:
+        stats = await ensure_fresh_pool(hours=18, min_recent=5, force=force)
+    except Exception as e:
+        logger.error(f"news ingest failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"success": True, **stats}
 
 
 @router.post("/briefing/generate")

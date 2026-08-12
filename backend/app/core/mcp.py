@@ -40,6 +40,23 @@ class MCPServerProcess:
         args = self.config.get("args", [])
         env = self.config.get("env", {})
         full_env = {**os.environ, **env} if env else None
+        # 相対パス / 移動したクローンでも bin/*.bat を解決
+        try:
+            cmd_path = Path(cmd)
+            if not cmd_path.is_absolute():
+                candidate = (BASE_DIR / cmd).resolve()
+                if candidate.exists():
+                    cmd = str(candidate)
+            elif not cmd_path.exists():
+                # 絶対パスが壊れている場合、同名ファイルを backend/bin から探す
+                alt = BASE_DIR / "bin" / cmd_path.name
+                if alt.exists():
+                    logger.warning(
+                        f"MCP command path missing ({cmd_path}); falling back to {alt}"
+                    )
+                    cmd = str(alt)
+        except Exception as e:
+            logger.debug(f"MCP command path resolve skipped: {e}")
         shell_cmd = f"{cmd} {' '.join(args)}"
         try:
             if os.name == 'nt':

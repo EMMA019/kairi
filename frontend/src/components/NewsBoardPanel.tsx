@@ -79,12 +79,13 @@ export function NewsBoardPanel({
   const [payload, setPayload] = useState<BoardPayload | null>(null);
   const [filter, setFilter] = useState<NewsRegion | "ALL">("ALL");
   const [loading, setLoading] = useState(false);
+  const [ingesting, setIngesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [readKeys, setReadKeys] = useState<Set<string>>(() => loadReadKeys());
   const busyRef = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { refresh?: boolean }) => {
     if (busyRef.current) return;
     busyRef.current = true;
     setLoading(true);
@@ -92,6 +93,7 @@ export function NewsBoardPanel({
     try {
       const qs = new URLSearchParams({ hours: "18", limit: "80" });
       if (filter !== "ALL") qs.set("region", filter);
+      if (opts?.refresh) qs.set("refresh", "true");
       const res = await apiFetch(`/api/news/board?${qs.toString()}`);
       if (!res.ok) throw new Error(`board ${res.status}`);
       const data = (await res.json()) as BoardPayload;
@@ -104,6 +106,21 @@ export function NewsBoardPanel({
       setLoading(false);
     }
   }, [filter]);
+
+  const ingestNow = useCallback(async () => {
+    if (ingesting) return;
+    setIngesting(true);
+    setError(null);
+    try {
+      const res = await apiFetch("/api/news/ingest?force=true", { method: "POST" });
+      if (!res.ok) throw new Error(`ingest ${res.status}`);
+      await load({ refresh: false });
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "ingest failed");
+    } finally {
+      setIngesting(false);
+    }
+  }, [ingesting, load]);
 
   useEffect(() => {
     void load();
@@ -179,13 +196,29 @@ export function NewsBoardPanel({
         {updatedAt && <span className="text-cyan-500/80">· {updatedAt}</span>}
         <button
           type="button"
+          onClick={() => void ingestNow()}
+          disabled={loading || ingesting}
+          className="ml-auto rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-medium text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-50"
+        >
+          {ingesting ? "取得中…" : "いま取得"}
+        </button>
+        <button
+          type="button"
           onClick={() => void load()}
-          disabled={loading}
-          className="ml-auto rounded border border-white/10 px-2 py-0.5 text-gray-300 hover:bg-white/5 disabled:opacity-50"
+          disabled={loading || ingesting}
+          className="rounded border border-white/10 px-2 py-0.5 text-gray-300 hover:bg-white/5 disabled:opacity-50"
         >
           {loading ? "Loading…" : "Refresh"}
         </button>
       </div>
+
+      {!loading && !ingesting && items.length === 0 ? (
+        <div className="rounded border border-white/10 bg-black/20 px-3 py-3 text-[11px] text-gray-400">
+          直近18時間の記事がありません。スケジューラが止まっている場合は
+          <span className="text-cyan-300">「いま取得」</span>
+          で RSS を取りに行けます（数十秒かかることがあります）。
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-1.5">
         <button

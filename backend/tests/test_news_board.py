@@ -152,3 +152,51 @@ def test_run_news_ingest_once_saves(tmp_path, monkeypatch):
         assert await dbmod.count_pool() == 1
 
     asyncio.run(_run())
+
+
+def test_ensure_fresh_pool_ingests_when_stale(tmp_path, monkeypatch):
+    async def _run():
+        import app.core.news.database as dbmod
+        import app.core.news.scheduler as sched
+
+        monkeypatch.setattr(dbmod, "DB_PATH", str(tmp_path / "stale.db"))
+        monkeypatch.setattr(sched, "_last_ingest_at", 0.0)
+        await dbmod.init_db()
+        # 古い記事だけ → 直近18hは空
+        await dbmod.save_news(
+            [
+                {
+                    "title": "Stale story",
+                    "url": "https://example.com/stale",
+                    "source": "CNBC Market News",
+                    "summary": "old",
+                    "guid": "stale-1",
+                    "region": "US",
+                    "fetched_at": (datetime.utcnow() - timedelta(hours=40)).strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    ),
+                }
+            ]
+        )
+        fake = [
+            {
+                "title": "Fresh AAPL catalyst story",
+                "url": "https://example.com/fresh",
+                "source": "CNBC Market News",
+                "summary": "Apple earnings beat",
+                "guid": "fresh-1",
+                "region": "US",
+            }
+        ]
+        with patch(
+            "app.core.news.fetcher.fetch_rss_on_demand",
+            new_callable=AsyncMock,
+            return_value=fake,
+        ):
+            stats = await sched.ensure_fresh_pool(hours=18, min_recent=5, force=False)
+        assert stats["skipped"] is False, stats
+        assert stats["inserted"] >= 1
+        board = await dbmod.get_news_board(hours=18, limit=20)
+        assert board["pool_scanned"] >= 1
+
+    asyncio.run(_run())

@@ -77,7 +77,7 @@ def test_snapshot_labels_close_and_previous_close():
             return_value=fake,
         ):
             text = _format_us_market_snapshot_for_prompt("7/30の米国市場どうだった？")
-    assert "終値 as_of=2026-07-30" in text
+    assert "終値 content_as_of=2026-07-30" in text
     assert "前日終値" in text
     assert "朝刊ラップ" in text or "Premarket" in text
     assert "DIA / SPY / QQQ / SOXX" in text

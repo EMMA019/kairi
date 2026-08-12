@@ -402,6 +402,32 @@ def clear_search_carryover(session_id: str) -> None:
     _last_search_by_session.pop(session_id, None)
 
 
+# 前発話を受ける照応・継続マーカー（疑問詞「どう」は新規質問でも出るので含めない）
+_CONTINUATION_CUES = (
+    "でも", "だけど", "けど", "よね", "じゃあ", "ってか",
+    "ちなみに", "つまり", "結局", "それ", "あれ", "その", "あの",
+)
+
+
+def _has_continuation_cue(text: str) -> bool:
+    return any(cue in (text or "") for cue in _CONTINUATION_CUES)
+
+
+def _continues_previous_turn(history_messages: list, prev_user_input: str) -> bool:
+    """history 末尾の user 発話が前ターン検索時の発話と一致すれば直後の続き。"""
+    if not prev_user_input:
+        return False
+    for msg in reversed(history_messages or []):
+        if isinstance(msg, dict):
+            role, content = msg.get("role"), msg.get("content")
+        else:
+            role, content = getattr(msg, "role", None), getattr(msg, "content", None)
+        if role != "user":
+            continue
+        return str(content or "").strip() == prev_user_input.strip()
+    return False
+
+
 def maybe_carry_search_results(
     session_id: str,
     user_input: str,
@@ -413,6 +439,9 @@ def maybe_carry_search_results(
 
     overlap は **現在の user_input のみ** で判定（history 内の旧トピック語で誤発火しない）。
     閾値は 2 語以上。新トピック語（介入・円安等）だけの発話はキャリーしない。
+
+    語彙一致ゼロでも「でも〜だよね」のような照応的フォローアップは同一トピックなので、
+    直前ターンの続きであることを history 末尾の user 発話の同一性で確認したうえで拾う。
     """
     if search_needed or search_results_text:
         return search_results_text
@@ -443,10 +472,16 @@ def maybe_carry_search_results(
     if not topic_tokens:
         return search_results_text
 
-    # history は使わない（旧トピック語の自己一致で誤キャリーするため）
+    # トークン照合に history は使わない（旧トピック語の自己一致で誤キャリーするため）
     overlap = [t for t in topic_tokens if t in current]
     if len(overlap) >= 2:
         logger.info(f"🔁 フォローアップへ前ターン検索結果を再注入 (overlap={overlap[:5]})")
+        return prev["text"]
+
+    if _has_continuation_cue(current) and _continues_previous_turn(
+        history_messages, str(prev.get("user_input") or "")
+    ):
+        logger.info("🔁 直後の照応フォローアップとして前ターン検索結果を再注入")
         return prev["text"]
     return search_results_text
 

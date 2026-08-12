@@ -143,6 +143,50 @@ def test_carryover_overlap_logic():
     _last_search_by_session.pop(sid, None)
 
 
+def test_carryover_anaphoric_followup():
+    """共有語ゼロでも、直前ターンを受ける照応フォローアップならキャリーする。"""
+    from app.routers.chat import (
+        _store_search_carryover,
+        _maybe_carry_search_results,
+        _last_search_by_session,
+    )
+
+    sid = "test-session-carry-2"
+    _last_search_by_session.pop(sid, None)
+    _store_search_carryover(
+        sid,
+        "カルパナはキングジョージを制覇。オッズは11.8倍。",
+        ["Kalpana King George 2026"],
+        "カルパナに賭けて大当たりだった",
+    )
+    history = [
+        {"role": "user", "content": "カルパナに賭けて大当たりだった"},
+        {"role": "assistant", "content": "カルパナの好配当でしたね"},
+    ]
+
+    carried = _maybe_carry_search_results(
+        sid,
+        "でも直前まで13倍以上ついてたんだよね。競馬もアルゴ入ってるのかな",
+        history,
+        search_needed=False,
+        search_results_text=None,
+    )
+    assert carried is not None
+    assert "カルパナ" in carried
+
+    # 直前ターンの続きでなければ、照応マーカーがあってもキャリーしない
+    other_turn = _maybe_carry_search_results(
+        sid,
+        "でも直前まで13倍以上ついてたんだよね",
+        [{"role": "user", "content": "半導体の規制どう？"}],
+        search_needed=False,
+        search_results_text=None,
+    )
+    assert other_turn is None
+
+    _last_search_by_session.pop(sid, None)
+
+
 import asyncio
 
 

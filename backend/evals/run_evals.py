@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -136,6 +137,19 @@ def run_case(case: dict) -> tuple[bool, str, list[str]]:
     return (len(failures) == 0, text, failures)
 
 
+@contextmanager
+def pinned_locale(locale: str = "ja"):
+    """免責文の言語は settings.locale 依存。ローカル設定に結果が左右されないよう固定する。"""
+    from app.routers.settings import app_settings
+
+    original = app_settings.get().get("locale", "en")
+    app_settings.update({"locale": locale})
+    try:
+        yield
+    finally:
+        app_settings.update({"locale": original})
+
+
 def main() -> int:
     cases = load_cases()
     if not cases:
@@ -144,19 +158,20 @@ def main() -> int:
     passed = 0
     failed = 0
     print(f"Running {len(cases)} eval cases...\n")
-    for case in cases:
-        ok, text, failures = run_case(case)
-        cid = case.get("id", case.get("_path"))
-        if ok:
-            passed += 1
-            print(f"PASS  {cid}")
-        else:
-            failed += 1
-            print(f"FAIL  {cid}")
-            for f in failures:
-                print(f"      - {f}")
-            preview = (text or "")[:120].replace("\n", "\\n")
-            print(f"      output_preview: {preview!r}")
+    with pinned_locale("ja"):
+        for case in cases:
+            ok, text, failures = run_case(case)
+            cid = case.get("id", case.get("_path"))
+            if ok:
+                passed += 1
+                print(f"PASS  {cid}")
+            else:
+                failed += 1
+                print(f"FAIL  {cid}")
+                for f in failures:
+                    print(f"      - {f}")
+                preview = (text or "")[:120].replace("\n", "\\n")
+                print(f"      output_preview: {preview!r}")
     print(f"\n{passed} passed, {failed} failed / {len(cases)} total")
     return 1 if failed else 0
 

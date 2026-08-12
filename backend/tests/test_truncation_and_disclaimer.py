@@ -2,11 +2,21 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.fact_filters.markup import looks_incomplete_output
 from app.core.fact_filters.safety import enforce_variable_numerical_claims
 from app.routers.settings import app_settings
+
+
+@pytest.fixture(autouse=True)
+def restore_locale():
+    """app_settings.update はディスクへ永続化するため、実設定を汚さないよう戻す。"""
+    original = app_settings.get().get("locale", "en")
+    yield
+    app_settings.update({"locale": original})
 
 
 def test_looks_incomplete_trailing_backtick():

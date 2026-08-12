@@ -182,8 +182,13 @@ def test_jp_evening_queries_include_night_futures(monkeypatch):
 
 def test_skip_deep_fetch_for_close():
     assert should_skip_deep_fetch("今日の日本市場はどうだった？") is True
-    assert should_skip_deep_fetch("7/29の日本市場前場") is True
     assert should_skip_deep_fetch("Pythonの書き方教えて") is False
+
+
+def test_no_skip_deep_fetch_when_date_is_explicit():
+    # 明示日付つき市況はスニペットが薄く、確定終値を取りに行く必要がある
+    assert should_skip_deep_fetch("7/29の日本市場前場") is False
+    assert should_skip_deep_fetch("8/6の米国市場の終値") is False
 
 
 def test_rerank_prefers_fresh_date():

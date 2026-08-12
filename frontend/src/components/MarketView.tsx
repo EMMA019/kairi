@@ -1,7 +1,12 @@
+/**
+ * MarketView — マーケットモード本体。
+ * モバイルは CHAT / MARKET / NEWS の3タブ。デスクトップは chat+desk 並置。
+ */
 import { memo, useEffect, useRef, useState } from "react";
 import { ChatArea } from "./ChatArea";
 import { InputArea } from "./InputArea";
 import { MarketDesk } from "./MarketDesk";
+import { NewsBoardPanel } from "./NewsBoardPanel";
 import type { ChatMessage } from "../types";
 
 interface MarketViewProps {
@@ -21,6 +26,8 @@ interface MarketViewProps {
   onCloseMarket: () => void;
 }
 
+type MobileTab = "chat" | "market" | "news";
+
 export const MarketView = memo(({
   sessionId,
   messages,
@@ -38,7 +45,8 @@ export const MarketView = memo(({
   onCloseMarket,
 }: MarketViewProps) => {
   const [chatWidth, setChatWidth] = useState(380);
-  const [activeTab, setActiveTab] = useState<"chat" | "market">("market");
+  const [activeTab, setActiveTab] = useState<MobileTab>("market");
+  const [newsUnreadHigh, setNewsUnreadHigh] = useState(0);
   const isDragging = useRef(false);
 
   const handleMouseDown = () => {
@@ -65,27 +73,37 @@ export const MarketView = memo(({
     };
   }, []);
 
+  const askFromNews = (message: string) => {
+    setActiveTab("chat");
+    onSend(message);
+  };
+
+  const mobileTabs: Array<{ id: MobileTab; label: string; activeClass: string }> = [
+    { id: "chat", label: "CHAT", activeClass: "bg-[#1e1f20] text-white" },
+    { id: "market", label: "MARKET", activeClass: "bg-[#1e1f20] text-cyan-300" },
+    { id: "news", label: "NEWS", activeClass: "bg-[#1e1f20] text-amber-300" },
+  ];
+
   return (
     <div className="flex h-full w-full flex-1 flex-col overflow-hidden bg-[#0b0f19] md:flex-row">
       <div className="flex shrink-0 border-b border-[#3c4043] bg-[#0d1117] p-1 md:hidden">
-        <button
-          type="button"
-          onClick={() => setActiveTab("chat")}
-          className={`flex-1 rounded-md py-1.5 text-xs font-bold ${
-            activeTab === "chat" ? "bg-[#1e1f20] text-white" : "text-gray-400"
-          }`}
-        >
-          CHAT
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("market")}
-          className={`flex-1 rounded-md py-1.5 text-xs font-bold ${
-            activeTab === "market" ? "bg-[#1e1f20] text-cyan-300" : "text-gray-400"
-          }`}
-        >
-          MARKET
-        </button>
+        {mobileTabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setActiveTab(t.id)}
+            className={`relative flex-1 rounded-md py-1.5 text-xs font-bold ${
+              activeTab === t.id ? t.activeClass : "text-gray-400"
+            }`}
+          >
+            {t.label}
+            {t.id === "news" && newsUnreadHigh > 0 ? (
+              <span className="absolute right-1 top-0.5 rounded bg-amber-500/25 px-1 text-[9px] font-bold text-amber-200">
+                {newsUnreadHigh > 9 ? "9+" : newsUnreadHigh}
+              </span>
+            ) : null}
+          </button>
+        ))}
       </div>
 
       <div
@@ -163,6 +181,33 @@ export const MarketView = memo(({
             onSend(message);
           }}
         />
+      </div>
+
+      {/* モバイル専用: News をトップレベルタブに露出（Desk 内タブへ潜らせない） */}
+      <div
+        className={`${activeTab === "news" ? "flex" : "hidden"} h-full min-w-0 w-full flex-1 flex-col overflow-hidden md:hidden`}
+      >
+        <header className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
+          <div>
+            <h2 className="text-base font-bold tracking-tight text-white">News Board</h2>
+            <p className="text-[11px] text-gray-500">地域レーン・未読重要を積極表示</p>
+          </div>
+          <button
+            type="button"
+            onClick={onCloseMarket}
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-[#1e1f20] hover:text-white"
+            aria-label="Close Market mode"
+          >
+            ✕
+          </button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          <NewsBoardPanel
+            autoRefresh
+            onAsk={askFromNews}
+            onUnreadHighChange={setNewsUnreadHigh}
+          />
+        </div>
       </div>
     </div>
   );

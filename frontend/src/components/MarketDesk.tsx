@@ -709,7 +709,7 @@ export function MarketDesk({ onAskChat }: MarketDeskProps = {}) {
 
   return (
     <div className="flex h-full flex-col bg-[#0b0f19] text-gray-100">
-      <header className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
+      <header className="flex shrink-0 flex-col gap-2 border-b border-white/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-base font-bold tracking-tight text-white">Market Desk</h2>
           <p className="text-[11px] text-gray-500">
@@ -731,13 +731,13 @@ export function MarketDesk({ onAskChat }: MarketDeskProps = {}) {
             />
             Auto
           </label>
-          <div className="flex gap-1 rounded-lg bg-black/30 p-1">
+          <div className="flex max-w-full flex-1 gap-1 overflow-x-auto rounded-lg bg-black/30 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:max-w-[min(100vw-8rem,28rem)] sm:flex-none">
             {tabs.map((t) => (
               <button
                 key={t.id}
                 type="button"
                 onClick={() => setTab(t.id)}
-                className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
+                className={`shrink-0 rounded-md px-3 py-1 text-xs font-semibold transition ${
                   tab === t.id ? "bg-cyan-500/20 text-cyan-200" : "text-gray-400 hover:text-white"
                 }`}
               >

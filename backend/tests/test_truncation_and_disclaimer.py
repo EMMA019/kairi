@@ -76,25 +76,31 @@ def test_ai_diff_meta_no_finance_disclaimer():
 
 def test_travel_query_keeps_travel_disclaimer():
     """ユーザーが旅行を聞いているときは従来どおりお出かけ注記。"""
-    app_settings.update({"locale": "ja"})
-    text = "ホテル周辺のカフェは徒歩5分です。ランチは70%が予約必須との情報があります。"
-    out = enforce_variable_numerical_claims(text, "", user_input="下田のホテル周辺の観光スポット教えて")
-    assert "お出かけ前" in out
+    from app.core.runtime_state import temporary_settings
+
+    with temporary_settings(locale="ja"):
+        text = "ホテル周辺のカフェは徒歩5分です。ランチは70%が予約必須との情報があります。"
+        out = enforce_variable_numerical_claims(text, "", user_input="下田のホテル周辺の観光スポット教えて")
+        assert "お出かけ前" in out
 
 
 def test_market_query_keeps_finance_disclaimer():
     """ユーザーが市場を聞いているときは金融免責を付ける。"""
-    app_settings.update({"locale": "ja"})
-    text = "日経平均は一時700円超下落。半導体セクターは約4%安となりました。"
-    out = enforce_variable_numerical_claims(text, "", user_input="今日の日本市場どうだった？")
-    assert "※一部の比率" in out or "公式開示" in out
+    from app.core.runtime_state import temporary_settings
+
+    with temporary_settings(locale="ja"):
+        text = "日経平均は一時700円超下落。半導体セクターは約4%安となりました。"
+        out = enforce_variable_numerical_claims(text, "", user_input="今日の日本市場どうだった？")
+        assert "※一部の比率" in out or "公式開示" in out
 
 
 def test_market_query_finance_disclaimer_english_locale():
     """locale=en なら金融免責は英語（user_input の金融意図検出は従来どおり）。"""
-    app_settings.update({"locale": "en"})
-    text = "日経平均は一時700円超下落。半導体セクターは約4%安となりました。"
-    out = enforce_variable_numerical_claims(text, "", user_input="今日の日本市場どうだった？")
-    assert "Some ratios, market indicators" in out
-    assert "official disclosures" in out
-    assert "※一部の比率" not in out
+    from app.core.runtime_state import temporary_settings
+
+    with temporary_settings(locale="en"):
+        text = "日経平均は一時700円超下落。半導体セクターは約4%安となりました。"
+        out = enforce_variable_numerical_claims(text, "", user_input="今日の日本市場どうだった？")
+        assert "Some ratios, market indicators" in out
+        assert "official disclosures" in out
+        assert "※一部の比率" not in out

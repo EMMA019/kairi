@@ -80,6 +80,14 @@ def check_expectations(text: str, exp: dict, *, carryover_ok: bool | None = None
         failures.append("carryover_injected expected True")
     if exp.get("carryover_injected") is False and carryover_ok is True:
         failures.append("carryover_injected expected False")
+    golden = exp.get("golden_output")
+    if golden is not None:
+        expected = str(golden).rstrip()
+        actual = (text or "").rstrip()
+        if actual != expected:
+            failures.append(
+                f"golden_output mismatch: expected_len={len(expected)} actual_len={len(actual)}"
+            )
     return failures
 
 
@@ -140,14 +148,10 @@ def run_case(case: dict) -> tuple[bool, str, list[str]]:
 @contextmanager
 def pinned_locale(locale: str = "ja"):
     """免責文の言語は settings.locale 依存。ローカル設定に結果が左右されないよう固定する。"""
-    from app.routers.settings import app_settings
+    from app.core.runtime_state import temporary_settings
 
-    original = app_settings.get().get("locale", "en")
-    app_settings.update({"locale": locale})
-    try:
+    with temporary_settings(locale=locale):
         yield
-    finally:
-        app_settings.update({"locale": original})
 
 
 def main() -> int:

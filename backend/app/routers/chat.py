@@ -654,7 +654,19 @@ async def chat(request: ChatRequest):
             
             if violation_risk:
                 logger.warning(f"違反検出: {violation_risk} - session_id: {session_id}")
-                # 本格的な違反ログDB保存は必要に応じて実装
+                try:
+                    from app.core.violation_log import append_violation_log
+
+                    append_violation_log(
+                        session_id=session_id,
+                        user_message=user_input,
+                        ai_response=ai_response or "",
+                        violation_type=str(violation_risk),
+                        reason="supervisor auto-detect",
+                        source="supervisor",
+                    )
+                except Exception as ve:
+                    logger.warning(f"違和感ログ自動保存失敗: {ve}")
 
             # 完了（空洞完了は ok:false）
             from app.core.completion_status import build_done_payload

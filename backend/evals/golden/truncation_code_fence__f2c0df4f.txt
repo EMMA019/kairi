@@ -1,0 +1,4 @@
+実装例です。
+```python
+def half_life(spread):
+```

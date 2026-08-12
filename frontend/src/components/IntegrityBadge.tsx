@@ -10,6 +10,9 @@ interface IntegrityStats {
   truncation_detected: number;
   trim_applied: number;
   uncited_assertions: number;
+  filter_hits?: Record<string, number>;
+  dead_filters?: string[];
+  filter_total_changes?: number;
 }
 
 export function IntegrityBadge() {
@@ -97,6 +100,30 @@ export function IntegrityBadge() {
                 <span className="font-mono text-amber-400">{(stats.uncited_assertions || 0).toLocaleString()}件</span>
               </div>
             </div>
+
+            {stats.filter_hits && Object.keys(stats.filter_hits).length > 0 && (
+              <div className="mt-3 pt-3 border-t border-gray-700/50 space-y-1.5">
+                <div className="flex justify-between items-center text-xs mb-1">
+                  <span className="text-gray-400">フィルタ発火（本文変更）</span>
+                  <span className="font-mono text-emerald-300">
+                    {(stats.filter_total_changes || 0).toLocaleString()}
+                  </span>
+                </div>
+                {Object.entries(stats.filter_hits)
+                  .slice(0, 8)
+                  .map(([name, count]) => (
+                    <div key={name} className="flex justify-between items-center text-[10px] gap-2">
+                      <span className="text-gray-500 truncate" title={name}>{name}</span>
+                      <span className="font-mono text-gray-300 shrink-0">{count}</span>
+                    </div>
+                  ))}
+                {(stats.dead_filters?.length || 0) > 0 && (
+                  <p className="text-[10px] text-gray-600 pt-1">
+                    未発火 {stats.dead_filters!.length} 件（削除候補）
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

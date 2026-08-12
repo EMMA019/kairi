@@ -1,65 +1,54 @@
 """違和感ログ API ルーター（種類タグ付き）"""
-import json
 from datetime import datetime
-from pathlib import Path
-from fastapi import APIRouter
+from typing import Optional
 
-from app.models.memory import ViolationLog
+from fastapi import APIRouter
+from pydantic import BaseModel, field_validator
+
+from app.core.violation_log import (
+    CANONICAL_VIOLATION_TYPES,
+    append_violation_log,
+    list_violation_logs,
+    normalize_violation_type,
+)
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 router = APIRouter()
 
-VIOLATION_LOG_DIR = Path(__file__).parent.parent.parent / "storage" / "violation_logs"
+
+class ViolationLogIn(BaseModel):
+    session_id: str
+    user_message: str
+    ai_response: str
+    violation_type: str
+    reason: Optional[str] = None
+    source: Optional[str] = "user"
+    timestamp: Optional[datetime] = None
+
+    @field_validator("violation_type", mode="before")
+    @classmethod
+    def _normalize_type(cls, v):
+        return normalize_violation_type(v)
 
 
 @router.post("/log/violation")
-async def log_violation(log: ViolationLog):
+async def log_violation(log: ViolationLogIn):
     """違和感ログを記録（日別JSONファイルに保存）"""
-    VIOLATION_LOG_DIR.mkdir(parents=True, exist_ok=True)
-
-    today = datetime.now().strftime("%Y-%m-%d")
-    log_file = VIOLATION_LOG_DIR / f"{today}.json"
-
-    # 既存ログを読み込み
-    existing_logs = []
-    if log_file.exists():
-        try:
-            with open(log_file, "r", encoding="utf-8") as f:
-                existing_logs = json.load(f)
-        except (json.JSONDecodeError, Exception):
-            existing_logs = []
-
-    # 新規ログを追加
-    log_entry = log.model_dump()
-    log_entry["timestamp"] = datetime.now().isoformat()
-    existing_logs.append(log_entry)
-
-    # 保存
-    with open(log_file, "w", encoding="utf-8") as f:
-        json.dump(existing_logs, f, ensure_ascii=False, indent=2)
-
-    logger.info(f"違和感ログ記録: type={log.violation_type}")
-
-    return {"success": True}
+    entry = append_violation_log(
+        session_id=log.session_id,
+        user_message=log.user_message,
+        ai_response=log.ai_response,
+        violation_type=log.violation_type,
+        reason=log.reason,
+        source=log.source or "user",
+    )
+    return {"success": True, "violation_type": entry["violation_type"]}
 
 
 @router.get("/log/violations")
 async def get_violations(date: str = None):
     """違和感ログを取得（日付指定可）"""
-    if date is None:
-        date = datetime.now().strftime("%Y-%m-%d")
-
-    log_file = VIOLATION_LOG_DIR / f"{date}.json"
-
-    if not log_file.exists():
-        return {"logs": [], "date": date}
-
-    try:
-        with open(log_file, "r", encoding="utf-8") as f:
-            logs = json.load(f)
-    except (json.JSONDecodeError, Exception):
-        logs = []
-
-    return {"logs": logs, "date": date}
+    resolved, logs = list_violation_logs(date)
+    return {"logs": logs, "date": resolved, "canonical_types": list(CANONICAL_VIOLATION_TYPES)}

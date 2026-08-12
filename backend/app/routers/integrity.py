@@ -17,6 +17,8 @@ async def get_integrity_stats():
         "truncation_detected": 0,
         "trim_applied": 0,
         "uncited_assertions": 0,
+        "filter_hits": {},
+        "dead_filters": [],
     }
     try:
         async with get_db() as db:
@@ -35,7 +37,7 @@ async def get_integrity_stats():
             row = await cursor.fetchone()
             
             if row:
-                return {
+                result = {
                     "verified_facts": row[0] or 0,
                     "unverified_facts": row[1] or 0,
                     "excluded_sources": row[2] or 0,
@@ -45,7 +47,36 @@ async def get_integrity_stats():
                     "trim_applied": row[6] or 0,
                     "uncited_assertions": row[7] or 0,
                 }
-            return empty
+            else:
+                result = {k: v for k, v in empty.items() if k not in ("filter_hits", "dead_filters")}
+
+            try:
+                from app.core.fact_filters.filter_metrics import (
+                    get_filter_metrics_snapshot,
+                    load_persisted_filter_metrics,
+                )
+
+                snap = get_filter_metrics_snapshot()
+                persisted = load_persisted_filter_metrics()
+                # プロセス累計を優先。空なら永続化ファイルの直近日
+                hits = snap.get("changed") or {}
+                if not hits:
+                    by_day = (persisted or {}).get("by_day") or {}
+                    if by_day:
+                        latest = by_day[sorted(by_day.keys())[-1]]
+                        hits = latest.get("changed") or {}
+                result["filter_hits"] = hits
+                result["dead_filters"] = snap.get("dead_filters") or []
+                result["filter_total_changes"] = snap.get("total_changes") or sum(
+                    int(v) for v in hits.values()
+                )
+            except Exception as fe:
+                logger.debug(f"filter metrics attach skipped: {fe}")
+                result["filter_hits"] = {}
+                result["dead_filters"] = []
+                result["filter_total_changes"] = 0
+
+            return result
     except Exception as e:
         logger.error(f"Integrity stats fetch error: {e}")
         return empty

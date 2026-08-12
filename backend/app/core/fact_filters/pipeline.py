@@ -7,7 +7,8 @@
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Callable
+
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -22,6 +23,15 @@ CONSOLIDATION_NOTES = {
     # 最終本文 grounding は finalize の本関数のみに一本化。
     "supervisor_filter_fact": "light hygiene only; full pass = apply_grounding_pipeline",
 }
+
+
+def _run_step(name: str, before: str, produce: Callable[[], str]) -> str:
+    from .filter_metrics import track_filter
+
+    after = produce()
+    if not isinstance(after, str):
+        after = str(after or "")
+    return track_filter(name, before, after)
 
 
 def apply_grounding_pipeline(
@@ -73,44 +83,161 @@ def apply_grounding_pipeline(
         strip_dangling_tool_promises,
     )
     from .citation import verify_citations, reset_citation_metrics, record_trim_metric
+    from .filter_metrics import persist_filter_metrics
 
     reset_citation_metrics()
-    before = text
+    before_all = text
+    src = source_text or ""
+    ui = user_input or ""
 
-    text = strip_internal_markup(text)
-    _, text = check_currency_consistency(text)
-    _, text = verify_numbers_exist_in_source(text, source_text or "")
+    text = _run_step("strip_internal_markup", text, lambda: strip_internal_markup(text))
+    text = _run_step(
+        "check_currency_consistency",
+        text,
+        lambda: check_currency_consistency(text)[1],
+    )
+    text = _run_step(
+        "verify_numbers_exist_in_source",
+        text,
+        lambda: verify_numbers_exist_in_source(text, src)[1],
+    )
     # レガシー: 役職ハルシネーション（citation と併用、段階的縮小）
-    text = verify_temporal_leadership_claims(text, source_text or "")
-    text = verify_chronological_rationalization(text, source_text or "")
-    text = filter_unknown_entity_listings(text)
-    text = enforce_variable_numerical_claims(text, source_text or "", user_input=user_input or "")
-    text = correct_common_typos(text)
-    text = strip_unrequested_memory_mentions(text, user_input=user_input)
-    text = strip_omakase_skill_questions(text, user_input=user_input)
-    text = strip_unrequested_yahoo_finance(text, user_input=user_input)
-    text = strip_outdated_past_event_predictions(text)
-    text = deduplicate_spot_listings(text)
-    text = verify_exit_and_address_entanglement(text)
-    text = sanitize_internal_tool_mentions(text)
-    text = clean_broken_markdown_tables(text)
-    text = strip_out_of_period_event_mentions(text)
-    text = verify_holiday_and_weekend_claims(text)
-    text = fix_relative_date_labels(text)
-    text = strip_excuse_hallucinations(text)
-    text = strip_false_user_attribution(text, user_input=user_input or "")
-    text = soften_ungrounded_earnings_timing(text, source_text or "")
-    text = correct_jp_session_price_labels(text, source_text or "")
-    text = soften_stale_night_futures_claims(text, source_text or "")
-    text = soften_us_morning_wrap_as_close(text, source_text or "")
-    text = sanitize_buffer_contamination(text)
-    text = strip_unverified_day_of_week(text, source_text=source_text or "", strip_if_no_source=True)
+    text = _run_step(
+        "verify_temporal_leadership_claims",
+        text,
+        lambda: verify_temporal_leadership_claims(text, src),
+    )
+    text = _run_step(
+        "verify_chronological_rationalization",
+        text,
+        lambda: verify_chronological_rationalization(text, src),
+    )
+    text = _run_step(
+        "filter_unknown_entity_listings",
+        text,
+        lambda: filter_unknown_entity_listings(text),
+    )
+    text = _run_step(
+        "enforce_variable_numerical_claims",
+        text,
+        lambda: enforce_variable_numerical_claims(text, src, user_input=ui),
+    )
+    text = _run_step("correct_common_typos", text, lambda: correct_common_typos(text))
+    text = _run_step(
+        "strip_unrequested_memory_mentions",
+        text,
+        lambda: strip_unrequested_memory_mentions(text, user_input=ui),
+    )
+    text = _run_step(
+        "strip_omakase_skill_questions",
+        text,
+        lambda: strip_omakase_skill_questions(text, user_input=ui),
+    )
+    text = _run_step(
+        "strip_unrequested_yahoo_finance",
+        text,
+        lambda: strip_unrequested_yahoo_finance(text, user_input=ui),
+    )
+    text = _run_step(
+        "strip_outdated_past_event_predictions",
+        text,
+        lambda: strip_outdated_past_event_predictions(text),
+    )
+    text = _run_step(
+        "deduplicate_spot_listings",
+        text,
+        lambda: deduplicate_spot_listings(text),
+    )
+    text = _run_step(
+        "verify_exit_and_address_entanglement",
+        text,
+        lambda: verify_exit_and_address_entanglement(text),
+    )
+    text = _run_step(
+        "sanitize_internal_tool_mentions",
+        text,
+        lambda: sanitize_internal_tool_mentions(text),
+    )
+    text = _run_step(
+        "clean_broken_markdown_tables",
+        text,
+        lambda: clean_broken_markdown_tables(text),
+    )
+    text = _run_step(
+        "strip_out_of_period_event_mentions",
+        text,
+        lambda: strip_out_of_period_event_mentions(text),
+    )
+    text = _run_step(
+        "verify_holiday_and_weekend_claims",
+        text,
+        lambda: verify_holiday_and_weekend_claims(text),
+    )
+    text = _run_step(
+        "fix_relative_date_labels",
+        text,
+        lambda: fix_relative_date_labels(text),
+    )
+    text = _run_step(
+        "strip_excuse_hallucinations",
+        text,
+        lambda: strip_excuse_hallucinations(text),
+    )
+    text = _run_step(
+        "strip_false_user_attribution",
+        text,
+        lambda: strip_false_user_attribution(text, user_input=ui),
+    )
+    text = _run_step(
+        "soften_ungrounded_earnings_timing",
+        text,
+        lambda: soften_ungrounded_earnings_timing(text, src),
+    )
+    text = _run_step(
+        "correct_jp_session_price_labels",
+        text,
+        lambda: correct_jp_session_price_labels(text, src),
+    )
+    text = _run_step(
+        "soften_stale_night_futures_claims",
+        text,
+        lambda: soften_stale_night_futures_claims(text, src),
+    )
+    text = _run_step(
+        "soften_us_morning_wrap_as_close",
+        text,
+        lambda: soften_us_morning_wrap_as_close(text, src),
+    )
+    text = _run_step(
+        "sanitize_buffer_contamination",
+        text,
+        lambda: sanitize_buffer_contamination(text),
+    )
+    text = _run_step(
+        "strip_unverified_day_of_week",
+        text,
+        lambda: strip_unverified_day_of_week(
+            text, source_text=src, strip_if_no_source=True
+        ),
+    )
 
     # 中核: 引用契約
-    text = verify_citations(text, source_text or "")
-    text = strip_dangling_tool_promises(text)
-    text = trim_incomplete_trailing_sentence(text)
+    text = _run_step("verify_citations", text, lambda: verify_citations(text, src))
+    text = _run_step(
+        "strip_dangling_tool_promises",
+        text,
+        lambda: strip_dangling_tool_promises(text),
+    )
+    text = _run_step(
+        "trim_incomplete_trailing_sentence",
+        text,
+        lambda: trim_incomplete_trailing_sentence(text),
+    )
 
-    if text != before:
+    if text != before_all:
         record_trim_metric(True)
+    try:
+        persist_filter_metrics()
+    except Exception:
+        pass
     return text

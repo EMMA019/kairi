@@ -18,8 +18,14 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-_MAX_SEARCH_CARRY_SESSIONS = 200
-_last_search_by_session: dict[str, dict] = {}
+from app.core.runtime_state import (
+    get_max_search_carry_sessions,
+    get_search_carryover_store,
+)
+
+# 互換: 既存テストが chat_search._last_search_by_session / routers.chat 経由で触る
+_last_search_by_session = get_search_carryover_store()
+_MAX_SEARCH_CARRY_SESSIONS = get_max_search_carry_sessions()
 JST = timezone(timedelta(hours=9))
 ET = ZoneInfo("America/New_York")
 

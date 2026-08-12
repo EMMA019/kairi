@@ -31,10 +31,13 @@ class KVAction(BaseModel):
 
 
 class ViolationLog(BaseModel):
+    """互換モデル。実保存は app.core.violation_log.append_violation_log を使う。"""
     session_id: str
     user_message: str
     ai_response: str
-    violation_type: Literal["先回り提案", "KV無断記憶", "質問の連投", "過剰な称賛", "検索スキップ", "思考漏れ出し", "その他"]
+    # 英語 UI ラベルも受け付ける（正規化は violation_log 側）
+    violation_type: str
     reason: Optional[str] = None
+    source: Optional[Literal["user", "supervisor"]] = "user"
     timestamp: Optional[datetime] = None
 

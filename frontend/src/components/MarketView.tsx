@@ -157,7 +157,12 @@ export const MarketView = memo(({
       <div
         className={`${activeTab === "market" ? "flex" : "hidden"} h-full min-w-0 w-full flex-1 flex-col md:flex`}
       >
-        <MarketDesk />
+        <MarketDesk
+          onAskChat={(message) => {
+            setActiveTab("chat");
+            onSend(message);
+          }}
+        />
       </div>
     </div>
   );

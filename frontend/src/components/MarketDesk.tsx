@@ -49,8 +49,14 @@ import {
   type WatchRow,
 } from "../utils/watchlist";
 import { BriefingPanel } from "./BriefingPanel";
+import { NewsBoardPanel } from "./NewsBoardPanel";
 
-type DeskTab = "overview" | "radar" | "signals" | "briefing";
+type DeskTab = "overview" | "radar" | "signals" | "briefing" | "news";
+
+interface MarketDeskProps {
+  /** News タブからチャットへ「解説して」を送る */
+  onAskChat?: (message: string) => void;
+}
 
 type BarQuote = {
   symbol: string;
@@ -185,7 +191,7 @@ function volumeWarn(ratio: number | null | undefined): boolean {
   return ratio < 0.5 || ratio >= 1.8;
 }
 
-export function MarketDesk() {
+export function MarketDesk({ onAskChat }: MarketDeskProps = {}) {
   const [tab, setTab] = useState<DeskTab>("overview");
   const [showAdvanced, setShowAdvanced] = useState(getShowAdvancedModes);
   const [loading, setLoading] = useState<string | null>(null);
@@ -658,6 +664,7 @@ export function MarketDesk() {
 
   const tabs: Array<{ id: DeskTab; label: string }> = [
     { id: "overview", label: "Overview" },
+    { id: "news", label: "News" },
     { id: "signals", label: "Signals" },
     { id: "briefing", label: "Briefing" },
     ...(showAdvanced
@@ -1356,6 +1363,15 @@ export function MarketDesk() {
               )}
             </Section>
           </>
+        )}
+
+        {tab === "news" && (
+          <Section title="News Board">
+            <p className="mb-3 text-[11px] text-gray-500">
+              地域レーンで直近18時間のプールを表示。LLMは使わず、解説は左のチャットへ送ります。
+            </p>
+            <NewsBoardPanel onAsk={onAskChat} autoRefresh={swing.autoRefresh} />
+          </Section>
         )}
 
         {tab === "briefing" && (

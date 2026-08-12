@@ -219,3 +219,5 @@ def test_news_health_endpoint():
         assert "pool_total" in data
         assert "feeds" in data
         assert "retention_hours" in data
+        assert "verdict" in data
+        assert data["verdict"] in ("HEALTHY", "WARNING", "DEGRADED", "UNHEALTHY")

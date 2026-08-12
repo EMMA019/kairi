@@ -8,7 +8,7 @@ router = APIRouter()
 
 @router.get("/news/health")
 async def news_health():
-    """フィード健全性とローリングプール件数を返す。"""
+    """フィード健全性とローリングプール件数を返す（段階ステータス付き）。"""
     from app.core.news.database import (
         init_db,
         get_feed_health,
@@ -16,19 +16,28 @@ async def news_health():
         get_pool_news,
         RETENTION_HOURS,
     )
+    from app.core.news.health_status import grade_fleet
 
     await init_db()
     feeds = await get_feed_health()
     pool_total = await count_pool()
     recent_18h = await get_pool_news(hours=18, limit=500)
-    failing = [f for f in feeds if (f.get("consecutive_failures") or 0) >= 3]
+    fleet = grade_fleet(
+        feeds,
+        pool_total=pool_total,
+        pool_last_18h=len(recent_18h),
+    )
     return {
         "pool_total": pool_total,
         "pool_last_18h": len(recent_18h),
         "retention_hours": RETENTION_HOURS,
-        "feeds": feeds,
-        "feeds_failing": len(failing),
-        "ok": len(failing) == 0 or pool_total > 0,
+        "feeds": fleet["feeds"],
+        "feeds_failing": fleet["feeds_failing"],
+        "feeds_problem": fleet["feeds_problem"],
+        "status_counts": fleet["status_counts"],
+        "verdict": fleet["verdict"],
+        # 後方互換: 真偽値は UNHEALTHY 以外を True（監視のフラッピング抑制）
+        "ok": fleet["ok"],
     }
 
 

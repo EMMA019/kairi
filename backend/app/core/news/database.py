@@ -385,8 +385,9 @@ def _is_noise_news_source(item: dict) -> bool:
 
 
 def rank_news_items_for_chat(items: list[dict], limit: int = 15) -> list[dict]:
-    """スパム/HN除外のうえ systematic_screen_and_score で並べ替え。"""
+    """スパム/HN除外のうえ systematic_screen_and_score → シンジケーション降格。"""
     from app.core.monitor.watchlist import systematic_screen_and_score
+    from app.core.news.syndication import demote_syndicated
 
     scored: list[dict] = []
     for item in items:
@@ -396,13 +397,8 @@ def rank_news_items_for_chat(items: list[dict], limit: int = 15) -> list[dict]:
         if (s.get("importance") or 0) <= 0:
             continue
         scored.append(s)
-    scored.sort(
-        key=lambda x: (
-            -(x.get("importance") or 0),
-            0 if x.get("is_high_trust_source") else 1,
-        )
-    )
-    return scored[:limit]
+    demoted = demote_syndicated(scored)
+    return demoted[:limit]
 
 
 async def search_news(query: str = None, limit: int = 15) -> list[dict]:

@@ -61,9 +61,14 @@ function importanceTone(n: number | null | undefined): string {
 
 function shortTime(raw: string | null | undefined): string {
   if (!raw) return "—";
-  const d = new Date(raw.includes("T") ? raw : raw.replace(" ", "T") + "Z");
+  // ISO / RFC2822 ("Mon, 27 Jan 2025 …") をネイティブで解釈
+  let d = new Date(raw);
+  if (Number.isNaN(d.getTime()) && /^\d{4}-\d{2}-\d{2} /.test(raw)) {
+    d = new Date(raw.replace(" ", "T") + "Z");
+  }
   if (Number.isNaN(d.getTime())) return String(raw).slice(0, 16);
   return d.toLocaleString("ja-JP", {
+    year: "numeric",
     month: "numeric",
     day: "numeric",
     hour: "2-digit",

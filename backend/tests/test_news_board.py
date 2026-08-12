@@ -43,6 +43,43 @@ def test_board_rank_newest_first():
     assert urls.index("https://example.com/mid") < urls.index("https://example.com/old")
 
 
+def test_board_drops_stale_republished_rss():
+    """今日再取得された Jan 2025 記事が高スコアでも上に来ない。"""
+    from app.core.news.database import (
+        _parse_datetime_value,
+        _board_content_datetime,
+        rank_news_items_for_board,
+    )
+
+    assert _parse_datetime_value("Mon, 27 Jan 2025").year == 2025
+    assert _parse_datetime_value("Mon, 27 Jan 2025 12:00:00 GMT").year == 2025
+
+    stale = {
+        "title": "Russia crude NVDA unrelated high score bait",
+        "url": "https://example.com/stale-wsj",
+        "source": "WSJ Markets",
+        "summary": "oil sanctions Goldman",
+        "published": "Mon, 27 Jan 2025",
+        "fetched_at": "2026-08-12 04:58:50",
+        "importance": 90,
+    }
+    # 公開日が古いまま fetched_at に落ちない
+    assert _board_content_datetime(stale).year == 2025
+
+    fresh = {
+        "title": "Fresh NVDA AI financing story today",
+        "url": "https://example.com/fresh-nvda",
+        "source": "CNBC Market News",
+        "summary": "Nvidia financing",
+        "published": "Wed, 12 Aug 2026 06:01:00 GMT",
+        "fetched_at": "2026-08-12 06:01:00",
+    }
+    ranked = rank_news_items_for_board([stale, fresh], limit=10, max_age_days=7)
+    urls = [r["url"] for r in ranked]
+    assert "https://example.com/stale-wsj" not in urls
+    assert "https://example.com/fresh-nvda" in urls
+
+
 def test_infer_region_from_feed_and_item():
     from app.core.news.region import infer_region, infer_region_from_feed
 

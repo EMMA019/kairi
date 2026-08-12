@@ -349,29 +349,71 @@ async def get_unprocessed_news() -> list[dict]:
         return [dict(row) for row in rows]
 
 
-def _parse_news_datetime(item: dict) -> Optional[datetime]:
-    """published / fetched_at / created_at から日時を推定。"""
-    for key in ("published", "fetched_at", "created_at"):
-        raw = item.get(key)
-        if not raw:
-            continue
-        if isinstance(raw, datetime):
-            return raw.replace(tzinfo=None) if raw.tzinfo else raw
-        s = str(raw).strip()
+def _parse_datetime_value(raw: Any) -> Optional[datetime]:
+    """単一フィールドの日時文字列をパース（RSSの各種形式対応）。"""
+    if not raw:
+        return None
+    if isinstance(raw, datetime):
+        return raw.replace(tzinfo=None) if raw.tzinfo else raw
+    s = str(raw).strip()
+    if not s:
+        return None
+    try:
+        if s.endswith("Z"):
+            s_iso = s[:-1] + "+00:00"
+        else:
+            s_iso = s
+        dt = datetime.fromisoformat(s_iso)
+        return dt.replace(tzinfo=None) if dt.tzinfo else dt
+    except ValueError:
+        pass
+    # RFC 2822: "Mon, 27 Jan 2025 12:00:00 GMT" / タイムゾーン無しも多い
+    try:
+        from email.utils import parsedate_to_datetime
+
+        dt = parsedate_to_datetime(s)
+        if dt is not None:
+            return dt.replace(tzinfo=None) if dt.tzinfo else dt
+    except Exception:
+        pass
+    for fmt in (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d",
+        "%a, %d %b %Y %H:%M:%S %z",
+        "%a, %d %b %Y %H:%M:%S GMT",
+        "%a, %d %b %Y %H:%M:%S",
+        "%a, %d %b %Y",
+        "%d %b %Y %H:%M:%S %z",
+        "%d %b %Y",
+    ):
         try:
-            if s.endswith("Z"):
-                s = s[:-1] + "+00:00"
-            dt = datetime.fromisoformat(s)
+            dt = datetime.strptime(s, fmt)
             return dt.replace(tzinfo=None) if dt.tzinfo else dt
         except ValueError:
-            pass
-        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%a, %d %b %Y %H:%M:%S %z"):
-            try:
-                dt = datetime.strptime(s, fmt)
-                return dt.replace(tzinfo=None) if dt.tzinfo else dt
-            except ValueError:
-                continue
+            continue
     return None
+
+
+def _parse_news_datetime(item: dict) -> Optional[datetime]:
+    """published / fetched_at / created_at から日時を推定（後方互換）。"""
+    for key in ("published", "fetched_at", "created_at"):
+        dt = _parse_datetime_value(item.get(key))
+        if dt is not None:
+            return dt
+    return None
+
+
+def _board_content_datetime(item: dict) -> Optional[datetime]:
+    """
+    ボード用の記事時刻。公開日を優先し、取れないときだけ fetched_at。
+    （古い RSS が今日再取得されても Jan 2025 が「今日」扱いにならないようにする）
+    """
+    pub = _parse_datetime_value(item.get("published"))
+    if pub is not None:
+        return pub
+    return _parse_datetime_value(item.get("fetched_at")) or _parse_datetime_value(
+        item.get("created_at")
+    )
 
 
 def filter_news_by_freshness(items: list[dict], max_age_days: int) -> list[dict]:
@@ -381,7 +423,7 @@ def filter_news_by_freshness(items: list[dict], max_age_days: int) -> list[dict]
     cutoff = datetime.utcnow() - timedelta(days=max_age_days)
     kept = []
     for it in items:
-        dt = _parse_news_datetime(it)
+        dt = _board_content_datetime(it) or _parse_news_datetime(it)
         if dt is None or dt >= cutoff:
             kept.append(it)
     return kept
@@ -416,26 +458,35 @@ def rank_news_items_for_chat(items: list[dict], limit: int = 15) -> list[dict]:
 
 
 def _board_sort_key(item: dict) -> tuple:
-    """最新が上: published → fetched_at → created_at の新しい順。同刻は重要度で並べる。"""
-    dt = _parse_news_datetime(item)
-    # 日付不明は末尾へ（epoch=0）
+    """最新が上: 公開日優先。同刻は重要度で並べる。"""
+    dt = _board_content_datetime(item)
     ts = dt.timestamp() if dt else 0.0
     return (ts, int(item.get("importance") or 0))
 
 
-def rank_news_items_for_board(items: list[dict], limit: int = 60) -> list[dict]:
+def rank_news_items_for_board(
+    items: list[dict],
+    limit: int = 60,
+    *,
+    max_age_days: float = 7.0,
+) -> list[dict]:
     """
     ボード向け採点。chat 用より寛容:
     - スパム(importance<=0)は落とす
-    - ウォッチリスト未ヒットの一般市況も残す
-    - 並びは常に最新順（重要度は同刻のタイブレーク）
+    - 公開日が古い再配信 RSS は除外（fetched_at が新しくても載せない）
+    - 並びは公開日の新しい順（重要度は同刻のタイブレーク）
     """
     from app.core.monitor.watchlist import systematic_screen_and_score
     from app.core.news.syndication import demote_syndicated
 
+    cutoff = datetime.utcnow() - timedelta(days=max_age_days)
     scored: list[dict] = []
     for item in items:
         if _is_noise_news_source(item):
+            continue
+        pub = _parse_datetime_value(item.get("published"))
+        # 公開日が分かる古い記事はボードから外す（今日再取得された WSJ 旧稿など）
+        if pub is not None and pub < cutoff:
             continue
         s = systematic_screen_and_score(item)
         if (s.get("importance") or 0) <= 0:
@@ -444,10 +495,12 @@ def rank_news_items_for_board(items: list[dict], limit: int = 60) -> list[dict]:
     demoted = demote_syndicated(scored)
 
     if len(demoted) < min(8, limit):
-        # フォールバック: 採点が薄すぎるときはノイズ除外で埋める
         seen = {d.get("url") for d in demoted}
         for item in items:
             if _is_noise_news_source(item):
+                continue
+            pub = _parse_datetime_value(item.get("published"))
+            if pub is not None and pub < cutoff:
                 continue
             if item.get("url") in seen:
                 continue
@@ -573,7 +626,13 @@ async def get_news_board(
                     next_buckets.append(bucket)
             buckets = next_buckets
 
-    ranked = rank_news_items_for_board(filtered, limit=limit)
+    # 公開日ベースの鮮度窓（再取得された古い RSS を落とす）。最低3日。
+    content_max_age_days = max(3.0, float(hours) / 24.0)
+    ranked = rank_news_items_for_board(
+        filtered,
+        limit=limit,
+        max_age_days=content_max_age_days,
+    )
     # ensure region survives scoring copy
     for it in ranked:
         if not it.get("region"):

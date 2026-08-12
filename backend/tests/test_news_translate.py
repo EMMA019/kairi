@@ -13,9 +13,16 @@ from app.core.news.translate import (
 
 
 def test_looks_japanese_and_needs():
+    from app.core.news.translate import detect_langpair, looks_korean
+
     assert looks_japanese("日銀の利上げ観測")
     assert not looks_japanese("BOJ rate hike expectations")
+    assert looks_korean("한국 속보 삼성전자")
+    assert not looks_japanese("한국 속보 삼성전자")
+    assert detect_langpair("BOJ rate hike expectations") == "en|ja"
+    assert detect_langpair("한국 속보 삼성전자") == "ko|ja"
     assert needs_ja_translation("BOJ rate hike expectations", None)
+    assert needs_ja_translation("한국 속보 삼성전자", None)
     assert not needs_ja_translation("BOJ rate hike", "日銀の利上げ")
     assert not needs_ja_translation("日経平均が反発", None)
 
@@ -61,7 +68,7 @@ def test_ensure_title_ja_skips_cached(tmp_path, monkeypatch):
         assert pool
         items = [dict(pool[0])]
         with patch(
-            "app.core.news.translate.translate_en_to_ja",
+            "app.core.news.translate.translate_to_ja",
             new_callable=AsyncMock,
             return_value="テスラが日本の納車拠点を拡大",
         ) as tr:
@@ -70,7 +77,7 @@ def test_ensure_title_ja_skips_cached(tmp_path, monkeypatch):
         assert "テスラ" in (items[0].get("title_ja") or "")
         # 2回目はキャッシュ済みなので呼ばない
         with patch(
-            "app.core.news.translate.translate_en_to_ja",
+            "app.core.news.translate.translate_to_ja",
             new_callable=AsyncMock,
             return_value="should-not-run",
         ) as tr2:

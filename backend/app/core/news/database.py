@@ -469,7 +469,7 @@ def rank_news_items_for_board(
     items: list[dict],
     limit: int = 60,
     *,
-    max_age_days: float = 7.0,
+    max_age_days: float = 7.0,  # 既定7日（短すぎると市況が消えアジア速報だけ残る）
 ) -> list[dict]:
     """
     ボード向け採点。chat 用より寛容:
@@ -626,29 +626,43 @@ async def get_news_board(
         by_region[r].append(it)
 
     region_norm = normalize_region(region) if region else None
+    # 公開日ベースの鮮度窓。最低7日（3日だと週初の市況が消えて Yonhap ばかり残る）
+    content_max_age_days = max(7.0, float(hours) / 24.0)
+
     if region_norm:
-        filtered = list(by_region.get(region_norm) or [])
+        ranked = rank_news_items_for_board(
+            list(by_region.get(region_norm) or []),
+            limit=limit,
+            max_age_days=content_max_age_days,
+        )
     else:
-        # ラウンドロビンで地域を混ぜてから採点（US 一色を防ぐ）
-        filtered = []
-        buckets = [list(by_region[r]) for r in REGIONS if by_region.get(r)]
-        while buckets and len(filtered) < pool_limit:
+        # 地域ごとに採点→枠を確保してからマージ（1地域が日付で枠を食いつぶさない）
+        active = [r for r in REGIONS if by_region.get(r)]
+        n_active = max(1, len(active))
+        per = max(12, (limit + n_active - 1) // n_active)
+        ranked_by: dict[str, list[dict]] = {}
+        for r in active:
+            chunk = rank_news_items_for_board(
+                list(by_region[r]),
+                limit=per,
+                max_age_days=content_max_age_days,
+            )
+            for it in chunk:
+                it["region"] = r
+            ranked_by[r] = chunk
+
+        ranked = []
+        buckets = [list(ranked_by[r]) for r in active if ranked_by.get(r)]
+        while buckets and len(ranked) < limit:
             next_buckets = []
             for bucket in buckets:
                 if not bucket:
                     continue
-                filtered.append(bucket.pop(0))
+                ranked.append(bucket.pop(0))
                 if bucket:
                     next_buckets.append(bucket)
             buckets = next_buckets
 
-    # 公開日ベースの鮮度窓（再取得された古い RSS を落とす）。最低3日。
-    content_max_age_days = max(3.0, float(hours) / 24.0)
-    ranked = rank_news_items_for_board(
-        filtered,
-        limit=limit,
-        max_age_days=content_max_age_days,
-    )
     # ensure region survives scoring copy
     for it in ranked:
         if not it.get("region"):

@@ -8,6 +8,70 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 
+def test_board_keeps_per_region_slots(tmp_path, monkeypatch):
+    """Yonhap が日付で上位を占めても US/JP レーンが空にならない。"""
+    async def _run():
+        import app.core.news.database as dbmod
+
+        monkeypatch.setattr(dbmod, "DB_PATH", str(tmp_path / "slots.db"))
+        await dbmod.init_db()
+        now = datetime.utcnow()
+        items = []
+        # 韓国速報を大量に（より新しい時刻）
+        for i in range(40):
+            items.append(
+                {
+                    "title": f"한국 속보 테스트 {i} 삼성전자",
+                    "url": f"https://example.com/kr/{i}",
+                    "source": "Yonhap News Economy",
+                    "summary": "kospi",
+                    "guid": f"kr-{i}",
+                    "region": "CN_ASIA",
+                    "published": (now + timedelta(minutes=i)).strftime(
+                        "%a, %d %b %Y %H:%M:%S GMT"
+                    ),
+                    "fetched_at": now.strftime("%Y-%m-%d %H:%M:%S"),
+                }
+            )
+        # US / JP は少し古いが窓内
+        items.append(
+            {
+                "title": "NVDA jumps on AI demand in US markets today",
+                "url": "https://example.com/us-1",
+                "source": "CNBC Market News",
+                "summary": "Nvidia AI",
+                "guid": "us-1",
+                "region": "US",
+                "published": (now - timedelta(hours=2)).strftime(
+                    "%a, %d %b %Y %H:%M:%S GMT"
+                ),
+                "fetched_at": now.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+        )
+        items.append(
+            {
+                "title": "日経平均が反発し半導体株が高い",
+                "url": "https://example.com/jp-1",
+                "source": "Yahoo Japan 経済・市況",
+                "summary": "日経",
+                "guid": "jp-1",
+                "region": "JP",
+                "published": (now - timedelta(hours=1)).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                ),
+                "fetched_at": now.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+        )
+        await dbmod.save_news(items)
+        board = await dbmod.get_news_board(hours=18, limit=30, translate_ja=False)
+        regions = {it["region"] for it in board["items"]}
+        assert "US" in regions, board["items"][:5]
+        assert "JP" in regions
+        assert "CN_ASIA" in regions
+
+    asyncio.run(_run())
+
+
 def test_board_rank_newest_first():
     from app.core.news.database import rank_news_items_for_board
 

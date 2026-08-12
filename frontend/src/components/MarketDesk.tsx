@@ -48,6 +48,12 @@ import {
   type QuotePayload,
   type WatchRow,
 } from "../utils/watchlist";
+import { apiFetch } from "../utils/api";
+import {
+  countUnreadHighImportance,
+  loadReadKeys,
+  type NewsBoardItem,
+} from "../utils/newsBoard";
 import { BriefingPanel } from "./BriefingPanel";
 import { NewsBoardPanel } from "./NewsBoardPanel";
 
@@ -195,6 +201,7 @@ export function MarketDesk({ onAskChat }: MarketDeskProps = {}) {
   const [tab, setTab] = useState<DeskTab>("overview");
   const [showAdvanced, setShowAdvanced] = useState(getShowAdvancedModes);
   const [loading, setLoading] = useState<string | null>(null);
+  const [newsUnreadHigh, setNewsUnreadHigh] = useState(0);
 
   useEffect(() => {
     const onAdv = () => {
@@ -204,6 +211,32 @@ export function MarketDesk({ onAskChat }: MarketDeskProps = {}) {
     };
     window.addEventListener("kairi-advanced-modes", onAdv);
     return () => window.removeEventListener("kairi-advanced-modes", onAdv);
+  }, []);
+
+  // News タブ未表示でも未読重要バッジを更新
+  useEffect(() => {
+    let cancelled = false;
+    const refreshUnread = async () => {
+      try {
+        const res = await apiFetch("/api/news/board?hours=18&limit=80");
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const items = (Array.isArray(data.items) ? data.items : []) as NewsBoardItem[];
+        if (!cancelled) {
+          setNewsUnreadHigh(countUnreadHighImportance(items, loadReadKeys(), 75));
+        }
+      } catch {
+        /* ignore badge fetch errors */
+      }
+    };
+    void refreshUnread();
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refreshUnread();
+    }, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
   }, []);
   const [ibkrSummary, setIbkrSummary] = useState<unknown>(null);
   const [ibkrPositions, setIbkrPositions] = useState<unknown>(null);
@@ -709,6 +742,11 @@ export function MarketDesk({ onAskChat }: MarketDeskProps = {}) {
                 }`}
               >
                 {t.label}
+                {t.id === "news" && newsUnreadHigh > 0 ? (
+                  <span className="ml-1 rounded bg-amber-500/20 px-1 text-[10px] font-bold text-amber-300">
+                    {newsUnreadHigh}
+                  </span>
+                ) : null}
               </button>
             ))}
           </div>
@@ -1370,7 +1408,11 @@ export function MarketDesk({ onAskChat }: MarketDeskProps = {}) {
             <p className="mb-3 text-[11px] text-gray-500">
               地域レーンで直近18時間のプールを表示。LLMは使わず、解説は左のチャットへ送ります。
             </p>
-            <NewsBoardPanel onAsk={onAskChat} autoRefresh={swing.autoRefresh} />
+            <NewsBoardPanel
+              onAsk={onAskChat}
+              autoRefresh={swing.autoRefresh}
+              onUnreadHighChange={setNewsUnreadHigh}
+            />
           </Section>
         )}
 

@@ -4,31 +4,23 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "../utils/api";
+import {
+  REGION_LABEL,
+  REGION_ORDER,
+  buildExplainPrompt,
+  countUnreadHighImportance,
+  itemKey,
+  loadReadKeys,
+  markRead,
+  normalizeRegion,
+  type NewsBoardItem,
+  type NewsRegion,
+} from "../utils/newsBoard";
 
 const POLL_MS = 60_000;
+const HIGH_IMPORTANCE = 75;
 
-export type NewsRegion = "US" | "JP" | "EU" | "CN_ASIA" | "GLOBAL";
-
-const REGION_ORDER: NewsRegion[] = ["US", "JP", "EU", "CN_ASIA", "GLOBAL"];
-
-const REGION_LABEL: Record<NewsRegion, string> = {
-  US: "US",
-  JP: "日本",
-  EU: "欧州",
-  CN_ASIA: "中韓・アジア",
-  GLOBAL: "通信社・他",
-};
-
-interface BoardItem {
-  id?: number | null;
-  title?: string | null;
-  url?: string | null;
-  source?: string | null;
-  summary?: string | null;
-  published?: string | null;
-  fetched_at?: string | null;
-  region?: string | null;
-  importance?: number | null;
+interface BoardItem extends NewsBoardItem {
   sentiment?: string | null;
   category?: string | null;
   stock_codes?: string[];
@@ -56,11 +48,13 @@ interface NewsBoardPanelProps {
   /** 記事をチャットで解説させるときの送信ハンドラ */
   onAsk?: (message: string) => void;
   autoRefresh?: boolean;
+  /** 未読重要件数の変化を親（タブバッジ）へ通知 */
+  onUnreadHighChange?: (count: number) => void;
 }
 
 function importanceTone(n: number | null | undefined): string {
   const v = n ?? 0;
-  if (v >= 75) return "text-amber-300";
+  if (v >= HIGH_IMPORTANCE) return "text-amber-300";
   if (v >= 45) return "text-cyan-300";
   return "text-gray-500";
 }
@@ -77,29 +71,17 @@ function shortTime(raw: string | null | undefined): string {
   });
 }
 
-function buildExplainPrompt(item: BoardItem): string {
-  const title = (item.title || "").trim();
-  const url = (item.url || "").trim();
-  const source = (item.source || "").trim();
-  const summary = (item.summary || "").trim().slice(0, 400);
-  const lines = [
-    "次のニュースを、投資家向けに簡潔に解説してください。",
-    "事実と推測を分け、ソースの信頼度にも触れてください。",
-    "",
-    `見出し: ${title}`,
-  ];
-  if (source) lines.push(`ソース: ${source}`);
-  if (url) lines.push(`URL: ${url}`);
-  if (summary) lines.push(`要約スニペット: ${summary}`);
-  return lines.join("\n");
-}
-
-export function NewsBoardPanel({ onAsk, autoRefresh = true }: NewsBoardPanelProps) {
+export function NewsBoardPanel({
+  onAsk,
+  autoRefresh = true,
+  onUnreadHighChange,
+}: NewsBoardPanelProps) {
   const [payload, setPayload] = useState<BoardPayload | null>(null);
   const [filter, setFilter] = useState<NewsRegion | "ALL">("ALL");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [readKeys, setReadKeys] = useState<Set<string>>(() => loadReadKeys());
   const busyRef = useRef(false);
 
   const load = useCallback(async () => {
@@ -137,9 +119,14 @@ export function NewsBoardPanel({ onAsk, autoRefresh = true }: NewsBoardPanelProp
 
   const counts = payload?.region_counts || {};
   const totalCount = REGION_ORDER.reduce((s, r) => s + (counts[r] || 0), 0);
+  const items = Array.isArray(payload?.items) ? payload!.items! : [];
+  const unreadHigh = countUnreadHighImportance(items, readKeys, HIGH_IMPORTANCE);
+
+  useEffect(() => {
+    onUnreadHighChange?.(unreadHigh);
+  }, [unreadHigh, onUnreadHighChange]);
 
   const lanes = useMemo(() => {
-    const items = Array.isArray(payload?.items) ? payload!.items! : [];
     const by: Record<NewsRegion, BoardItem[]> = {
       US: [],
       JP: [],
@@ -148,9 +135,8 @@ export function NewsBoardPanel({ onAsk, autoRefresh = true }: NewsBoardPanelProp
       GLOBAL: [],
     };
     for (const it of items) {
-      const r = (it.region || "GLOBAL") as NewsRegion;
-      if (by[r]) by[r].push(it);
-      else by.GLOBAL.push(it);
+      const r = normalizeRegion(it.region);
+      by[r].push(it);
     }
     const order =
       filter === "ALL" ? REGION_ORDER : REGION_ORDER.filter((r) => r === filter);
@@ -158,7 +144,7 @@ export function NewsBoardPanel({ onAsk, autoRefresh = true }: NewsBoardPanelProp
       region,
       items: by[region],
     }));
-  }, [payload, filter]);
+  }, [items, filter]);
 
   const verdict = payload?.verdict || "—";
   const verdictTone =
@@ -170,12 +156,26 @@ export function NewsBoardPanel({ onAsk, autoRefresh = true }: NewsBoardPanelProp
           ? "text-red-400"
           : "text-gray-400";
 
+  const handleExplain = (it: BoardItem) => {
+    setReadKeys((prev) => markRead(it, prev));
+    onAsk?.(buildExplainPrompt(it));
+  };
+
+  const handleOpen = (it: BoardItem) => {
+    setReadKeys((prev) => markRead(it, prev));
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-[11px] text-gray-400">
         <span className={verdictTone}>Feed {verdict}</span>
         <span>· scanned {payload?.pool_scanned ?? "—"}</span>
-        <span>· shown {payload?.items?.length ?? 0}</span>
+        <span>· shown {items.length}</span>
+        {unreadHigh > 0 ? (
+          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-semibold text-amber-300">
+            未読重要 {unreadHigh}
+          </span>
+        ) : null}
         {updatedAt && <span className="text-cyan-500/80">· {updatedAt}</span>}
         <button
           type="button"
@@ -187,7 +187,6 @@ export function NewsBoardPanel({ onAsk, autoRefresh = true }: NewsBoardPanelProp
         </button>
       </div>
 
-      {/* 地域ヒート（件数バー） */}
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
@@ -246,7 +245,7 @@ export function NewsBoardPanel({ onAsk, autoRefresh = true }: NewsBoardPanelProp
             : "grid-cols-1"
         }`}
       >
-        {lanes.map(({ region, items }) => (
+        {lanes.map(({ region, items: laneItems }) => (
           <section
             key={region}
             className="flex min-h-[180px] flex-col rounded-lg border border-white/10 bg-black/25"
@@ -255,19 +254,24 @@ export function NewsBoardPanel({ onAsk, autoRefresh = true }: NewsBoardPanelProp
               <h3 className="text-xs font-bold tracking-wide text-cyan-100">
                 {REGION_LABEL[region]}
               </h3>
-              <span className="text-[10px] text-gray-500">{items.length}</span>
+              <span className="text-[10px] text-gray-500">{laneItems.length}</span>
             </header>
             <ul className="flex-1 space-y-1 overflow-y-auto p-2" style={{ maxHeight: 420 }}>
-              {items.length === 0 && (
+              {laneItems.length === 0 && (
                 <li className="px-2 py-4 text-[11px] text-gray-600">この地域の記事はまだありません</li>
               )}
-              {items.map((it, idx) => {
-                const key = it.url || `${region}-${idx}`;
+              {laneItems.map((it, idx) => {
+                const key = itemKey(it) || `${region}-${idx}`;
                 const imp = it.importance ?? 0;
+                const unread = imp >= HIGH_IMPORTANCE && !readKeys.has(itemKey(it));
                 return (
                   <li
                     key={key}
-                    className="rounded-md border border-transparent px-2 py-1.5 hover:border-white/10 hover:bg-white/[0.03]"
+                    className={`rounded-md border px-2 py-1.5 hover:border-white/10 hover:bg-white/[0.03] ${
+                      unread
+                        ? "border-amber-500/25 bg-amber-500/[0.04]"
+                        : "border-transparent"
+                    }`}
                   >
                     <div className="flex items-start gap-2">
                       <span
@@ -277,20 +281,29 @@ export function NewsBoardPanel({ onAsk, autoRefresh = true }: NewsBoardPanelProp
                         {imp}
                       </span>
                       <div className="min-w-0 flex-1">
-                        {it.url ? (
-                          <a
-                            href={it.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block text-[12px] font-medium leading-snug text-gray-100 hover:text-cyan-200"
-                          >
-                            {it.title || "(no title)"}
-                          </a>
-                        ) : (
-                          <span className="block text-[12px] font-medium text-gray-100">
-                            {it.title || "(no title)"}
-                          </span>
-                        )}
+                        <div className="flex items-start gap-1.5">
+                          {unread ? (
+                            <span
+                              className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400"
+                              title="未読・重要"
+                            />
+                          ) : null}
+                          {it.url ? (
+                            <a
+                              href={it.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() => handleOpen(it)}
+                              className="block text-[12px] font-medium leading-snug text-gray-100 hover:text-cyan-200"
+                            >
+                              {it.title || "(no title)"}
+                            </a>
+                          ) : (
+                            <span className="block text-[12px] font-medium text-gray-100">
+                              {it.title || "(no title)"}
+                            </span>
+                          )}
+                        </div>
                         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-gray-500">
                           <span>{it.source || "—"}</span>
                           <span>{shortTime(it.published || it.fetched_at)}</span>
@@ -312,7 +325,7 @@ export function NewsBoardPanel({ onAsk, autoRefresh = true }: NewsBoardPanelProp
                           {onAsk ? (
                             <button
                               type="button"
-                              onClick={() => onAsk(buildExplainPrompt(it))}
+                              onClick={() => handleExplain(it)}
                               className="rounded border border-cyan-500/25 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-medium text-cyan-200 hover:bg-cyan-500/20"
                             >
                               解説して

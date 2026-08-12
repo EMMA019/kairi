@@ -50,6 +50,11 @@ temp.db
 backend/news.db
 
 
+# Third-party OSS clones kept locally for reference only.
+# worldmonitor is AGPL-3.0 — vendoring it here would relicense this repo.
+worldmonitor/
+MITOSS/
+
 # Local scratch & output directories (separate projects / generated)
 Github/
 personal/

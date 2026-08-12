@@ -14,7 +14,7 @@ _main_logger = logging.getLogger("app.main")
 
 from app.core.database import init_db
 from app.core.news.database import init_db as init_news_db
-from app.core.news.scheduler import setup_scheduler, shutdown_scheduler
+from app.core.news.scheduler import start_news_scheduler, stop_news_scheduler
 from app.core.cache_manager import init_cache_db
 from app.core.monitor.scheduler import start_radar_scheduler, stop_radar_scheduler
 from app.core.briefing.scheduler import start_briefing_scheduler, stop_briefing_scheduler
@@ -60,13 +60,13 @@ async def lifespan(app: FastAPI):
             )
     except Exception as e:
         _main_logger.debug(f"auth token check skipped: {e}")
-    setup_scheduler()  # スタブ（定期RSSは廃止）
     if _schedulers_enabled():
+        start_news_scheduler()  # 10分間隔でRSS→プール（ボード用）
         start_radar_scheduler()  # 24時間無人市場監視レーダー自動巡回開始
         start_briefing_scheduler()  # 寄り前/大引け後ブリーフィング
     else:
         _main_logger.info(
-            "Schedulers off (set KAIRI_ENABLE_SCHEDULERS=1 to enable radar/briefing)"
+            "Schedulers off (set KAIRI_ENABLE_SCHEDULERS=1 to enable news/radar/briefing)"
         )
     # autostart: true のMCPサーバーをバックグラウンドで先行起動（initializeまで）
     from app.core.mcp import mcp_manager
@@ -76,7 +76,7 @@ async def lifespan(app: FastAPI):
     if _schedulers_enabled():
         stop_briefing_scheduler()
         stop_radar_scheduler()
-    shutdown_scheduler()
+        stop_news_scheduler()
     mcp_manager.stop_all()  # MCPサーバー（StudioMCP.exe等）をツリーごと停止
     from app.core.search.providers.http_client import close_http_client
     await close_http_client()

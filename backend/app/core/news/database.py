@@ -56,6 +56,7 @@ async def init_db():
             ("companion_summary", "TEXT"),
             ("companion_source", "TEXT"),
             ("fetched_at", "DATETIME"),
+            ("region", "TEXT"),
         ]:
             if col not in cols:
                 await db.execute(f"ALTER TABLE news ADD COLUMN {col} {decl}")
@@ -65,6 +66,7 @@ async def init_db():
         await db.execute("CREATE INDEX IF NOT EXISTS idx_news_title ON news(title)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_news_published ON news(published)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_news_fetched_at ON news(fetched_at)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_news_region ON news(region)")
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS feed_health (
@@ -124,6 +126,8 @@ async def is_duplicate(db: aiosqlite.Connection, item: dict) -> bool:
 
 async def save_news(items: list[dict]) -> int:
     """ニュースのリストをDBに保存。重複はスキップ。"""
+    from app.core.news.region import infer_region
+
     inserted = 0
     now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
     async with aiosqlite.connect(DB_PATH) as db:
@@ -134,14 +138,16 @@ async def save_news(items: list[dict]) -> int:
             stock_codes = json.dumps(item.get("stock_codes", []), ensure_ascii=False)
             tags = json.dumps(item.get("tags", []), ensure_ascii=False)
             guid = item.get("guid") or item.get("url") or ""
+            region = item.get("region") or infer_region(item)
 
             await db.execute(
                 """
                 INSERT INTO news (
                     guid, title, url, published, source, summary,
                     category, importance, sentiment, stock_codes, tags, body_text,
-                    companion_url, companion_summary, companion_source, fetched_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    companion_url, companion_summary, companion_source, fetched_at,
+                    region
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     guid,
@@ -160,6 +166,7 @@ async def save_news(items: list[dict]) -> int:
                     item.get("companion_summary"),
                     item.get("companion_source"),
                     item.get("fetched_at") or now,
+                    region,
                 ),
             )
             inserted += 1
@@ -399,6 +406,86 @@ def rank_news_items_for_chat(items: list[dict], limit: int = 15) -> list[dict]:
         scored.append(s)
     demoted = demote_syndicated(scored)
     return demoted[:limit]
+
+
+def rank_news_items_for_board(items: list[dict], limit: int = 60) -> list[dict]:
+    """ボード向け: chat と同じ採点だが件数を多めに返す。"""
+    return rank_news_items_for_chat(items, limit=limit)
+
+
+def _board_item_payload(item: dict) -> dict:
+    """REST 向けに公開するフィールドだけを返す。"""
+    return {
+        "id": item.get("id"),
+        "title": item.get("title"),
+        "url": item.get("url"),
+        "source": item.get("source"),
+        "summary": item.get("summary"),
+        "published": item.get("published"),
+        "fetched_at": item.get("fetched_at"),
+        "region": item.get("region") or "GLOBAL",
+        "importance": item.get("importance"),
+        "sentiment": item.get("sentiment"),
+        "category": item.get("category"),
+        "stock_codes": item.get("stock_codes") or [],
+        "tags": item.get("tags") or [],
+        "companion_url": item.get("companion_url"),
+        "companion_source": item.get("companion_source"),
+        "matched_targets": item.get("matched_targets") or [],
+        "detected_catalysts": item.get("detected_catalysts") or [],
+        "is_high_trust_source": bool(item.get("is_high_trust_source")),
+    }
+
+
+async def get_news_board(
+    *,
+    hours: float = 18,
+    limit: int = 60,
+    region: Optional[str] = None,
+) -> dict[str, Any]:
+    """
+    News Desk 向けボードデータ。
+    プールから直近記事を取り、region を補完してスコア順に返す。
+    """
+    from app.core.news.region import (
+        REGIONS,
+        annotate_items_with_region,
+        normalize_region,
+    )
+
+    pool_limit = max(int(limit) * 4, 200)
+    raw = await get_pool_news(hours=hours, limit=pool_limit)
+    annotated = annotate_items_with_region(raw)
+
+    region_counts: dict[str, int] = {r: 0 for r in REGIONS}
+    for it in annotated:
+        r = it.get("region") or "GLOBAL"
+        if r not in region_counts:
+            region_counts[r] = 0
+        region_counts[r] += 1
+
+    filtered = annotated
+    region_norm = normalize_region(region) if region else None
+    if region_norm:
+        filtered = [it for it in annotated if it.get("region") == region_norm]
+
+    ranked = rank_news_items_for_board(filtered, limit=limit)
+    # ensure region survives scoring copy
+    for it in ranked:
+        if not it.get("region"):
+            it["region"] = next(
+                (a.get("region") for a in annotated if a.get("url") == it.get("url")),
+                "GLOBAL",
+            )
+
+    return {
+        "hours": hours,
+        "limit": limit,
+        "region": region_norm,
+        "pool_scanned": len(raw),
+        "region_counts": region_counts,
+        "items": [_board_item_payload(it) for it in ranked],
+    }
 
 
 async def search_news(query: str = None, limit: int = 15) -> list[dict]:

@@ -1,4 +1,6 @@
-"""News health / briefing API"""
+"""News health / board / briefing API"""
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException, Query
 from app.utils.logger import get_logger
 
@@ -38,6 +40,42 @@ async def news_health():
         "verdict": fleet["verdict"],
         # 後方互換: 真偽値は UNHEALTHY 以外を True（監視のフラッピング抑制）
         "ok": fleet["ok"],
+    }
+
+
+@router.get("/news/board")
+async def news_board(
+    hours: float = Query(18, ge=1, le=72),
+    limit: int = Query(60, ge=1, le=200),
+    region: Optional[str] = Query(
+        None,
+        description="US | JP | EU | CN_ASIA | GLOBAL。省略時は全地域。",
+    ),
+):
+    """News Desk 向け: 地域タグ付きのランキング済み記事ボード。"""
+    from app.core.news.database import init_db, get_news_board, get_feed_health, count_pool
+    from app.core.news.health_status import grade_fleet
+    from app.core.news.region import REGIONS, normalize_region
+
+    if region is not None and normalize_region(region) is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"invalid region; expected one of {list(REGIONS)}",
+        )
+
+    await init_db()
+    board = await get_news_board(hours=hours, limit=limit, region=region)
+    feeds = await get_feed_health()
+    fleet = grade_fleet(
+        feeds,
+        pool_total=await count_pool(),
+        pool_last_18h=board["pool_scanned"],
+    )
+    return {
+        **board,
+        "verdict": fleet["verdict"],
+        "ok": fleet["ok"],
+        "regions": list(REGIONS),
     }
 
 

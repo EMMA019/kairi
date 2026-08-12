@@ -21,49 +21,53 @@ logger = get_logger(__name__)
 
 FEED_TIMEOUT_SECONDS = 10.0
 
-# 1次情報＆世界・国内株式市場最速速報RSS
+# 1次情報＆世界・国内株式市場最速速報RSS（region はボード表示用の決定的タグ）
 ON_DEMAND_FEEDS = [
     # --- 企業公式開示 ---
-    {"name": "SEC EDGAR 8-K", "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&count=40&output=atom"},
-    {"name": "PR Newswire", "url": "https://www.prnewswire.com/rss/news-releases-list.rss"},
-    {"name": "BusinessWire", "url": "https://feed.businesswire.com/rss/home/?rss=G1QFDERJXkJeEFdX"},
-    {"name": "GlobeNewswire", "url": "https://www.globenewswire.com/NewsRoom/Rss"},
+    {"name": "SEC EDGAR 8-K", "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&count=40&output=atom", "region": "US"},
+    {"name": "PR Newswire", "url": "https://www.prnewswire.com/rss/news-releases-list.rss", "region": "US"},
+    {"name": "BusinessWire", "url": "https://feed.businesswire.com/rss/home/?rss=G1QFDERJXkJeEFdX", "region": "US"},
+    {"name": "GlobeNewswire", "url": "https://www.globenewswire.com/NewsRoom/Rss", "region": "US"},
     # --- 米国ウォール街 ---
-    {"name": "Seeking Alpha Market Currents", "url": "https://seekingalpha.com/market_currents.xml"},
-    {"name": "WSJ Markets", "url": "https://feeds.a.dj.com/rss/RSSMarketsMain.xml"},
-    {"name": "CNBC Market News", "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664"},
-    {"name": "CNBC Investing / Stocks", "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839069"},
-    {"name": "MarketWatch Top Stories", "url": "http://feeds.marketwatch.com/marketwatch/topstories/"},
-    {"name": "MarketWatch Market Pulse", "url": "http://feeds.marketwatch.com/marketwatch/marketpulse/"},
-    {"name": "Yahoo Finance Top News", "url": "https://finance.yahoo.com/news/rssindex"},
-    {"name": "Investing.com Stock Market News", "url": "https://www.investing.com/rss/news_25.rss"},
+    {"name": "Seeking Alpha Market Currents", "url": "https://seekingalpha.com/market_currents.xml", "region": "US"},
+    {"name": "WSJ Markets", "url": "https://feeds.a.dj.com/rss/RSSMarketsMain.xml", "region": "US"},
+    {"name": "CNBC Market News", "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664", "region": "US"},
+    {"name": "CNBC Investing / Stocks", "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839069", "region": "US"},
+    {"name": "MarketWatch Top Stories", "url": "http://feeds.marketwatch.com/marketwatch/topstories/", "region": "US"},
+    {"name": "MarketWatch Market Pulse", "url": "http://feeds.marketwatch.com/marketwatch/marketpulse/", "region": "US"},
+    {"name": "Yahoo Finance Top News", "url": "https://finance.yahoo.com/news/rssindex", "region": "US"},
+    {"name": "Investing.com Stock Market News", "url": "https://www.investing.com/rss/news_25.rss", "region": "US"},
     # --- アジア ---
-    {"name": "Yahoo Japan 経済・市況", "url": "https://news.yahoo.co.jp/rss/topics/business.xml"},
-    {"name": "Yahoo Japan IT/テック", "url": "https://news.yahoo.co.jp/rss/topics/it.xml"},
-    {"name": "Yonhap News Economy", "url": "https://www.yna.co.kr/rss/economy.xml"},
-    {"name": "Nikkei Asia", "url": "https://asia.nikkei.com/rss/feed/nar"},
-    {"name": "SCMP Business", "url": "https://www.scmp.com/rss/92/feed"},
+    {"name": "Yahoo Japan 経済・市況", "url": "https://news.yahoo.co.jp/rss/topics/business.xml", "region": "JP"},
+    {"name": "Yahoo Japan IT/テック", "url": "https://news.yahoo.co.jp/rss/topics/it.xml", "region": "JP"},
+    {"name": "Yonhap News Economy", "url": "https://www.yna.co.kr/rss/economy.xml", "region": "CN_ASIA"},
+    {"name": "Nikkei Asia", "url": "https://asia.nikkei.com/rss/feed/nar", "region": "JP"},
+    {"name": "SCMP Business", "url": "https://www.scmp.com/rss/92/feed", "region": "CN_ASIA"},
     # --- 通信社・テック ---
-    {"name": "AP News", "url": "https://rsshub.app/apnews/topics/apf-topnews"},
-    {"name": "Reuters", "url": "https://www.reutersagency.com/feed/"},
-    {"name": "TechCrunch", "url": "https://techcrunch.com/feed/"},
+    {"name": "AP News", "url": "https://rsshub.app/apnews/topics/apf-topnews", "region": "GLOBAL"},
+    {"name": "Reuters", "url": "https://www.reutersagency.com/feed/", "region": "GLOBAL"},
+    {"name": "TechCrunch", "url": "https://techcrunch.com/feed/", "region": "US"},
     # Hacker News は市況レーダー/プールのノイズ源のため除外
     # --- Google News RSS（横断保険・IPO/中国/半導体/日本株） ---
     {
         "name": "Google News: semiconductor",
         "url": f"https://news.google.com/rss/search?q={quote_plus('semiconductor OR chip stocks')}&hl=en-US&gl=US&ceid=US:en",
+        "region": "US",
     },
     {
         "name": "Google News: IPO listing",
         "url": f"https://news.google.com/rss/search?q={quote_plus('IPO listing')}&hl=en-US&gl=US&ceid=US:en",
+        "region": "US",
     },
     {
         "name": "Google News: China / Hong Kong",
         "url": f"https://news.google.com/rss/search?q={quote_plus('China stocks OR Hong Kong OR CXMT')}&hl=en-US&gl=US&ceid=US:en",
+        "region": "CN_ASIA",
     },
     {
         "name": "Google News: 日本株",
         "url": f"https://news.google.com/rss/search?q={quote_plus('日本株 OR 日経平均')}&hl=ja&gl=JP&ceid=JP:ja",
+        "region": "JP",
     },
 ]
 
@@ -149,8 +153,11 @@ async def _fetch_one_feed(feed: dict) -> tuple[str, str, list[dict], Optional[st
     1フィードを取得。
     Returns: (name, url, items, error_message)
     """
+    from app.core.news.region import infer_region_from_feed
+
     name = feed["name"]
     url = feed["url"]
+    region = infer_region_from_feed(feed)
     try:
         from app.core.search.providers.http_client import get_http_client
 
@@ -162,6 +169,8 @@ async def _fetch_one_feed(feed: dict) -> tuple[str, str, list[dict], Optional[st
         )
         resp.raise_for_status()
         items = await asyncio.to_thread(_parse_items_from_bytes, resp.content, name)
+        for it in items:
+            it["region"] = region
         return name, url, items, None
     except Exception as e:
         return name, url, [], str(e)

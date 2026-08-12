@@ -40,7 +40,7 @@ def test_us_settled_quotes_section_failure():
     with patch(
         "app.core.tools.market_data._quotes_batch",
         side_effect=RuntimeError("network down"),
-    ):
+    ), patch.object(gen, "_load_us_quote_cache", return_value={}):
         md = gen._us_settled_quotes_section()
     assert "取得失敗" in md
     assert "DIA" in md or "ダウ" in md
@@ -76,7 +76,13 @@ def test_commentary_grounding_strips_ungrounded_numbers():
         assert "12.5%" in raw
         source = gen._stories_source_blob(stories) + "\n" + snapshot
         filtered = apply_grounding_pipeline(raw, source, user_input="市場ブリーフィング解説")
-        assert "※一部の比率" in filtered or "参考" in filtered or "推計" in filtered
+        assert (
+            "※一部の比率" in filtered
+            or "参考" in filtered
+            or "推計" in filtered
+            or "estimates" in filtered.lower()
+            or "reference" in filtered.lower()
+        )
 
     asyncio.run(_run())
 

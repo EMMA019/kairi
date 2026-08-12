@@ -481,13 +481,8 @@ async def generate_briefing(
 
     commentary_raw = await _generate_commentary(stories, snapshot_for_llm)
     source_blob = _stories_source_blob(stories) + "\n" + snapshot_for_llm
-    commentary = ""
-    if commentary_raw:
-        commentary = apply_grounding_pipeline(
-            commentary_raw,
-            source_blob,
-            user_input="市場ブリーフィング解説",
-        ).strip()
+    # commentary は最終 markdown に埋め込むので、grounding は1回だけ（二重実行回避）
+    commentary = (commentary_raw or "").strip()
 
     raw_md = render_briefing_markdown(
         kind,

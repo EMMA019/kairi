@@ -18,6 +18,9 @@ CONSOLIDATION_NOTES = {
     "verify_numbers_exist_in_source": "partial→citation absolute-number disclaimer",
     "strip_excuse_hallucinations": "kept (orthogonal to citations)",
     "trim_incomplete_trailing_sentence": "kept (truncation, not grounding)",
+    # 2026-08: supervisor.filter_fact から pipeline 重複ステップを外し、
+    # 最終本文 grounding は finalize の本関数のみに一本化。
+    "supervisor_filter_fact": "light hygiene only; full pass = apply_grounding_pipeline",
 }
 
 

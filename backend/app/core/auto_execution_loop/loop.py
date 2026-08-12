@@ -816,6 +816,16 @@ async def auto_execute_with_retry(
                         "acceptance": gate.get("acceptance"),
                         "build_ok": (gate.get("build") or {}).get("success"),
                     })
+            elif gate.get("verdict") == "unverified":
+                from app.core.acceptance_checker import format_unverified_banner
+
+                final_accumulated_response += format_unverified_banner()
+                if yield_sse_func:
+                    yield_sse_func({
+                        "type": "status",
+                        "status": "unverified",
+                        "detail": "completion_gate_no_checks",
+                    })
         except Exception as e:
             logger.warning(f"final completion gate: {e}")
     

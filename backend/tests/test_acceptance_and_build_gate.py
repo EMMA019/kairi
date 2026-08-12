@@ -178,6 +178,69 @@ def test_japanese_acceptance_maps_to_code_evidence_not_prose_grep(tmp_path: Path
     assert report.passed, report.to_dict()
 
 
+def test_empty_checklist_is_unverified_not_pass(tmp_path: Path):
+    """Vacuous guard: nothing checked must not be graded as a pass."""
+    from app.core.build_gate import run_completion_gate
+
+    root = tmp_path / "plain_python"
+    root.mkdir()
+    (root / "main.py").write_text("print('hello')\n", encoding="utf-8")
+
+    gate = run_completion_gate(root)
+    assert gate["verdict"] == "unverified"
+    assert gate["checked"] is False
+    # not a failure either — nothing to reinject and retry
+    assert gate["ok"] is True
+
+
+def test_build_run_makes_gate_a_real_pass(tmp_path: Path, monkeypatch):
+    from app.core import build_gate
+
+    root = tmp_path / "js_app"
+    root.mkdir()
+    (root / "package.json").write_text('{"name":"x"}', encoding="utf-8")
+    monkeypatch.setattr(
+        build_gate,
+        "run_workspace_build",
+        lambda ws, **kw: {"success": True, "exit_code": 0, "output": "", "command": "npm run build"},
+    )
+
+    gate = build_gate.run_completion_gate(root)
+    assert gate["verdict"] == "pass"
+    assert gate["checked"] is True
+
+
+def test_failing_build_is_fail(tmp_path: Path, monkeypatch):
+    from app.core import build_gate
+
+    root = tmp_path / "js_broken"
+    root.mkdir()
+    (root / "package.json").write_text('{"name":"x"}', encoding="utf-8")
+    monkeypatch.setattr(
+        build_gate,
+        "run_workspace_build",
+        lambda ws, **kw: {"success": False, "exit_code": 1, "output": "boom", "command": "npm run build"},
+    )
+
+    gate = build_gate.run_completion_gate(root)
+    assert gate["verdict"] == "fail"
+    assert gate["ok"] is False
+
+
+def test_unverified_banner_does_not_claim_incomplete():
+    from app.core.acceptance_checker import format_unverified_banner
+
+    banner = format_unverified_banner()
+    assert "未検証" in banner
+    assert "ACCEPTANCE.md" in banner
+    # must not be mistaken for the incomplete gate, which blocks done.ok
+    assert not response_marks_incomplete(banner)
+    body = "変更点:\n\n```python\nprint('x')\n```\n"
+    assert response_ok(body) is True
+    assert response_ok(body + banner) is True
+    assert build_done_payload(body + banner).get("incomplete") is None
+
+
 def test_lab_advice_not_injected_for_non_lab():
     from app.core.acceptance_checker import AcceptanceReport, AcceptanceResult
 

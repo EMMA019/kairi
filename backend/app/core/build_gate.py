@@ -113,13 +113,29 @@ def run_workspace_build(
     }
 
 
+GATE_PASS = "pass"
+GATE_FAIL = "fail"
+GATE_UNVERIFIED = "unverified"
+
+
 def run_completion_gate(
     workspace: str | Path,
     *,
     spec_internal: Optional[str] = None,
     skip_build_if_no_package: bool = True,
 ) -> dict[str, Any]:
-    """Run acceptance + build. ok only if both pass (or acceptance empty & build skipped/ok)."""
+    """
+    Run acceptance + build and grade the result.
+
+    verdict is one of:
+      pass       — at least one check actually ran and everything passed
+      fail       — a check ran and failed
+      unverified — nothing was checked (no acceptance items, build skipped)
+
+    An empty checklist is not evidence of success, so it must not be graded
+    as a pass. `ok` stays "not failing" so callers that only retry on failure
+    keep their existing behaviour.
+    """
     from app.core.acceptance_checker import run_acceptance_checks
 
     ws = Path(workspace)
@@ -135,12 +151,21 @@ def run_completion_gate(
             "skipped": True,
         }
 
-    # No acceptance items → don't block on empty checklist (non-lab projects)
-    accept_ok = acceptance.passed if acceptance.results else True
+    has_acceptance = bool(acceptance.results)
+    build_ran = not build.get("skipped")
     build_ok = bool(build.get("success"))
-    ok = accept_ok and build_ok
+
+    if not build_ok or (has_acceptance and not acceptance.passed):
+        verdict = GATE_FAIL
+    elif has_acceptance or build_ran:
+        verdict = GATE_PASS
+    else:
+        verdict = GATE_UNVERIFIED
+
     return {
-        "ok": ok,
+        "ok": verdict != GATE_FAIL,
+        "verdict": verdict,
+        "checked": has_acceptance or build_ran,
         "acceptance": acceptance.to_dict(),
         "acceptance_report": acceptance,
         "build": build,

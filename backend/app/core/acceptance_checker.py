@@ -19,6 +19,7 @@ logger = get_logger(__name__)
 
 INCOMPLETE_MARKER = "⚠️ 完了ゲート未達"
 LOOP_CAP_MARKER = "最大実行ループ数"
+UNVERIFIED_MARKER = "ℹ️ 完了ゲート未検証"
 
 
 @dataclass
@@ -589,3 +590,20 @@ def format_incomplete_banner(
         "。作業は未完了です。「続きを作成して」で未達項目から再開してください。)*"
     )
     return "".join(parts)
+
+
+def format_unverified_banner() -> str:
+    """
+    Nothing could be checked (no acceptance criteria, no runnable build).
+
+    This is not a failure claim — it states that completion was never
+    verified, so the agent cannot present the result as confirmed working.
+    """
+    # 末尾は終端記号で閉じる。looks_incomplete_output が「途中切れ」と誤判定し、
+    # done.ok を落としてしまうため。
+    return (
+        f"\n\n（{UNVERIFIED_MARKER}: 受け入れ基準（ACCEPTANCE.md）が無く、"
+        "ビルド検証も実行できなかったため、動作は確認できていません。"
+        "検証したい場合は ACCEPTANCE.md にチェック項目を書いてから"
+        "「検証して」と指示してください。）"
+    )

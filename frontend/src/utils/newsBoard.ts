@@ -17,6 +17,7 @@ export const REGION_LABEL: Record<NewsRegion, string> = {
 export interface NewsBoardItem {
   id?: number | null;
   title?: string | null;
+  title_ja?: string | null;
   url?: string | null;
   source?: string | null;
   summary?: string | null;
@@ -27,9 +28,37 @@ export interface NewsBoardItem {
 }
 
 const READ_KEY = "kairi_news_read_v1";
+const JA_TITLES_KEY = "kairi_news_show_ja_titles";
+
+export function loadShowJaTitles(defaultValue = true): boolean {
+  try {
+    const raw = localStorage.getItem(JA_TITLES_KEY);
+    if (raw == null) return defaultValue;
+    return raw === "1" || raw === "true";
+  } catch {
+    return defaultValue;
+  }
+}
+
+export function saveShowJaTitles(on: boolean): void {
+  try {
+    localStorage.setItem(JA_TITLES_KEY, on ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 表示用見出し（日本語訳があれば優先） */
+export function displayTitle(item: NewsBoardItem, preferJa: boolean): string {
+  const ja = (item.title_ja || "").trim();
+  const en = (item.title || "").trim();
+  if (preferJa && ja) return ja;
+  return en || ja || "(no title)";
+}
 
 export function buildExplainPrompt(item: NewsBoardItem): string {
   const title = (item.title || "").trim();
+  const titleJa = (item.title_ja || "").trim();
   const url = (item.url || "").trim();
   const source = (item.source || "").trim();
   const summary = (item.summary || "").trim().slice(0, 400);
@@ -39,6 +68,7 @@ export function buildExplainPrompt(item: NewsBoardItem): string {
     "",
     `見出し: ${title}`,
   ];
+  if (titleJa && titleJa !== title) lines.push(`見出し（日本語）: ${titleJa}`);
   if (source) lines.push(`ソース: ${source}`);
   if (url) lines.push(`URL: ${url}`);
   if (summary) lines.push(`要約スニペット: ${summary}`);

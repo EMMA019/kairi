@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   buildExplainPrompt,
   countUnreadHighImportance,
+  displayTitle,
   itemKey,
   loadReadKeys,
   markRead,
@@ -25,6 +26,15 @@ describe("newsBoard helpers", () => {
     expect(prompt).toContain("NVDA jumps on earnings");
     expect(prompt).toContain("https://example.com/nvda");
     expect(prompt).toContain("CNBC");
+  });
+
+  it("displayTitle prefers Japanese when enabled", () => {
+    const item = {
+      title: "BOJ rate hike expectations grow",
+      title_ja: "日銀の利上げ観測が高まる",
+    };
+    expect(displayTitle(item, true)).toBe("日銀の利上げ観測が高まる");
+    expect(displayTitle(item, false)).toBe("BOJ rate hike expectations grow");
   });
 
   it("normalizeRegion maps known codes", () => {

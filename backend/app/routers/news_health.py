@@ -55,6 +55,10 @@ async def news_board(
         False,
         description="true のとき RSS を取り直してから返す（スケジューラOFFでも可）",
     ),
+    translate_ja: bool = Query(
+        True,
+        description="英語見出しを無料APIで日本語訳して title_ja を返す（DBキャッシュ）",
+    ),
 ):
     """News Desk 向け: 地域タグ付きのランキング済み記事ボード。"""
     from app.core.news.database import init_db, get_news_board, get_feed_health, count_pool
@@ -69,7 +73,9 @@ async def news_board(
         )
 
     await init_db()
-    board = await get_news_board(hours=hours, limit=limit, region=region)
+    board = await get_news_board(
+        hours=hours, limit=limit, region=region, translate_ja=translate_ja
+    )
     ingest_info = None
     # 直近プールが空、または明示 refresh → オンデマンド取得
     if refresh or board["pool_scanned"] == 0:
@@ -79,7 +85,9 @@ async def news_board(
                 min_recent=5,
                 force=refresh,
             )
-            board = await get_news_board(hours=hours, limit=limit, region=region)
+            board = await get_news_board(
+                hours=hours, limit=limit, region=region, translate_ja=translate_ja
+            )
         except Exception as e:
             logger.warning(f"news board auto-ingest failed: {e}")
             ingest_info = {"skipped": False, "reason": "error", "error": str(e)}

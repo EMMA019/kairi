@@ -4,15 +4,19 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "../utils/api";
+import { useLocale } from "../i18n";
 import {
   REGION_LABEL,
   REGION_ORDER,
   buildExplainPrompt,
   countUnreadHighImportance,
+  displayTitle,
   itemKey,
   loadReadKeys,
+  loadShowJaTitles,
   markRead,
   normalizeRegion,
+  saveShowJaTitles,
   type NewsBoardItem,
   type NewsRegion,
 } from "../utils/newsBoard";
@@ -81,6 +85,7 @@ export function NewsBoardPanel({
   autoRefresh = true,
   onUnreadHighChange,
 }: NewsBoardPanelProps) {
+  const { locale } = useLocale();
   const [payload, setPayload] = useState<BoardPayload | null>(null);
   const [filter, setFilter] = useState<NewsRegion | "ALL">("ALL");
   const [loading, setLoading] = useState(false);
@@ -88,7 +93,15 @@ export function NewsBoardPanel({
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [readKeys, setReadKeys] = useState<Set<string>>(() => loadReadKeys());
+  const [showJa, setShowJa] = useState(() => loadShowJaTitles(locale === "ja"));
   const busyRef = useRef(false);
+
+  useEffect(() => {
+    // ロケールが日本語に切り替わったら既定で訳をON（ユーザーが明示OFFしていなければ）
+    if (locale === "ja" && localStorage.getItem("kairi_news_show_ja_titles") == null) {
+      setShowJa(true);
+    }
+  }, [locale]);
 
   const load = useCallback(async (opts?: { refresh?: boolean }) => {
     if (busyRef.current) return;
@@ -96,7 +109,11 @@ export function NewsBoardPanel({
     setLoading(true);
     setError(null);
     try {
-      const qs = new URLSearchParams({ hours: "18", limit: "80" });
+      const qs = new URLSearchParams({
+        hours: "18",
+        limit: "80",
+        translate_ja: showJa ? "true" : "false",
+      });
       if (filter !== "ALL") qs.set("region", filter);
       if (opts?.refresh) qs.set("refresh", "true");
       const res = await apiFetch(`/api/news/board?${qs.toString()}`);
@@ -110,7 +127,7 @@ export function NewsBoardPanel({
       busyRef.current = false;
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, showJa]);
 
   const ingestNow = useCallback(async () => {
     if (ingesting) return;
@@ -199,11 +216,23 @@ export function NewsBoardPanel({
           </span>
         ) : null}
         {updatedAt && <span className="text-cyan-500/80">· {updatedAt}</span>}
+        <label className="ml-auto flex items-center gap-1.5 text-[11px] text-gray-400">
+          <input
+            type="checkbox"
+            checked={showJa}
+            onChange={(e) => {
+              const on = e.target.checked;
+              setShowJa(on);
+              saveShowJaTitles(on);
+            }}
+          />
+          日本語見出し
+        </label>
         <button
           type="button"
           onClick={() => void ingestNow()}
           disabled={loading || ingesting}
-          className="ml-auto rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-medium text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-50"
+          className="rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 font-medium text-cyan-200 hover:bg-cyan-500/20 disabled:opacity-50"
         >
           {ingesting ? "取得中…" : "いま取得"}
         </button>
@@ -332,13 +361,25 @@ export function NewsBoardPanel({
                               target="_blank"
                               rel="noopener noreferrer"
                               onClick={() => handleOpen(it)}
+                              title={
+                                showJa && it.title_ja && it.title && it.title_ja !== it.title
+                                  ? String(it.title)
+                                  : undefined
+                              }
                               className="block text-[12px] font-medium leading-snug text-gray-100 hover:text-cyan-200"
                             >
-                              {it.title || "(no title)"}
+                              {displayTitle(it, showJa)}
                             </a>
                           ) : (
-                            <span className="block text-[12px] font-medium text-gray-100">
-                              {it.title || "(no title)"}
+                            <span
+                              className="block text-[12px] font-medium text-gray-100"
+                              title={
+                                showJa && it.title_ja && it.title && it.title_ja !== it.title
+                                  ? String(it.title)
+                                  : undefined
+                              }
+                            >
+                              {displayTitle(it, showJa)}
                             </span>
                           )}
                         </div>

@@ -57,6 +57,7 @@ async def init_db():
             ("companion_source", "TEXT"),
             ("fetched_at", "DATETIME"),
             ("region", "TEXT"),
+            ("title_ja", "TEXT"),
         ]:
             if col not in cols:
                 await db.execute(f"ALTER TABLE news ADD COLUMN {col} {decl}")
@@ -515,6 +516,18 @@ def rank_news_items_for_board(
     return demoted[:limit]
 
 
+async def update_news_title_ja(news_id: int, title_ja: str) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """
+            UPDATE news SET title_ja = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            """,
+            (title_ja, news_id),
+        )
+        await db.commit()
+
+
 async def backfill_missing_regions(limit: int = 500) -> int:
     """region が空の既存行を決定的ルールで埋める。"""
     from app.core.news.region import infer_region
@@ -559,6 +572,7 @@ def _board_item_payload(item: dict) -> dict:
     return {
         "id": item.get("id"),
         "title": item.get("title"),
+        "title_ja": item.get("title_ja"),
         "url": item.get("url"),
         "source": item.get("source"),
         "summary": item.get("summary"),
@@ -583,10 +597,12 @@ async def get_news_board(
     hours: float = 18,
     limit: int = 60,
     region: Optional[str] = None,
+    translate_ja: bool = True,
 ) -> dict[str, Any]:
     """
     News Desk 向けボードデータ。
     プールから直近記事を取り、region を補完してスコア順に返す。
+    translate_ja=True のとき英語見出しを無料APIで日訳し title_ja にキャッシュ。
     """
     from app.core.news.region import (
         REGIONS,
@@ -641,12 +657,33 @@ async def get_news_board(
                 "GLOBAL",
             )
 
+    translated = 0
+    if translate_ja and ranked:
+        try:
+            from app.core.news.translate import ensure_title_ja_for_items, needs_ja_translation
+
+            before = sum(
+                1
+                for it in ranked
+                if needs_ja_translation(it.get("title") or "", it.get("title_ja"))
+            )
+            await ensure_title_ja_for_items(ranked, max_translate=min(limit, 40))
+            after = sum(
+                1
+                for it in ranked
+                if needs_ja_translation(it.get("title") or "", it.get("title_ja"))
+            )
+            translated = max(0, before - after)
+        except Exception as e:
+            logger.warning(f"board title_ja translate skipped: {e}")
+
     return {
         "hours": hours,
         "limit": limit,
         "region": region_norm,
         "pool_scanned": len(raw),
         "region_counts": region_counts,
+        "translated": translated,
         "items": [_board_item_payload(it) for it in ranked],
     }
 

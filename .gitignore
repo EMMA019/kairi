@@ -3,6 +3,8 @@
 *.env
 *.env.*
 !.env.example
+# Public API base for Cloudflare Pages / production builds (not a secret)
+!.env.production
 
 # Python & Virtual Environments
 venv/

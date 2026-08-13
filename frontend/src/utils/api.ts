@@ -8,8 +8,25 @@
 export const API_TOKEN_STORAGE_KEY = "kairi_api_token";
 export const AUTH_REQUIRED_EVENT = "kairi:auth-required";
 
+const RENDER_API_FALLBACK = "https://kairi.onrender.com";
+
+function resolveApiBaseUrl(): string {
+  const fromEnv = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\s+/g, "");
+  if (fromEnv) return fromEnv;
+
+  // Cloudflare Pages builds sometimes ship without VITE_* baked in.
+  // Relative /api/* then hits pages.dev → HTTP 405 on POST.
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host === "kairi-chat.pages.dev" || host.endsWith(".pages.dev")) {
+      return RENDER_API_FALLBACK;
+    }
+  }
+  return "";
+}
+
 export const getApiUrl = (path: string): string => {
-  const rawBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\s+/g, "");
+  const rawBaseUrl = resolveApiBaseUrl();
   const cleanBaseUrl = rawBaseUrl.replace(/\/+$/, "");
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
   return `${cleanBaseUrl}${cleanPath}`;

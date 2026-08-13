@@ -11,6 +11,16 @@ The market desk (US/JP session-aware Q&A + news board) is the **reference app** 
 
 [日本語 README](README.ja.md) · [Grounding deep dive](docs/GROUNDING.md) · [Demo script](docs/DEMO.md) · [Security](SECURITY.md)
 
+<p align="center">
+  <img src="docs/img/grounding-chat.png" alt="KAIRI_DEMO grounding before/after in chat" width="820" />
+</p>
+
+<p align="center">
+  <img src="docs/img/news-board.png" alt="Region-balanced News Board" width="400" />
+  &nbsp;
+  <img src="docs/img/integrity-badge.png" alt="Integrity dashboard with filter hits" width="400" />
+</p>
+
 ---
 
 ## Why this exists

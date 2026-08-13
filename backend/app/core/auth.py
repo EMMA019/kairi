@@ -50,6 +50,15 @@ class APITokenMiddleware(BaseHTTPMiddleware):
         if not path.startswith("/api"):
             return await call_next(request)
 
+        # Key-free demo showcase: allow API without token (no LLM; fixture only).
+        try:
+            from app.core.demo_mode import demo_enabled
+
+            if demo_enabled():
+                return await call_next(request)
+        except Exception:
+            pass
+
         expected = _configured_token()
         if not expected:
             # 開発モード: トークン未設定なら許可（警告は起動時に一度）

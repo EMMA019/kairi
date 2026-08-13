@@ -62,4 +62,6 @@ async def demo_chat_sse(user_input: str) -> AsyncIterator[str]:
     step = max(40, len(body) // 4)
     for i in range(0, len(body), step):
         yield _event({"type": "chunk", "content": body[i : i + step]})
-    yield _event({"type": "done", "content": ""})
+    # Omit content on done so the frontend keeps streamed chunks
+    # (explicit "" would wipe the buffer — see useChat.ts finalContent).
+    yield _event({"type": "done"})

@@ -282,9 +282,23 @@ async def init_cache_db():
             await db.execute("ALTER TABLE search_cache ADD COLUMN last_access_at REAL")
         except Exception:
             pass
+
+        try:
+            await db.execute(
+                "ALTER TABLE search_cache ADD COLUMN hit_count INTEGER DEFAULT 1"
+            )
+        except Exception:
+            pass
             
         try:
             await db.execute("ALTER TABLE command_cache ADD COLUMN last_access_at REAL")
+        except Exception:
+            pass
+
+        try:
+            await db.execute(
+                "ALTER TABLE command_cache ADD COLUMN hit_count INTEGER DEFAULT 1"
+            )
         except Exception:
             pass
         
@@ -423,10 +437,19 @@ async def get_search_cache(
             row = await cursor.fetchone()
             
             if row and (time.time() - row[2]) < max_age_seconds:
-                await db.execute(
-                    "UPDATE search_cache SET hit_count = hit_count + 1, last_access_at = ? WHERE query_hash = ?",
-                    (time.time(), query_hash)
-                )
+                now = time.time()
+                # hit_count may be missing on older DBs; never discard a valid hit for that.
+                try:
+                    await db.execute(
+                        "UPDATE search_cache SET hit_count = COALESCE(hit_count, 1) + 1, "
+                        "last_access_at = ? WHERE query_hash = ?",
+                        (now, query_hash),
+                    )
+                except Exception:
+                    await db.execute(
+                        "UPDATE search_cache SET last_access_at = ? WHERE query_hash = ?",
+                        (now, query_hash),
+                    )
                 await db.commit()
                 logger.info(f"✅ 検索キャッシュヒット: {query[:30]}...")
                 return {
@@ -456,12 +479,13 @@ async def set_search_cache(
         async with aiosqlite.connect(str(CACHE_DB_PATH)) as db:
             await db.execute(
                 """INSERT OR REPLACE INTO search_cache
-                (query_hash, query, query_normalized, providers, results, sources, created_at, ttl_seconds)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (query_hash, query, query_normalized, providers, results, sources,
+                 created_at, last_access_at, ttl_seconds, hit_count)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
                 (
                     query_hash, query, _normalize_query(query), provider_str,
                     results, json.dumps(sources, ensure_ascii=False) if sources else None,
-                    time.time(), ttl_seconds,
+                    time.time(), time.time(), ttl_seconds,
                 )
             )
             await db.commit()

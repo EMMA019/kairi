@@ -1,0 +1,3 @@
+# Cloudflare Pages: proxy API to Render so relative /api/* works
+# (empty VITE_API_BASE_URL builds otherwise POST to pages.dev → HTTP 405)
+/api/*  https://kairi.onrender.com/api/:splat  200

@@ -340,6 +340,43 @@ def trim_incomplete_trailing_sentence(text: str) -> str:
     return trimmed
 
 
+def ensure_markdown_block_breaks(text: str) -> str:
+    """
+    文末直後に見出し・水平線・箇条書きが同一行で続く LLM 崩れを直す。
+    例: 「です。## 見出し」→「です。\\n\\n## 見出し」
+    """
+    if not text or not isinstance(text, str):
+        return text
+
+    original = text
+    # ATX 見出し
+    text = re.sub(
+        r"([。．！？!?\u300d\u300f」』）)])\s*(#{1,6}\s+\S)",
+        r"\1\n\n\2",
+        text,
+    )
+    # 水平線 ---
+    text = re.sub(
+        r"([。．！？!?\u300d\u300f」』）)])\s*(---(?=\s|$))",
+        r"\1\n\n\2",
+        text,
+    )
+    # 箇条書き（文末記号の直後のみ。価格レンジ 100-200 は触らない）
+    text = re.sub(
+        r"([。．！？!?])\s*([-*+]\s+\S)",
+        r"\1\n\n\2",
+        text,
+    )
+    text = re.sub(
+        r"([。．！？!?])\s*(\d+\.\s+\S)",
+        r"\1\n\n\2",
+        text,
+    )
+    if text != original:
+        logger.info("📐 Markdown ブロック前の改行を補完しました")
+    return text
+
+
 def strip_dangling_tool_promises(text: str) -> str:
     """
     ツール実行予告で終わる末尾文を除去する。

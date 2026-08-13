@@ -106,6 +106,8 @@ _default_origins = [
     "http://localhost",
     "https://localhost",
     "capacitor://localhost",
+    # Cloudflare Pages frontends (absolute VITE_API_BASE_URL → Render)
+    "https://kairi-chat.pages.dev",
 ]
 try:
     from app.routers.settings import app_settings as _cors_settings

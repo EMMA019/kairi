@@ -81,6 +81,7 @@ def apply_grounding_pipeline(
         strip_false_user_attribution,
         trim_incomplete_trailing_sentence,
         strip_dangling_tool_promises,
+        ensure_markdown_block_breaks,
     )
     from .citation import verify_citations, reset_citation_metrics, record_trim_metric
     from .filter_metrics import persist_filter_metrics
@@ -223,6 +224,11 @@ def apply_grounding_pipeline(
 
     # 中核: 引用契約
     text = _run_step("verify_citations", text, lambda: verify_citations(text, src))
+    text = _run_step(
+        "ensure_markdown_block_breaks",
+        text,
+        lambda: ensure_markdown_block_breaks(text),
+    )
     text = _run_step(
         "strip_dangling_tool_promises",
         text,

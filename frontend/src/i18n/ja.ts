@@ -45,6 +45,7 @@ export const ja: Record<MessageKey, string> = {
   "input.locationError": "現在地情報を取得できませんでした（GPSの許可をご確認ください）: {{message}}",
   "input.stop": "生成停止",
   "input.send": "送信",
+  "input.aiCaution": "AIは間違えることがあります。重要な数値・日程・価格は公式情報でご確認ください。",
 
   "status.thinking": "考え中...",
   "status.searching": "検索中...",

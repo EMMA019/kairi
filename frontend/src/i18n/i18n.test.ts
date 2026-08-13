@@ -17,6 +17,12 @@ describe("i18n", () => {
     expect(t("input.location")).toBe("現在地");
     expect(t("status.thinking")).toBe("考え中...");
     expect(t("status.pipelineHeader")).toContain("考え");
+    expect(t("input.aiCaution")).toContain("間違える");
+  });
+
+  it("exposes permanent AI caution copy", () => {
+    setLocaleLocal("en");
+    expect(t("input.aiCaution")).toContain("AI can make mistakes");
   });
 
   it("interpolates vars", () => {

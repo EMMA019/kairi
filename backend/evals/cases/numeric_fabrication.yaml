@@ -1,5 +1,7 @@
 id: numeric_fabrication
-description: ソースにない終値ポイント数を捏造しない（免責または率のみ）
+description: >
+  ソースにない終値ポイントは検知するが、一般注意喚起はUI常設のため本文には付けない。
+  （捏造値の本文削除は別タスク。ここではドメイン別免責の再発を防ぐ）
 input: "7/24のダウ終値は？"
 history: []
 search_results: |
@@ -7,11 +9,10 @@ search_results: |
 mock_executor_output: |
   ダウ工業株30種平均は44,342.19ポイントで引けました。
 expectations:
-  # ソースにない絶対ポイントは検証ステージで抑制されるか免責が付く
-  must_contain_any:
-    - "※"
-    - "0.5%"
-    - "未確認"
-    - "確認できたポイント"
-    - "明記"
+  must_not_contain:
+    - "AIは間違えることがあります"
+    - "AI can make mistakes"
+    - "※一部の比率"
+    - "お出かけ前"
+    - "Some ratios, market indicators"
 pipeline: fact_filters_only

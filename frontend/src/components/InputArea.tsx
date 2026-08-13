@@ -272,6 +272,9 @@ export function InputArea({ onSend, onStop, status }: InputAreaProps) {
           </div>
         </div>
       </div>
+      <p className="mt-2 px-1 text-center text-[10px] leading-snug text-gray-500">
+        {t("input.aiCaution")}
+      </p>
     </div>
   );
 }

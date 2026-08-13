@@ -43,6 +43,7 @@ export const en = {
   "input.locationError": "Could not get location (check GPS permission): {{message}}",
   "input.stop": "Stop generating",
   "input.send": "Send",
+  "input.aiCaution": "AI can make mistakes. Please verify important figures, dates, and prices with official sources.",
 
   "status.thinking": "Thinking...",
   "status.searching": "Searching...",

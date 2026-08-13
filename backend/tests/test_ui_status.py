@@ -12,9 +12,27 @@ def test_pipeline_detail_ja():
     assert pipeline_detail("searching", "ja", q="日経") == "情報収集中: 日経"
 
 
-def test_finance_disclaimer_locale():
-    en = disclaimer("finance_estimate", "en")
-    ja = disclaimer("finance_estimate", "ja")
-    assert "Some ratios, market indicators" in en
-    assert "※一部の比率" in ja
+def test_ai_caution_disclaimer_locale():
+    en = disclaimer("ai_caution", "en")
+    ja = disclaimer("ai_caution", "ja")
+    assert "AI can make mistakes" in en
+    assert "AIは間違えることがあります" in ja
     assert "※" not in en
+
+
+def test_ai_caution_is_domain_agnostic():
+    """旅行/金融のドメイン語を含まない一般的な文言であること。"""
+    for loc in ("ja", "en"):
+        text = disclaimer("ai_caution", loc)
+        for word in ("お出かけ", "店舗", "比率", "開示", "before you go", "disclosures"):
+            assert word not in text
+
+
+def test_has_ai_caution_detects_new_and_legacy():
+    from app.core.ui_status import has_ai_caution
+
+    assert has_ai_caution(disclaimer("ai_caution", "ja"))
+    assert has_ai_caution(disclaimer("ai_caution", "en"))
+    # レガシー文言も二重付与を防ぐため検出する
+    assert has_ai_caution("※一部の比率はソース記事に明記されていません。")
+    assert not has_ai_caution("普通の回答です。")

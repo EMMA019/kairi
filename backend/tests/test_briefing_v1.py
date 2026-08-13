@@ -76,13 +76,12 @@ def test_commentary_grounding_strips_ungrounded_numbers():
         assert "12.5%" in raw
         source = gen._stories_source_blob(stories) + "\n" + snapshot
         filtered = apply_grounding_pipeline(raw, source, user_input="市場ブリーフィング解説")
-        assert (
-            "※一部の比率" in filtered
-            or "参考" in filtered
-            or "推計" in filtered
-            or "estimates" in filtered.lower()
-            or "reference" in filtered.lower()
-        )
+        from app.core.fact_filters.filter_metrics import get_filter_metrics_snapshot
+
+        # 注意喚起は UI 常設。本文には付けず、未検証シグナルとして記録されること。
+        assert "AIは間違えることがあります" not in filtered
+        assert "※一部の比率" not in filtered
+        assert get_filter_metrics_snapshot()["changed"].get("ai_caution_signal", 0) >= 1
 
     asyncio.run(_run())
 

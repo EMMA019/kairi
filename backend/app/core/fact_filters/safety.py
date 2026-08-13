@@ -335,65 +335,27 @@ def enforce_variable_numerical_claims(text: str, source_text: str, user_input: s
     text = re.sub(r'(\d+(?:\.\d+)?)(?:%|％|割)', _check_percentage_claim, text)
 
     # ====================================================================
-    # 末尾一括注記: 未検証カテゴリが1つ以上ある場合のみ追加
-    # ただし金融・政治経済・ニュース分析系の回答には旅行向け免責注記を付けない
+    # 末尾一括注記: 未検証カテゴリがあれば、種類を問わず同一の一般注意喚起。
+    # ドメイン推定（旅行/金融）はコンテキスト判定を誤ると見当違いな文言になるため廃止。
     # ====================================================================
     if unverified_categories:
         categories_str = "・".join(sorted(unverified_categories))
-
-        # 回答コンテキストの判定: 金融・市場・政治経済・資産運用系のキーワードが優勢かどうか
-        _FINANCE_NEWS_KEYWORDS = [
-            "株価", "日経平均", "TOPIX", "S&P", "NASDAQ", "ダウ", "原油", "WTI", "ブレント",
-            "為替", "ドル円", "金利", "利回り", "先物", "市場", "相場", "投資", "銘柄",
-            "封鎖", "空爆", "制裁", "停戦", "紛争", "危機", "地政学", "ホルムズ",
-            "GDP", "インフレ", "CPI", "FRB", "日銀", "金融政策", "利上げ", "利下げ",
-            "決算", "業績", "収益", "売上", "時価総額", "PER", "配当", "半導体", "ETF",
-            "ポートフォリオ", "評価額", "評価損益", "時価", "単価", "買付", "NISA", "リバランス",
-            "SOXX", "SOX", "株式", "株", "資産", "ファンド", "組入", "構成", "分散",
-        ]
-        _TRAVEL_SPOT_KEYWORDS = [
-            "ホテル", "旅館", "レストラン", "カフェ", "観光", "ビーチ", "水族館",
-            "温泉", "散策", "ランチ", "ディナー", "食べログ", "チェックイン",
-            "アクセス", "徒歩", "シャトルバス", "ロープウェイ", "お土産",
-            "ペリーロード", "プリンスホテル", "海水浴", "お出かけ",
-        ]
-        finance_score = sum(1 for kw in _FINANCE_NEWS_KEYWORDS if kw in text)
-        travel_score = sum(1 for kw in _TRAVEL_SPOT_KEYWORDS if kw in text)
-        # お出かけ／金融免責は「ユーザーがそのドメインを聞いている」ときだけ
-        user_travel_intent = sum(1 for kw in _TRAVEL_SPOT_KEYWORDS if kw in user_q) > 0
-        user_finance_intent = sum(1 for kw in _FINANCE_NEWS_KEYWORDS if kw in user_q) > 0
-        is_finance_context = (
-            user_finance_intent
-            and ((finance_score >= 1 and travel_score == 0) or (finance_score >= 3 and finance_score > travel_score))
-        )
-
-        from app.core.ui_status import (
-            disclaimer,
-            has_finance_estimate_disclaimer,
-            has_generic_ref_disclaimer,
-        )
-
-        if travel_score > 0 and user_travel_intent:
-            logger.info(f"[NumericalDefense] 店舗・旅行・サービスお出かけコンテキスト検出(travel={travel_score}, finance={finance_score}, user_travel=1) → 店舗・お出かけ注記を追加")
-            if "※営業時間" not in text and not has_generic_ref_disclaimer(text):
-                text = text.rstrip() + disclaimer("travel", categories=categories_str)
-        elif travel_score > 0 and not user_travel_intent:
-            logger.info(f"[NumericalDefense] 回答内に旅行語があるが user_input に旅行意図なし → お出かけ注記スキップ")
-            if "統計比率" in unverified_categories and len(unverified_categories) == 1:
-                pass  # 雑談の統計比率のみ → 注記不要
-            elif not ("統計比率" in unverified_categories and len(unverified_categories) == 1):
-                if not has_generic_ref_disclaimer(text):
-                    text = text.rstrip() + disclaimer("generic_ref", categories=categories_str)
-        elif is_finance_context:
-            logger.info(f"[NumericalDefense] 金融・ニュース分析・資産運用コンテキスト検出(finance={finance_score}, travel={travel_score}, user_finance=1) → アナリスト向けデータ注記判定")
-            if any(c in unverified_categories for c in ["統計比率", "料金", "日程"]) and not has_finance_estimate_disclaimer(text):
-                text = text.rstrip() + disclaimer("finance_estimate")
-        elif "統計比率" in unverified_categories and len(unverified_categories) == 1:
-            logger.info("[NumericalDefense] 一般・雑談文脈における統計比率のみの未検証検出 → 見当違いな免責注記不要としてスキップ")
+        # 注意喚起文言は UI 常設（InputArea）。本文末尾には付けない。
+        # 検知自体は Integrity / filter_metrics に残す。
+        if unverified_categories == {"統計比率"} and not src.strip():
+            logger.info(
+                "[NumericalDefense] ソース無し・統計比率のみ → 記録スキップ（雑談誤爆回避）"
+            )
         else:
-            logger.info(f"[NumericalDefense] 一般文脈における未検証数値カテゴリ({categories_str}) → 汎用免責注記")
-            if not has_generic_ref_disclaimer(text):
-                text = text.rstrip() + disclaimer("generic_ref", categories=categories_str)
+            try:
+                from app.core.fact_filters.filter_metrics import bump_filter
+
+                bump_filter("ai_caution_signal", changed=True)
+            except Exception:
+                pass
+            logger.info(
+                f"[NumericalDefense] 未検証数値カテゴリ({categories_str}) → UI常設注意喚起に委譲（本文非付与）"
+            )
 
     return check_financial_arithmetic_consistency(text)
 

@@ -71,40 +71,34 @@ def get_ui_locale() -> str:
         return "en"
 
 
+# ドメイン別の文言はコンテキスト判定を誤ると見当違いな注記になるため、
+# 種類を問わず同一の一般的注意喚起に一本化する。
 _DISCLAIMERS = {
-    "finance_estimate": {
+    "ai_caution": {
         "en": (
-            "\n\nNote: Some ratios, market indicators, or prices may include estimates "
-            "or peripheral reference data not explicitly stated in the source articles. "
-            "Please verify the latest figures from official disclosures."
+            "\n\nNote: AI can make mistakes. "
+            "Please double-check important figures, dates, and prices with official sources."
         ),
         "ja": (
-            "\n\n※一部の比率・市場指標や価格等はソース記事に明記されていない"
-            "推計または周辺参考データを含む場合があります。"
-            "正確な最新数値は公式開示データをご確認ください。"
-        ),
-    },
-    "travel": {
-        "en": (
-            "\n\nNote: Details such as {categories} may change. "
-            "Please confirm with official sites or venues before you go."
-        ),
-        "ja": (
-            "\n\n※{categories}等の情報は変動する場合があります。"
-            "お出かけ前に公式サイトや店舗へ直接ご確認いただくことをおすすめします。"
-        ),
-    },
-    "generic_ref": {
-        "en": (
-            "\n\nNote: Information such as {categories} may be approximate or subject to change. "
-            "Please check the latest details on the relevant official sites."
-        ),
-        "ja": (
-            "\n\n※{categories}等の情報は参考値または変動する場合があります。"
-            "最新の情報は各公式サイト等をご確認ください。"
+            "\n\n※ AIは間違えることがあります。"
+            "重要な数値・日程・価格は公式情報でご確認ください。"
         ),
     },
 }
+
+# 既存本文に注記が入っているかの判定用（旧ドメイン別文言も二重付与しない）
+_AI_CAUTION_MARKERS = (
+    "AIは間違えることがあります",
+    "AI can make mistakes",
+    # レガシー文言（過去ログ・履歴の再処理で二重に付かないよう残す）
+    "※一部の比率",
+    "公式開示",
+    "Some ratios, market indicators",
+    "official disclosures",
+    "※お出かけ前に",
+    "Please confirm with official",
+    "Please check the latest",
+)
 
 
 def disclaimer(key: str, locale: str | None = None, **kwargs: object) -> str:
@@ -117,31 +111,8 @@ def disclaimer(key: str, locale: str | None = None, **kwargs: object) -> str:
         return template
 
 
-def has_finance_estimate_disclaimer(text: str) -> bool:
+def has_ai_caution(text: str) -> bool:
+    """一般注意喚起（または旧ドメイン別注記）が既に入っているか。"""
     if not text:
         return False
-    markers = (
-        "※一部の比率",
-        "公式開示",
-        "Some ratios, market indicators",
-        "official disclosures",
-        "peripheral reference data",
-    )
-    return any(m in text for m in markers)
-
-
-def has_generic_ref_disclaimer(text: str) -> bool:
-    if not text:
-        return False
-    markers = (
-        "※正確な",
-        "※最新の情報",
-        "※各種情報",
-        "※お出かけ前に",
-        "※一部の比率",
-        "Please confirm with official",
-        "Please check the latest",
-        "Some ratios, market indicators",
-        "subject to change",
-    )
-    return any(m in text for m in markers)
+    return any(m in text for m in _AI_CAUTION_MARKERS)

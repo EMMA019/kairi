@@ -1,4 +1,4 @@
-"""途切れ検知・旅行免責誤爆の回帰テスト。"""
+"""途切れ検知・注意喚起（本文非付与 / UI常設）の回帰テスト。"""
 import sys
 from pathlib import Path
 
@@ -6,6 +6,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from app.core.fact_filters.filter_metrics import (
+    get_filter_metrics_snapshot,
+    reset_filter_metrics,
+)
 from app.core.fact_filters.markup import looks_incomplete_output
 from app.core.fact_filters.safety import enforce_variable_numerical_claims
 from app.routers.settings import app_settings
@@ -49,58 +53,55 @@ def test_complete_japanese_ok():
     assert not looks_incomplete_output(text)
 
 
-def test_self_intro_no_travel_disclaimer():
-    """能力説明の『観光』＋禁止例『70%』でもお出かけ免責を付けない。"""
+def test_self_intro_no_body_disclaimer():
     text = (
         "私はWeb検索・情報収集として最新ニュースや市場データ、観光情報などの収集ができます。"
         "投資助言はしません。「70%上昇」等の確度の数値化もしません。"
     )
     out = enforce_variable_numerical_claims(text, "", user_input="あなたってどんなAI？")
+    assert "AIは間違えることがあります" not in out
     assert "お出かけ前" not in out
-    assert "店舗へ直接" not in out
     assert "※一部の比率" not in out
-    assert "Some ratios, market indicators" not in out
 
 
-def test_ai_diff_meta_no_finance_disclaimer():
-    """他AIとの違いの説明で『100%一貫』『確度70%』『市場分析』があっても金融免責を付けない。"""
+def test_ai_diff_meta_no_body_disclaimer():
     text = (
         "金融・市場分析における厳格なルールとして、投資助言や「確度70%」などの数値化は行いません。"
         "口調の100%一貫維持も徹底します。"
     )
     out = enforce_variable_numerical_claims(text, "", user_input="ほかのAIエージェントとの違いは？")
-    assert "※一部の比率" not in out
-    assert "Some ratios, market indicators" not in out
-    assert "お出かけ前" not in out
+    assert "AIは間違えることがあります" not in out
 
 
-def test_travel_query_keeps_travel_disclaimer():
-    """ユーザーが旅行を聞いているときは従来どおりお出かけ注記。"""
-    from app.core.runtime_state import temporary_settings
-
-    with temporary_settings(locale="ja"):
-        text = "ホテル周辺のカフェは徒歩5分です。ランチは70%が予約必須との情報があります。"
-        out = enforce_variable_numerical_claims(text, "", user_input="下田のホテル周辺の観光スポット教えて")
-        assert "お出かけ前" in out
-
-
-def test_market_query_keeps_finance_disclaimer():
-    """ユーザーが市場を聞いているときは金融免責を付ける。"""
-    from app.core.runtime_state import temporary_settings
-
-    with temporary_settings(locale="ja"):
-        text = "日経平均は一時700円超下落。半導体セクターは約4%安となりました。"
-        out = enforce_variable_numerical_claims(text, "", user_input="今日の日本市場どうだった？")
-        assert "※一部の比率" in out or "公式開示" in out
-
-
-def test_market_query_finance_disclaimer_english_locale():
-    """locale=en なら金融免責は英語（user_input の金融意図検出は従来どおり）。"""
-    from app.core.runtime_state import temporary_settings
-
-    with temporary_settings(locale="en"):
-        text = "日経平均は一時700円超下落。半導体セクターは約4%安となりました。"
-        out = enforce_variable_numerical_claims(text, "", user_input="今日の日本市場どうだった？")
-        assert "Some ratios, market indicators" in out
-        assert "official disclosures" in out
+def test_travel_and_market_do_not_append_body_disclaimer():
+    """未検証数値があっても本文末尾に注記を付けない（UI常設へ移行）。"""
+    reset_filter_metrics()
+    travel = enforce_variable_numerical_claims(
+        "ランチは2,500円が目安です。",
+        "",
+        user_input="観光スポット教えて",
+    )
+    market = enforce_variable_numerical_claims(
+        "日経平均は一時700円超下落。半導体セクターは約4%安となりました。",
+        "[1] Nikkei fell; semiconductor sector weaker.",
+        user_input="今日の日本市場どうだった？",
+    )
+    for out in (travel, market):
+        assert "AIは間違えることがあります" not in out
+        assert "AI can make mistakes" not in out
+        assert "お出かけ前" not in out
         assert "※一部の比率" not in out
+    snap = get_filter_metrics_snapshot()
+    assert snap["changed"].get("ai_caution_signal", 0) >= 1
+
+
+def test_ungrounded_percent_with_source_signals_without_body_text():
+    reset_filter_metrics()
+    text = "NVDAは12.5%下落し、時価総額は大きく縮みました。"
+    out = enforce_variable_numerical_claims(
+        text,
+        "[1] NVDA fell sharply on the session. Exact percentage not stated.",
+        user_input="NVDAどうだった？",
+    )
+    assert out == text  # 本文は変えない
+    assert get_filter_metrics_snapshot()["changed"].get("ai_caution_signal", 0) >= 1

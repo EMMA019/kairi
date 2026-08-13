@@ -164,11 +164,16 @@ def verify_citations(
         if unverified_abs:
             metrics.uncited_assertions += len(set(unverified_abs))
             if soften_uncited:
-                from app.core.ui_status import disclaimer, has_finance_estimate_disclaimer
+                # 注意喚起文言は UI 常設。本文末尾には付けず、メトリクスのみ残す。
+                try:
+                    from app.core.fact_filters.filter_metrics import bump_filter
 
-                if not has_finance_estimate_disclaimer(text):
-                    text = text.rstrip() + disclaimer("finance_estimate")
-                    logger.info(f"📎 ソース未記載の絶対数値を検知し免責を付与: {unverified_abs[:5]}")
+                    bump_filter("ai_caution_signal", changed=True)
+                except Exception:
+                    pass
+                logger.info(
+                    f"📎 ソース未記載の絶対数値を検知（UI常設注意喚起に委譲）: {unverified_abs[:5]}"
+                )
 
     # 3) 強い時事断定トリガ文に引用が無い場合（要確認は上限）
     if soften_uncited and source_usable:

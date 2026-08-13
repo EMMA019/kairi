@@ -155,9 +155,11 @@ def test_strip_unverified_day_of_week():
     cleaned2 = strip_unverified_day_of_week(text2, source_text=source2)
     assert "7月10日（金）" in cleaned2
 
-    # 3. filter_fact を通した際に曜日表記が原則不記載としてクリーニングされること
+    # 3. 曜日除去はフル pipeline 側（filter_fact は軽量ハイジーンのみ）
+    from app.core.fact_filters.pipeline import apply_grounding_pipeline
+
     fact_text = "2026年7月13日（火）に切り替わります。"
-    res = filter_fact(fact_text)
+    res = apply_grounding_pipeline(fact_text, "", "")
     assert "7月13日" in res
     assert "（火）" not in res
 
@@ -227,19 +229,27 @@ def test_enforce_variable_numerical_claims_normalization():
     filtered2 = enforce_variable_numerical_claims(text2, source_text)
     assert "2500円" in filtered2
 
-    # 3. ソースにない営業時間が含まれている場合、インラインではなく末尾に一括注記が付くこと
+    # 3. ソースにない営業時間は本文を変えず、UI常設注意喚起へシグナルのみ残す
+    from app.core.fact_filters.filter_metrics import (
+        get_filter_metrics_snapshot,
+        reset_filter_metrics,
+    )
+
+    reset_filter_metrics()
     text3 = "営業時間は10:00〜20:00です。バスは車30分です。"
     filtered3 = enforce_variable_numerical_claims(text3, source_text)
-    assert "10:00〜20:00" in filtered3  # 元の数値はそのまま残る
-    assert "（※正確な時刻" not in filtered3  # インライン置換は起きない
-    assert "※" in filtered3  # 末尾に注記が付く
-    assert filtered3.count("※") == 1  # 注記は1つだけ
+    assert "10:00〜20:00" in filtered3
+    assert "（※正確な時刻" not in filtered3
+    assert "※" not in filtered3
+    assert "AIは間違えることがあります" not in filtered3
+    assert get_filter_metrics_snapshot()["changed"].get("ai_caution_signal", 0) >= 1
 
-    # 4. 金融・市場分析コンテキストの回答には旅行向け免責注記が付かないこと
+    # 4. 金融文脈でもドメイン別（旅行向け）免責は付かない
     finance_text = "日経平均株価は一時700円超下落。WTI先物は74ドル台（前週末比+4%）。ホルムズ海峡再封鎖で原油価格が急騰し、市場はリスクオフの展開となっています。"
     filtered4 = enforce_variable_numerical_claims(finance_text, "")
-    assert "お出かけ前" not in filtered4  # 旅行向け免責注記が付かないこと
+    assert "お出かけ前" not in filtered4
     assert "店舗へ直接" not in filtered4
+    assert "AIは間違えることがあります" not in filtered4
 
 
 def test_verify_maintenance_date_relevance():

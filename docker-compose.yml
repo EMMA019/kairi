@@ -1,0 +1,18 @@
+services:
+  kairi:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Key-free showcase of the grounding pipeline (no LLM calls).
+      KAIRI_DEMO: "1"
+      KAIRI_ENABLE_SCHEDULERS: "0"
+      # For live chat, remove KAIRI_DEMO and set:
+      # DEEPSEEK_API_KEY: "sk-..."
+      # BRAVE_API_KEY: "..."
+    volumes:
+      # Persist local SQLite / settings outside the container
+      - kairi-storage:/app/backend/storage
+
+volumes:
+  kairi-storage:

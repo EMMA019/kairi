@@ -1,0 +1,1 @@
+{"ticker": "TSLA", "queryCount": 1, "resultsCount": 1, "adjusted": true, "results": [{"T": "TSLA", "v": 53434138.0, "vw": 380.333, "o": 370.15, "c": 379.71, "h": 387.8, "l": 368.6, "t": 1782504000000, "n": 1066922}], "status": "OK", "request_id": "e866a6938b96bcadc6aa840e559b0b9d", "count": 1}

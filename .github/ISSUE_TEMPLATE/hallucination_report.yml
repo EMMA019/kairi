@@ -1,0 +1,37 @@
+name: Hallucination / grounding miss
+description: Report an answer that invented or misstated facts — ideal seed for an eval case
+title: "[hallucination] "
+labels: ["grounding"]
+body:
+  - type: textarea
+    id: user_message
+    attributes:
+      label: User message
+      description: Exact prompt that triggered the bad answer
+    validations:
+      required: true
+  - type: textarea
+    id: ai_response
+    attributes:
+      label: Assistant response (bad parts)
+      description: Paste the answer or the offending span
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should have happened
+      description: Soften, refuse, cite, or omit — be specific
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Search / source context (if any)
+      description: Optional — helps build search_results in the eval YAML
+  - type: checkboxes
+    id: willing_eval
+    attributes:
+      label: Follow-up
+      options:
+        - label: I am willing to turn this into an evals/cases/*.yaml PR

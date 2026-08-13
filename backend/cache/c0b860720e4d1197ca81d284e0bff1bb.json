@@ -1,0 +1,1 @@
+{"ticker": "PLTR", "queryCount": 1, "resultsCount": 1, "adjusted": true, "results": [{"T": "PLTR", "v": 61360496.0, "vw": 112.2815, "o": 109.04, "c": 112.93, "h": 114.0799, "l": 108.47, "t": 1782504000000, "n": 693497}], "status": "OK", "request_id": "8bebaddbbab1447f585302adcfec15dd", "count": 1}

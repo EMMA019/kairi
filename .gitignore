@@ -1,0 +1,89 @@
+# Environment Variables & Secrets
+.env
+*.env
+*.env.*
+!.env.example
+
+# Python & Virtual Environments
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Node & Frontend
+node_modules/
+frontend/dist/
+dist/booth/
+dist/booth-cache/
+runtime/
+*.log
+
+# Databases & Local Storage
+*.db
+*.db-shm
+*.db-wal
+# Root-level runtime cache (search_cache etc.) — not the same as backend/storage/
+storage/
+backend/data/*.db
+backend/data/*.db-shm
+backend/data/*.db-wal
+backend/app/data/*.db
+backend/app/data/*.db-shm
+backend/app/data/*.db-wal
+backend/app/core/news/*.db
+backend/cache/*.db
+backend/cache/*.db-shm
+backend/cache/*.db-wal
+backend/storage/*.db
+backend/storage/*.db-shm
+backend/storage/*.db-wal
+backend/storage/*.json
+!backend/storage/settings.example.json
+backend/storage/search_cache/
+backend/storage/violation_logs/
+backend/storage/briefings/
+temp.db
+backend/news.db
+
+# Commercial JP packaging (EULA / listing copy). Keep locally; never ship in public trees.
+booth/
+
+# Third-party OSS clones kept locally for reference only.
+# worldmonitor is AGPL-3.0 — vendoring it here would relicense this repo.
+worldmonitor/
+MITOSS/
+
+# Local scratch & output directories (separate projects / generated)
+Github/
+personal/
+gyaru_dash/
+scratch/
+openresty/
+services/
+.wrangler/
+front
+test_guidance_hallucination.py
+to_md.py
+output/
+tools/lora_studio/sd-scripts/
+tools/lora_studio/sd-webui-forge/
+tools/lora_studio/output/
+tools/lora_studio/dataset/
+# PNG 原盤など img 配下は無視。本番用 WebP ストックだけ追跡する
+img/*
+!img/stock_web/
+!img/stock_web/**
+
+# One-off patch / split scripts (do not re-add)
+backend/patch*.py
+backend/split_*.py
+backend/extract_prompt.py
+backend/read_db.py
+
+*.safetensors
+backend/storage/runtime_port.txt
+
+backend/storage/logs/

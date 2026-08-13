@@ -1,0 +1,1 @@
+{"ticker": "ARM", "queryCount": 1, "resultsCount": 1, "adjusted": true, "results": [{"T": "ARM", "v": 7718158.0, "vw": 333.2922, "o": 335.07, "c": 334.27, "h": 339.9, "l": 326.8, "t": 1782504000000, "n": 169214}], "status": "OK", "request_id": "8dde9bcadc8a3dffdb7b07627d12e8c4", "count": 1}

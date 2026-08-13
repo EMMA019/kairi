@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "D:/program/chat/backend/workspace"
+      ],
+      "description": "ファイルシステム操作用（存在確認済み）"
+    },
+    "Roblox_Studio": {
+      "command": "bin/roblox_studio_mcp.bat",
+      "args": [],
+      "autostart": true,
+      "description": "Roblox Studio 公式MCP。bin/roblox_studio_mcp.bat が StudioMCP.exe を自動解決（%LOCALAPPDATA%\\Roblox\\Versions、または D:\\Roblox\\Versions 等のカスタムインストールも検索。環境変数 ROBLOX_VERSIONS_DIR で手動指定も可）。Studio側で Assistant→⋯→Manage MCP Servers→Enable Studio as MCP server をONにするとツールが有効になる。"
+    }
+  }
+}

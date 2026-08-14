@@ -71,6 +71,15 @@ async def lifespan(app: FastAPI):
     # autostart: true のMCPサーバーをバックグラウンドで先行起動（initializeまで）
     from app.core.mcp import mcp_manager
     mcp_manager.start_autostart_servers()
+    try:
+        from app.core.tools.hooks import install_hooks, _default_session_logging_hooks
+        from app.core.tools.repeat_reminder import install_repeat_reminder_hook
+
+        install_hooks()
+        _default_session_logging_hooks()
+        install_repeat_reminder_hook()
+    except Exception as e:
+        _main_logger.warning("tool hooks install skipped: %s", e)
     yield
     # 終了時: クリーンアップ
     if _schedulers_enabled():

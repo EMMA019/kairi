@@ -338,14 +338,26 @@ async def _lru_evict(table: str):
 
 async def get_llm_cache(
     user_input: str,
-    system_prompt: str,
     mode: str,
     model: str,
     provider: str,
     max_age_seconds: int = 1800,
+    *,
+    static_prompt_hash: Optional[str] = None,
+    system_prompt: Optional[str] = None,
 ) -> Optional[dict]:
-    """LLM応答キャッシュから取得"""
-    prompt_hash = hashlib.md5(system_prompt.encode('utf-8')).hexdigest()
+    """LLM応答キャッシュから取得。
+
+    Cache key = normalize(user_input) + static_prompt_hash + mode + model.
+    Dynamic context / full system prompt must NOT enter the key.
+    Prefer static_prompt_hash; system_prompt is legacy fallback only.
+    """
+    if static_prompt_hash:
+        prompt_hash = static_prompt_hash
+    elif system_prompt is not None:
+        prompt_hash = hashlib.md5(system_prompt.encode("utf-8")).hexdigest()
+    else:
+        raise ValueError("static_prompt_hash or system_prompt required")
     cache_key = _make_hash(user_input, prompt_hash, mode, model)
     
     try:
@@ -380,7 +392,6 @@ async def get_llm_cache(
 
 async def set_llm_cache(
     user_input: str,
-    system_prompt: str,
     mode: str,
     model: str,
     provider: str,
@@ -388,9 +399,17 @@ async def set_llm_cache(
     reasoning: Optional[str] = None,
     supervisor_json: Optional[dict] = None,
     ttl_seconds: int = 1800,
+    *,
+    static_prompt_hash: Optional[str] = None,
+    system_prompt: Optional[str] = None,
 ):
-    """LLM応答をキャッシュに保存"""
-    prompt_hash = hashlib.md5(system_prompt.encode('utf-8')).hexdigest()
+    """LLM応答をキャッシュに保存（キーは static hash + 正規化入力のみ）。"""
+    if static_prompt_hash:
+        prompt_hash = static_prompt_hash
+    elif system_prompt is not None:
+        prompt_hash = hashlib.md5(system_prompt.encode("utf-8")).hexdigest()
+    else:
+        raise ValueError("static_prompt_hash or system_prompt required")
     cache_key = _make_hash(user_input, prompt_hash, mode, model)
     
     try:

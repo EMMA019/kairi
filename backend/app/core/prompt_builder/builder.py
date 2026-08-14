@@ -10,6 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 PROMPTS_DIR = BASE_DIR / "prompts"
 
 from .loader import load_prompt, load_active_skills, load_knowledge_summary
+from .sections import PromptAssembly, hash_static_prompt
 from .entity_resolution import fuzzy_match_entities, resolve_zero_anaphora, build_entity_registry_context
 from app.core.reply_language import (
     build_gal_persona_instruction,
@@ -239,37 +240,41 @@ def build_system_instruction(
 - **主語省略・選択肢リアクションへの深読み・問い返し厳格禁止**: ユーザーが直前ターンの提示候補（例：「サンマリノ」）や主語（例：「ナターシャーセブン」）に触れ、代名詞や主語を省略（ゼロ照合／Zero-Anaphora）して発言した際、過剰に深読みして「〇〇のことですか？」「私が過去に述べた〜を勘違いされていませんか？」と問い返すことを厳格に禁止します。人間同士の自然な対話と同様に、直前ターンの文脈と対象候補を主語として即座に受け入れ、スマートに即答・解説を展開すること。
 - **店舗名未確認・名称未詳エンティティのリスト混入厳格禁止**: 「3. ペリーロードの老舗イタリアン（※具体的な店舗名は未確認）」のように、正式名称や具体的な店舗名が分からない・特定できていない不完全な情報を番号つきリストやおすすめ候補（TOP3等）として提示することを厳格に禁止します。候補として提示するのは名称と実在が一次情報で確認できたスポットのみとし、不明なものはリストから除外して厳選提示すること。
 """
-    dynamic_prompt = sentinel_guardrails + "\n\n" + dynamic_prompt
+    # Named PromptSection / PromptContext assembly (dsh-inspired).
+    # Static sections alone determine cache hash; dynamic never enters the key.
+    assembly = PromptAssembly()
+    assembly.register_section("system:base", 0, static_prompt)
 
-    # --- トークン節約・プロンプトキャッシュ保護 (Prompt Caching Maximum Efficiency) ---
-    # LLM APIのプロンプトキャッシュは「先頭からの完全一致文字列」で判定されるため、
-    # static_prompt に変動要素を入れると毎回キャッシュがミスってトークンを浪費する。
-    # したがって、少しでも変動する可能性のある要素や動的ロード結果はすべて dynamic_prompt 側に集約し、
-    # static_prompt を100%不変に保つことで、キャッシュヒット率とトークン節約を極限まで高める！
-    
-    dynamic_prompt += "\n\n" + persona_instruction
-
-    if (persona_style in ["hyper_gal", "gal", "gyaru"] or is_gal_explicit) and locale == "ja":
-        # JP-only gal lexicon file; English locale uses build_gal_persona_instruction instead
-        dynamic_prompt += "\n\n" + load_prompt("persona_gal.md")
-
-    # --- 知識永続化 (Knowledge Items / KI) ---
-    dynamic_prompt += load_knowledge_summary()
-
-    # --- 東証市場セッション機械判定コンテキスト (TSE Market Session & Holiday Routing) ---
+    market_ctx = ""
     try:
         from app.core.market_session import get_tse_market_session_context
-        dynamic_prompt += get_tse_market_session_context(user_input)
+        market_ctx = get_tse_market_session_context(user_input)
     except Exception as e:
         logger.warning(f"Market session routing error: {e}")
 
-    # --- スキル動的ロード (Claude Code Style Skills) ---
-    # ユーザー入力に関連するスキルファイルだけを動的ロードするため、無関係なスキルによる無駄なトークン消費もゼロ！
-    dynamic_prompt += load_active_skills(user_input)
+    gal_lex = ""
+    if (persona_style in ["hyper_gal", "gal", "gyaru"] or is_gal_explicit) and locale == "ja":
+        gal_lex = load_prompt("persona_gal.md")
 
-    # --- 広域マルチターン Entity-Context Registry 注入 ---
-    dynamic_prompt += build_entity_registry_context(history_messages, user_input)
-        
+    assembly.register_context("runtime:sentinel", 10, sentinel_guardrails)
+    assembly.register_context("runtime:system_dynamic", 20, dynamic_prompt)
+    assembly.register_context("persona:active", 30, persona_instruction)
+    if gal_lex:
+        assembly.register_context("persona:gal_lexicon", 40, gal_lex)
+    assembly.register_context("knowledge:summary", 50, load_knowledge_summary())
+    if market_ctx:
+        assembly.register_context("market:tse_session", 60, market_ctx)
+    assembly.register_context("skills:catalog", 70, load_active_skills(user_input))
+    assembly.register_context(
+        "entity:registry",
+        80,
+        build_entity_registry_context(history_messages, user_input),
+    )
+
+    static_prompt = assembly.render_static()
+    dynamic_prompt = assembly.render_dynamic()
+    build_system_instruction.last_assembly = assembly  # type: ignore[attr-defined]
+    build_system_instruction.last_static_hash = assembly.static_hash()  # type: ignore[attr-defined]
     return static_prompt, dynamic_prompt, persona_instruction
 
 

@@ -395,14 +395,18 @@ async def finalize_loop_response(
         except Exception as e:
             logger.warning(f"Continuation generation failed: {e}")
 
+    # Post-loop waterfall: assistant/message -> grounding/apply (before/after logged)
     pre_sanitize = final_accumulated_response
     try:
-        from app.core.fact_filters.pipeline import apply_grounding_pipeline
+        from app.core.auto_execution_loop.grounding_waterfall import apply_grounding_stage
 
-        def _run_pipeline(t: str) -> str:
-            return apply_grounding_pipeline(t, str(search_results or ""), user_input=user_input)
-
-        final_accumulated_response = sanitize_preserving_body(pre_sanitize, _run_pipeline)
+        _sid = getattr(tool_handler, "session_id", None) or ""
+        final_accumulated_response = apply_grounding_stage(
+            pre_sanitize,
+            search_results=search_results,
+            user_input=user_input or "",
+            session_id=_sid,
+        )
     except Exception as e:
         logger.warning(f"Fact filter validation warning in auto_execution_loop: {e}")
         final_accumulated_response = strip_internal_markup(pre_sanitize)

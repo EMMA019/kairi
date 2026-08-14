@@ -1,0 +1,25 @@
+id: assembled_markdown_and_entity_grounding
+description: >
+  Keyless assembled snapshot — scripted mock executor text through real
+  ensure_markdown_block_breaks + apply_grounding_pipeline (dsh-style).
+input: "SNDKとWDCどうだった？"
+history: []
+search_results: |
+  [1] Sandisk Investor Day announced 100% excess cash return (Aug 13).
+  [18] SK Hynix and SanDisk climb on memory shortage.
+mock_executor_output: |
+  SNDKは好材料が重なったタイミングです。## 🟢 いいニュース・好材料 (Bull Cases)
+  - 株主還元方針を表明した
+  ゼブラトン騎手が優勝しました。
+expectations:
+  must_contain:
+    - "## 🟢"
+  must_not_contain:
+    - "です。##"
+    - "ゼブラトン"
+  must_contain_any:
+    - "要確認"
+    - "ソース未記載"
+    - "未確認"
+    - "氏名はソース未記載"
+pipeline: fact_filters_only

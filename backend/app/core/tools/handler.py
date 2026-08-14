@@ -267,6 +267,13 @@ class ToolHandler:
         if "<mcp_call" in current_response:
             current_response, mcp_events = await self._handle_mcp_tools(current_response)
             events.extend(mcp_events)
+            try:
+                from app.core.tools.agent_tools import pop_pending_user_question
+                pending_q = pop_pending_user_question(self.session_id)
+                if pending_q:
+                    events.append({"type": "user_question", "data": pending_q})
+            except Exception:
+                pass
 
         # 4. エスカレーション
         escalate_match = re.search(r'<escalate>\n?(.*?)\n?<\/escalate>', current_response, re.DOTALL)

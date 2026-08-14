@@ -7,8 +7,8 @@
   # 記録済み golden と現状出力を比較（CI でも可）
   python evals/run_golden.py --check
 
-  # LLM を実際に呼ぶ煙テスト（明示オプトイン・CI ではスキップ）
-  KAIRI_LIVE_EVALS=1 python evals/run_golden.py --live
+  # 本物パイプライン + 偽物モデル（keyless assembled snapshot）
+  python evals/run_golden.py --live
 """
 from __future__ import annotations
 
@@ -103,24 +103,31 @@ def check_goldens() -> int:
 
 
 def run_live_smoke() -> int:
-    """実 LLM 煙テスト。API キー必須。失敗しても雛形だけ残す。"""
-    if os.environ.get("KAIRI_LIVE_EVALS", "").strip() not in ("1", "true", "yes"):
-        print("Skip live smoke (set KAIRI_LIVE_EVALS=1 to enable).")
-        return 0
+    """Real pipeline + scripted mock LLM (keyless). Does not call a live LLM."""
+    from evals.run_evals import load_cases, run_case, pinned_locale
 
-    prompts = [
-        "今日の日本市場はどうだった？",
-        "あなたってどんなAI？",
-    ]
-    print("Live smoke is opt-in scaffolding.")
-    print("Wire /api/chat here when ready. Prompts prepared:")
-    for p in prompts:
-        print(f"  - {p}")
-    print(
-        "TODO: call chat endpoint, capture final assistant text, "
-        "diff against evals/golden/live_*.txt"
-    )
-    return 0
+    cases = [c for c in load_cases() if c.get("pipeline") == "assembled_loop"]
+    if not cases:
+        print("No assembled_loop cases found.")
+        return 2
+    passed = failed = 0
+    print(f"Assembled-loop snapshots (real pipeline, fake model): {len(cases)}")
+    with pinned_locale("ja"):
+        for case in cases:
+            ok, text, failures = run_case(case)
+            cid = case.get("id", case.get("_path"))
+            if ok:
+                passed += 1
+                print(f"PASS  {cid}")
+            else:
+                failed += 1
+                print(f"FAIL  {cid}")
+                for f in failures:
+                    print(f"      - {f}")
+                preview = (text or "")[:120].replace("\n", " | ")
+                print(f"      output_preview: {preview!r}")
+    print(f"{passed} passed, {failed} failed / {len(cases)} total")
+    return 1 if failed else 0
 
 
 def main() -> int:

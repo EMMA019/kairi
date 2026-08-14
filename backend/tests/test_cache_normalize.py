@@ -58,3 +58,21 @@ def test_bypass_on_market_keyword_not_short_kabu():
         user_input="株式会社のロゴ案を考えて",
     )
     assert bypass2 is False
+
+
+def test_cache_key_uses_static_hash_only():
+    """Dynamic context must not change the supervisor cache key."""
+    from app.core.cache_manager import _make_hash
+    from app.core.prompt_builder.sections import hash_static_prompt
+
+    static = "SYSTEM BASE RULES"
+    h = hash_static_prompt(static)
+    k1 = _make_hash("ニュース教えて", h, "chat", "m")
+    k2 = _make_hash("ニュース教えて", h, "chat", "m")
+    assert k1 == k2
+    # changing only dynamic text that is NOT in the hash leaves key stable
+    h_dyn_ignored = hash_static_prompt(static)  # same
+    assert _make_hash("ニュース教えて", h_dyn_ignored, "chat", "m") == k1
+    # changing static moves the key once
+    h2 = hash_static_prompt(static + "\nNEW RULE")
+    assert _make_hash("ニュース教えて", h2, "chat", "m") != k1

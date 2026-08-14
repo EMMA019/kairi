@@ -21,9 +21,22 @@ def load_prompt(filename: str) -> str:
         return f.read()
 
 def load_active_skills(user_input: str) -> str:
-    """ユーザー入力のキーワードに基づいて適切なスキルファイルを動的にロードする。
-    各 SKILL.md の frontmatter keywords のみで判定し、汎用語での全スキル誤発火を防ぐ。
+    """Inject a short skill catalog (not full SKILL.md bodies).
+
+    Full bodies are loaded on demand via the `load_skill` tool to keep the
+    static/dynamic prompt cache stable and avoid dumping unrelated skills.
     """
+    try:
+        from .skill_catalog import build_skill_catalog_prompt
+
+        return build_skill_catalog_prompt(user_input or "")
+    except Exception as e:
+        logger.warning(f"Failed to build skill catalog: {e}")
+        return ""
+
+
+def load_active_skills_full(user_input: str) -> str:
+    """Legacy: inject full matched SKILL.md bodies (tests / opt-in only)."""
     skills_dir = BASE_DIR / "skills"
     if not skills_dir.exists():
         return ""

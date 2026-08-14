@@ -6,7 +6,8 @@ Kairi 評価ハーネス（オフライン）。
   python -m evals.run_evals
   python evals/run_evals.py
 
-LLM は呼ばず、mock_executor_output + fact_filters / carryover で判定する。
+LLM は呼ばず、mock_executor_output + fact_filters / carryover、
+または scripted mock LLM → 本物 loop/grounding/SSE（assembled_loop）で判定する。
 """
 from __future__ import annotations
 
@@ -118,6 +119,37 @@ def run_carryover(case: dict) -> tuple[str, bool]:
     return str(carried or ""), ok
 
 
+
+def run_assembled_loop(case: dict) -> tuple[str, dict]:
+    """Scripted mock LLM through real chat loop + grounding + SSE (keyless)."""
+    import asyncio
+    import uuid
+    from app.core.eval_support.llm_replay import run_assembled_loop_snapshot
+    from app.core import session_events as se
+
+    sid = f"eval-assembled-{uuid.uuid4().hex[:10]}"
+    tmp = Path(__file__).resolve().parent / "_tmp_session_events"
+    tmp.mkdir(parents=True, exist_ok=True)
+    prev_dir = se.SESSION_EVENTS_DIR
+    se.SESSION_EVENTS_DIR = tmp
+    try:
+        result = asyncio.run(
+            run_assembled_loop_snapshot(
+                user_input=case.get("input") or "",
+                mock_executor_output=case.get("mock_executor_output") or "",
+                search_results=case.get("search_results") or "",
+                session_id=sid,
+            )
+        )
+    finally:
+        se.SESSION_EVENTS_DIR = prev_dir
+        # cleanup this session file only
+        path = tmp / f"{sid}.jsonl"
+        if path.exists():
+            path.unlink()
+    return result["final_text"], result
+
+
 def run_case(case: dict) -> tuple[bool, str, list[str]]:
     import os
 
@@ -131,6 +163,22 @@ def run_case(case: dict) -> tuple[bool, str, list[str]]:
             os.environ["KAIRI_FAKE_TODAY"] = fake_today
         if pipeline == "carryover_only":
             text, carryover_ok = run_carryover(case)
+        elif pipeline == "assembled_loop":
+            text, assembled = run_assembled_loop(case)
+            # SSE + session event contract checks
+            sse_types = {e.get("type") for e in assembled.get("sse_events") or []}
+            for t in exp.get("sse_must_include_types") or []:
+                if t not in sse_types:
+                    # defer into failures via synthetic expectation below
+                    exp = dict(exp)
+                    exp.setdefault("_assembled_failures", []).append(f"sse missing type {t!r}")
+            sess_types = {e.get("type") for e in assembled.get("session_events") or []}
+            for t in exp.get("session_must_include_types") or []:
+                if t not in sess_types:
+                    exp = dict(exp)
+                    exp.setdefault("_assembled_failures", []).append(
+                        f"session_events missing type {t!r}"
+                    )
         else:
             raw = case.get("mock_executor_output") or ""
             source = case.get("search_results") or ""
@@ -142,6 +190,7 @@ def run_case(case: dict) -> tuple[bool, str, list[str]]:
             else:
                 os.environ["KAIRI_FAKE_TODAY"] = prev_fake
     failures = check_expectations(text, exp, carryover_ok=carryover_ok)
+    failures.extend(exp.get("_assembled_failures") or [])
     return (len(failures) == 0, text, failures)
 
 

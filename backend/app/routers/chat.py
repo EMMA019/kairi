@@ -179,6 +179,16 @@ async def chat(request: ChatRequest):
                     logger.info("✅ Plan承認検出: 実装モードに移行")
                     mode = "task"
                     plan_note = summary.get("note", "")
+                    try:
+                        from app.core.session_events import append_event, truncate_text
+
+                        append_event(
+                            session_id,
+                            "plan/approved",
+                            {"note": truncate_text(plan_note, 1000), "utterance": truncate_text(user_input, 200)},
+                        )
+                    except Exception:
+                        pass
                     if plan_note:
                         user_input = (
                             f"{user_input}\n\n【承認済みプラン】\n{plan_note}\n"
@@ -333,17 +343,19 @@ async def chat(request: ChatRequest):
                 category=chat_category,
                 user_input=user_input,
             )
+            from app.core.prompt_builder.sections import hash_static_prompt
+            _static_hash = hash_static_prompt(static_sys)
             if bypass_cache:
                 cached_response = None
                 logger.info(f"⏭️ Supervisorキャッシュbypass: {bypass_reason} ({user_input[:30]}...)")
             else:
                 cached_response = await get_llm_cache(
-                    user_input=current_user_input_with_context,
-                    system_prompt=supervisor_sys_prompt,
+                    user_input=user_input,
                     mode=mode,
                     model=_model,
                     provider=_provider,
                     max_age_seconds=1800,
+                    static_prompt_hash=_static_hash,
                 )
             
             # IBKR 口座照会は Supervisor LLM を飛ばす（空JSONフォールバック対策）
@@ -371,8 +383,7 @@ async def chat(request: ChatRequest):
                     # bypass 時は SET しない（LRU 汚染・見かけの hit rate 低下を防ぐ）
                     if not bypass_cache:
                         await set_llm_cache(
-                            user_input=current_user_input_with_context,
-                            system_prompt=supervisor_sys_prompt,
+                            user_input=user_input,
                             mode=mode,
                             model=_model,
                             provider=_provider,
@@ -380,6 +391,7 @@ async def chat(request: ChatRequest):
                             reasoning=reasoning,
                             supervisor_json=supervisor_json,
                             ttl_seconds=1800,
+                            static_prompt_hash=_static_hash,
                         )
                 except Exception as e:
                     logger.error(f"Supervisor error: {e}")
@@ -498,6 +510,16 @@ async def chat(request: ChatRequest):
                 plan_content = supervisor_json["plan"]
                 plan_text = f"<plan>\n{plan_content}\n</plan>\n\n---\n💡 **このプランで進めますか？** 「はい」「OK」「進めて」等で承認、または修正点があれば教えてください。"
                 yield _sse_event({"type": "chunk", "content": plan_text})
+                try:
+                    from app.core.session_events import append_event, truncate_text
+
+                    append_event(
+                        session_id,
+                        "plan/proposed",
+                        {"plan": truncate_text(str(plan_content), 2000)},
+                    )
+                except Exception:
+                    pass
                 
                 # プラン情報をDBに保存（次ターンで承認/修正を判定するため）
                 await _save_messages(

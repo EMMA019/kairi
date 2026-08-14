@@ -90,6 +90,22 @@ async def get_history(session_id: str):
     }
 
 
+@router.get("/history/{session_id}/events")
+async def get_session_events(session_id: str):
+    """Append-only session event log (grounding/tools/plan/compaction)."""
+    async with get_db() as db:
+        cursor = await db.execute(
+            "SELECT id FROM sessions WHERE id = ?", (session_id,)
+        )
+        if not await cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Session not found")
+
+    from app.core.session_events import read_events
+
+    events = read_events(session_id)
+    return {"session_id": session_id, "events": events, "count": len(events)}
+
+
 @router.delete("/history/{session_id}")
 async def delete_session(session_id: str):
     """セッションと関連メッセージを削除"""

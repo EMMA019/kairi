@@ -79,6 +79,19 @@ async def auto_execute_with_retry(
         mode=mode,
         allow_mocks="モック" in user_input or "ダミー" in user_input or "仮実装" in user_input,
     )
+    try:
+        from app.core.tools.repeat_reminder import reset_chain
+        reset_chain(session_id)
+    except Exception:
+        pass
+    try:
+        from app.core.prompt_builder.skill_catalog import maybe_catalog_refresh_message
+        _catalog_refresh = maybe_catalog_refresh_message(session_id, user_input)
+        if _catalog_refresh:
+            loop_history.append({"role": "user", "content": _catalog_refresh})
+            instruction = (_catalog_refresh + "\n\n" + (instruction or "")).strip()
+    except Exception:
+        pass
     
     # ワークスペースパスの解決
     try:
@@ -142,7 +155,9 @@ async def auto_execute_with_retry(
             exec_user_input = loop_history[-1]["content"]
             
             # 🔴 Claude Code準拠: 重要度に基づいた賢い圧縮
-            compressed_loop = await _smart_compress_loop_history(loop_history)
+            compressed_loop = await _smart_compress_loop_history(
+                loop_history, session_id=session_id
+            )
             
             exec_history = (
                 history_messages

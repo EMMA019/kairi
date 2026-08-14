@@ -147,6 +147,40 @@ def _echo(message: str) -> str:
     return f"Echo: {message}"
 
 
+@tool_registry.register(
+    name="list_skills",
+    description="利用可能な専門スキルのカタログを表示する（全文は load_skill で読む）",
+)
+def _list_skills() -> str:
+    from app.core.prompt_builder.skill_catalog import list_skill_entries
+
+    entries = list_skill_entries()
+    if not entries:
+        return "スキルは登録されていません。"
+    lines = [f"スキルカタログ ({len(entries)}件):"]
+    for e in entries:
+        lines.append(f"- `{e['id']}`: {e.get('description') or e.get('name')}")
+    lines.append('読むとき: <mcp_call tool="load_skill" skill_id="python-backend" />')
+    return "\n".join(lines)
+
+
+@tool_registry.register(
+    name="load_skill",
+    description="専門スキル SKILL.md の本文を読む。skill_id はスキルフォルダ名（例: python-backend）",
+)
+def _load_skill(skill_id: str) -> str:
+    from app.core.prompt_builder.skill_catalog import load_skill_body
+    from app.core.session_events import append_event
+
+    ok, text = load_skill_body(skill_id)
+    # Best-effort session log when called from a tool context without session_id
+    try:
+        append_event("unknown", "skill/loaded", {"skill_id": skill_id, "ok": ok}, ignorable=True)
+    except Exception:
+        pass
+    return text
+
+
 @tool_registry.register(name="list_tools", description="利用可能なツール一覧を表示")
 def _list_tools() -> str:
     """ツール一覧表示（ローカル組み込み + 外部MCPサーバー）"""
@@ -269,4 +303,14 @@ except Exception as e:
 try:
     import app.core.tools.ibkr_tools
 except Exception as e:
-    logger.warning(f"ibkrツールのロードに失敗しました: {e}")
+    logger.warning(f"ibkrツールのロードに失敗しました: {e}")
+
+try:
+    import app.core.tools.agent_tools
+except Exception as e:
+    logger.warning(f"agent_tools のロードに失敗しました: {e}")
+
+try:
+    import app.core.tools.jobs
+except Exception as e:
+    logger.warning(f"jobs ツールのロードに失敗しました: {e}")

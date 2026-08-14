@@ -1,0 +1,33 @@
+id: assembled_loop_sse_grounding
+description: >
+  Keyless assembled snapshot — scripted mock LLM chunks through the real
+  auto_execute_with_retry loop + grounding waterfall + SSE contract.
+  Mock only at the model boundary (dsh llm-replay style).
+input: "SNDKとWDCどうだった？"
+history: []
+search_results: |
+  [1] Sandisk Investor Day announced 100% excess cash return (Aug 13).
+  [18] SK Hynix and SanDisk climb on memory shortage.
+mock_executor_output: |
+  SNDKは好材料が重なったタイミングです。## 🟢 いいニュース・好材料 (Bull Cases)
+  - 株主還元方針を表明した
+  ゼブラトン騎手が優勝しました。
+expectations:
+  must_contain:
+    - "## 🟢"
+  must_not_contain:
+    - "です。##"
+    - "ゼブラトン"
+  must_contain_any:
+    - "要確認"
+    - "ソース未記載"
+    - "未確認"
+    - "氏名はソース未記載"
+  sse_must_include_types:
+    - chunk
+  session_must_include_types:
+    - assistant/message
+    - grounding/before
+    - grounding/after
+    - grounding/apply
+pipeline: assembled_loop

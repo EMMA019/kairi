@@ -204,6 +204,22 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
         }
         break;
 
+      case "user_question":
+        if (event.data) {
+          const note = "\n\n*[確認質問があります — 次のメッセージで回答してください]*\n\n";
+          setStreamingContent((prev) => {
+            const next = prev + note;
+            streamingContentRef.current = next;
+            return next;
+          });
+        }
+        break;
+
+      case "todo":
+      case "job":
+        // acknowledged; ignore for UI (avoid crash on new SSE types)
+        break;
+
       case "error":
         setError(event.message || "An error occurred");
         setStatus("idle");

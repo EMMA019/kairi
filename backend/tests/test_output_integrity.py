@@ -82,6 +82,15 @@ def test_skill_matches_quant_not_generic_code():
 
 def test_load_active_skills_quant_only():
     text = load_active_skills("日米セクターETFのペアトレードをバックテストしたい")
-    assert "quant" in text.lower() or "ペア" in text or "Active Skill" in text
-    # 汎用「コード」だけでは frontend が誤発火しないこと（この入力には frontend 語が無い）
-    assert "frontend-dev" not in text or "react" not in text.lower()
+    # Catalog mode: recommend matching skill id, do not dump full SKILL.md body
+    assert "quant-pairs-trading" in text or "スキルカタログ" in text
+    assert "load_skill" in text
+    assert "推奨" in text
+    assert "Active Skill" not in text  # full body no longer auto-injected
+    # Only the matched skill is flagged 推奨 (catalog may list others)
+    assert "quant-pairs-trading" in text
+    quant_line = [ln for ln in text.splitlines() if "quant-pairs-trading" in ln][0]
+    assert "推奨" in quant_line
+    frontend_lines = [ln for ln in text.splitlines() if "frontend-dev" in ln]
+    if frontend_lines:
+        assert "推奨" not in frontend_lines[0]

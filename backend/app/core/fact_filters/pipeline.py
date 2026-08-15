@@ -74,6 +74,7 @@ def apply_grounding_pipeline(
     from .format import (
         correct_common_typos,
         strip_unrequested_memory_mentions,
+        strip_unrequested_child_ask,
         strip_omakase_skill_questions,
         strip_unrequested_yahoo_finance,
         clean_broken_markdown_tables,
@@ -128,6 +129,11 @@ def apply_grounding_pipeline(
         "strip_unrequested_memory_mentions",
         text,
         lambda: strip_unrequested_memory_mentions(text, user_input=ui),
+    )
+    text = _run_step(
+        "strip_unrequested_child_ask",
+        text,
+        lambda: strip_unrequested_child_ask(text, user_input=ui),
     )
     text = _run_step(
         "strip_omakase_skill_questions",

@@ -113,6 +113,33 @@ def strip_omakase_skill_questions(
     return cleaned if cleaned else text
 
 
+_UNSOLICITED_CHILD_ASK_RE = re.compile(
+    r"[^\n。．]*お子様の年齢に合わせ[^\n。．]*[。．]?",
+    re.IGNORECASE,
+)
+_UNSOLICITED_CHILD_NAME_RE = re.compile(
+    r"[^\n。．]*(?:emmaちゃん|6歳のemma|6歳のお子様)[^\n。．]*[。．]?",
+    re.IGNORECASE,
+)
+
+
+def strip_unrequested_child_ask(text: str, user_input: Optional[str] = None) -> str:
+    """子どもが主語でないとき、定型の『お子様の年齢』確認と固有名先出しを落とす。"""
+    if not text or not isinstance(text, str):
+        return text
+    try:
+        from app.core.memory_policy import _CHILD_MEMBER_RE, user_in_family_topic_context
+    except Exception:
+        return text
+    ui = user_input or ""
+    if user_in_family_topic_context(ui) or _CHILD_MEMBER_RE.search(ui):
+        return text
+    cleaned = _UNSOLICITED_CHILD_ASK_RE.sub("", text)
+    cleaned = _UNSOLICITED_CHILD_NAME_RE.sub("", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+    return cleaned if cleaned else text
+
+
 def strip_unrequested_memory_mentions(
     text: str,
     user_input: Optional[str] = None,

@@ -116,3 +116,30 @@ def is_search_effectively_empty(
         )
         return True
     return False
+
+
+_MARKET_SOURCE_NOISE_RE = re.compile(
+    r"日経|ロイター|Reuters|ZAi|ザイ|ストップ高|注目株|株式市場|"
+    r"ダイヤモンド.?ザイ|日本株市場|daily.?zai|finance\.yahoo",
+    re.IGNORECASE,
+)
+_FINANCE_QUERY_RE = re.compile(
+    r"株|銘柄|株価|相場|配当|決算|投資|市況|日経|ダウ|ナスダック|為替|金利"
+)
+
+
+def drop_offtopic_market_sources(user_input: str, sources: list) -> list:
+    """非市況クエリから、日経・ロイター・ZAi などの市況ヒットを除く。"""
+    if not sources:
+        return sources
+    text = user_input or ""
+    if _FINANCE_QUERY_RE.search(text):
+        return sources
+    kept = []
+    for src in sources:
+        blob = f"{src.get('title') or ''} {src.get('url') or ''} {src.get('source') or ''}"
+        if _MARKET_SOURCE_NOISE_RE.search(blob):
+            logger.info(f"🧹 非市況クエリから市況ソースを除外: {src.get('title') or src.get('url')}")
+            continue
+        kept.append(src)
+    return kept if kept else sources

@@ -533,9 +533,15 @@ def sanitize_conversational_query(q_text: str) -> str:
     return " ".join(tokens[:5]) if tokens else q_text[:30]
 
 
+_OUTING_TODAY_KW = ("イベント", "祭り", "花火", "お出かけ", "観光", "ワークショップ", "展示")
+_MARKET_TODAY_KW = ("株", "相場", "市場", "日経", "銘柄", "市況", "決算", "TOPIX")
+
+
 def _is_todayish_market_query(user_input: str, *, now_jst: datetime | None = None) -> bool:
-    """今日系キーワード、または明示日付付き市況質問を日付正規化対象にする。"""
+    """今日系＋市況のときだけ日付正規化対象。イベントの『今日』は市況にしない。"""
     text = user_input or ""
+    if any(k in text for k in _OUTING_TODAY_KW) and not any(k in text for k in _MARKET_TODAY_KW):
+        return False
     if any(k in text for k in _TODAYISH_KW):
         return True
     return parse_explicit_calendar_date(text) is not None
@@ -968,6 +974,9 @@ async def run_web_search(
         from app.core.search.router import fetch_url
 
         global_top_sources = rerank(user_input, all_raw_sources, top_k=20)
+        from app.core.search_relevance import drop_offtopic_market_sources
+
+        global_top_sources = drop_offtopic_market_sources(user_input, global_top_sources)
 
         deep_fetched_text = ""
         skip_deep = should_skip_deep_fetch(user_input)

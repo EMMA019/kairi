@@ -11,7 +11,23 @@ from app.core.memory_policy import (
     user_in_holdings_context,
     is_junk_memory,
     entry_matches_user_input,
+    targets_are_same_slot,
+    entry_has_standing_grant,
+    entry_in_standing_grant_scope,
+    standing_grant_allows_use,
+    family_occasion_allows_use,
+    family_topic_allows_use,
+    infer_family_tag,
+    user_in_family_occasion_context,
+    user_in_family_travel_context,
+    find_entry_for_memory_edit,
+    merge_memory_note,
+    resolve_kv_mutation,
+    should_edit_existing_memory,
+    FAMILY_TAG_CHILD,
+    FAMILY_TAG_SPOUSE,
 )
+from app.core.chat_orchestrator import build_executor_instruction
 from app.core.chat_orchestrator import resolve_memory_inject
 from app.core.fact_filters.format import strip_unrequested_memory_mentions
 
@@ -201,6 +217,85 @@ def test_holdings_context_helper():
     assert not user_in_holdings_context("Microsoftのいいニュースあった？")
 
 
+_CHILD_KV = {
+    "category": "profile",
+    "quote": "子ども　emma　女　2019/11/13　※私が今後の会話で子どもに触れたら記憶使っていいよ　覚えておいて",
+    "summary": {
+        "target": "子ども（emma）の生年月日・性別",
+        "note": "2019年11月13日生まれ、女性。今後の会話で子どもに触れた場合の記憶利用はユーザー本人から許可済み。",
+        "tags": ["emma", "子ども"],
+    },
+}
+
+
+def test_child_standing_grant_scope():
+    assert entry_has_standing_grant(_CHILD_KV)
+    assert entry_in_standing_grant_scope(_CHILD_KV, "emmaの誕生日いつ？")
+    assert entry_in_standing_grant_scope(_CHILD_KV, "子供向けのレストラン教えて")
+    assert entry_in_standing_grant_scope(_CHILD_KV, "子どもと行ける店")
+    assert not entry_in_standing_grant_scope(_CHILD_KV, "今日の天気は？")
+    assert not entry_in_standing_grant_scope(_CHILD_KV, "Microsoftのいいニュースあった？")
+
+
+def test_standing_grant_injects_without_per_turn_phrase():
+    kv = (
+        "- [PROFILE] 子ども（emma）の生年月日・性別: 2019年11月13日生まれ、女性。"
+        "今後の会話で子どもに触れた場合の記憶利用はユーザー本人から許可済み。"
+    )
+    assert standing_grant_allows_use("子供の誕生日いつだっけ", kv)
+    assert standing_grant_allows_use("emmaに合うプレゼント", kv)
+    assert not standing_grant_allows_use("今日の天気は？", kv)
+    assert not user_allows_memory_use("子供の誕生日いつだっけ")
+
+    sj, injected = resolve_memory_inject(
+        {"memory_inject": False},
+        kv,
+        user_input="子供向けのランチある？",
+    )
+    assert sj["memory_inject"] is True
+    assert injected == kv
+
+    wife_kv = "- [PROFILE] 妻saoriの生年月日: 1989年12月29日生まれ。Naoの妻。"
+    sj2, injected2 = resolve_memory_inject(
+        {"memory_inject": True},
+        wife_kv,
+        user_input="今日の天気は？",
+    )
+    assert sj2["memory_inject"] is False
+    assert injected2 is None
+
+
+def test_wife_birthday_gift_uses_profile():
+    """妻の誕生日×プレゼントは、継続許可なしでも妻プロフィールを使ってよい。"""
+    user = "妻の誕生日近いんだけど、プレゼント何がいいかな？"
+    assert user_in_family_occasion_context(user)
+    assert not user_allows_memory_use(user)
+
+    wife_kv = "- [PROFILE] 妻saoriの生年月日: 1989年12月29日生まれ。Naoの妻。"
+    assert family_occasion_allows_use(user, wife_kv)
+    assert not family_occasion_allows_use("プレゼント何がいいかな？", wife_kv)
+
+    yogurt_kv = "- [PREFERENCE] 好きな食べ物 (好き): ヨーグルト"
+    assert not family_occasion_allows_use(user, yogurt_kv)
+    assert family_topic_allows_use("妻とご飯行きたい", wife_kv)
+
+    sj, injected = resolve_memory_inject(
+        {"memory_inject": False},
+        wife_kv,
+        user_input=user,
+    )
+    assert sj["memory_inject"] is True
+    assert injected == wife_kv
+
+    sj2, injected2 = resolve_memory_inject(
+        {"memory_inject": True},
+        wife_kv,
+        user_input="妻と喧嘩した",
+    )
+    assert sj2["memory_inject"] is True
+    assert injected2 == wife_kv
+
+
 def test_accept_oboeteite_profile_save():
     """回帰: 「覚えていてほしいこと…」は明示的保存指示として受理する（2026-08 保存不能バグ）。"""
     user = (
@@ -228,6 +323,10 @@ def test_save_pattern_variants_accepted():
     assert user_requests_memory_save("カレーが好きって覚えてね")
     assert user_requests_memory_save("次の予定を記憶してほしい")
     assert user_requests_memory_save("覚えててください")
+    assert user_requests_memory_save("メモリへの追加①3人家族")
+    assert user_requests_memory_save("私1988/10/19生まれメモリへ追加")
+    assert user_requests_memory_save("3人家族ってメモリに追加")
+    assert user_requests_memory_save("家族構成を記憶に追加して")
 
 
 def test_non_save_utterances_still_rejected():
@@ -249,3 +348,205 @@ def test_strip_hobby_personalization_violation():
     assert "ドメイン取得" in cleaned or "$20" in cleaned or "アフィリエイト" in cleaned
     assert "競馬" not in cleaned
     assert "猫" not in cleaned
+
+
+def test_accept_memory_he_tsuika_family():
+    """回帰: 「メモリへの追加①3人家族」は quote が短くても保存する。"""
+    user = "メモリへの追加①3人家族"
+    action = {
+        "action": "add",
+        "category": "profile",
+        "quote": "3人家族",
+        "summary": {"target": "3人家族", "note": "家族構成は3人", "tags": ["家族"]},
+    }
+    ok, reason = should_accept_kv_action(user, action)
+    assert ok, reason
+
+
+def test_accept_memory_he_tsuika_birthday():
+    user = "私1988/10/19生まれメモリへ追加"
+    action = {
+        "action": "add",
+        "category": "profile",
+        "quote": "私1988/10/19生まれメモリへ追加",
+        "summary": {
+            "target": "生年月日",
+            "note": "1988年10月19日生まれ",
+            "tags": ["誕生日"],
+        },
+    }
+    ok, reason = should_accept_kv_action(user, action)
+    assert ok, reason
+
+
+def test_profile_slots_do_not_collapse_family_birthdays():
+    """妻の生年月日は本人の生年月日と同一スロットにしない。"""
+    assert not targets_are_same_slot("生年月日", "妻の生年月日")
+    assert not targets_are_same_slot("誕生日", "妻の誕生日")
+    assert not targets_are_same_slot("家族", "3人家族")
+    assert targets_are_same_slot("生年月日", "生年月日")
+    assert targets_are_same_slot("GOOGL保有", "GOOGL保有状況")
+    assert targets_are_same_slot("GOOGL保有状況", "GOOGL保有")
+
+
+def test_rejected_kv_instruction_forbids_false_confirm():
+    text = build_executor_instruction({
+        "instruction": {
+            "facts_to_present": ["3人家族をメモリに追加した"],
+            "logical_order": ["確認する"],
+        },
+        "kv_action": {"action": "none", "rejected_reason": "明示的な保存指示がない（おまかせ等は不可）"},
+    })
+    assert "保存されませんでした" in text
+    assert "成功表現は禁止" in text
+    assert "3人家族をメモリに追加した" not in text
+
+
+_WIFE_KV = {
+    "category": "profile",
+    "quote": "妻　saori　1989/12/29　覚えておいて",
+    "summary": {
+        "target": "妻saoriの生年月日",
+        "note": "1989年12月29日生まれ。Naoの妻。",
+        "tags": [],
+    },
+}
+_SELF_KV = {
+    "category": "profile",
+    "quote": "私1988/10/19　男　覚えておいて",
+    "summary": {
+        "target": "Naoの生年月日・性別",
+        "note": "1988年10月19日生まれ、男性",
+        "tags": [],
+    },
+}
+_YOGURT_KV = {
+    "category": "preference",
+    "quote": "私の好きな食べ物はヨーグルトって覚えておいて",
+    "summary": {"target": "好きな食べ物", "stance": "好き", "note": "ヨーグルト", "tags": []},
+}
+
+
+def test_infer_family_tag_spouse_child_not_self():
+    assert infer_family_tag(_WIFE_KV) == FAMILY_TAG_SPOUSE
+    assert infer_family_tag(_CHILD_KV) == FAMILY_TAG_CHILD
+    assert infer_family_tag(_SELF_KV) is None
+    assert infer_family_tag(_YOGURT_KV) is None
+
+
+def test_family_travel_uses_flagged_slots_only():
+    user = "家族で旅行に行くんだけど"
+    assert user_in_family_travel_context(user)
+    assert not user_in_family_travel_context("旅の相談して")
+    assert not user_in_family_travel_context("旅行行きたい")
+    assert not user_in_family_travel_context("家族の話")
+
+    wife_text = "- [PROFILE] 妻saoriの生年月日: 1989年12月29日生まれ。Naoの妻。"
+    child_text = "- [PROFILE] 子ども（emma）の生年月日・性別: 2019年11月13日生まれ、女性。"
+    yogurt_text = "- [PREFERENCE] 好きな食べ物 (好き): ヨーグルト"
+    self_text = "- [PROFILE] Naoの生年月日・性別: 1988年10月19日生まれ、男性"
+
+    assert family_topic_allows_use(user, wife_text + "\n" + child_text)
+    assert not family_topic_allows_use(user, yogurt_text)
+    assert not family_topic_allows_use(user, self_text)
+    assert not family_topic_allows_use("旅の相談して", wife_text + "\n" + child_text)
+    assert not family_topic_allows_use("旅行行きたい", child_text)
+
+    sj, injected = resolve_memory_inject(
+        {"memory_inject": False},
+        wife_text + "\n" + child_text,
+        user_input=user,
+    )
+    assert sj["memory_inject"] is True
+    assert injected is not None
+
+    sj2, injected2 = resolve_memory_inject(
+        {"memory_inject": True},
+        child_text,
+        user_input="旅の相談して",
+    )
+    assert sj2["memory_inject"] is False
+    assert injected2 is None
+
+
+def test_news_and_omakase_do_not_use_family_flags():
+    child_text = "- [PROFILE] 子ども（emma）の生年月日・性別: 2019年11月13日生まれ。"
+    sj, injected = resolve_memory_inject(
+        {"memory_inject": True},
+        child_text,
+        user_input="Microsoftのいいニュースあった？",
+    )
+    assert sj["memory_inject"] is False
+    assert injected is None
+
+    sj2, injected2 = resolve_memory_inject(
+        {"memory_inject": True},
+        child_text,
+        user_input="おまかせでアプリ作って",
+    )
+    assert sj2["memory_inject"] is False
+    assert injected2 is None
+
+
+def test_append_emma_food_updates_child_not_yogurt():
+    user = "emmaの記憶にパスタ（バジル系）とピザが好きって追記で覚えておいて"
+    assert user_requests_memory_save(user)
+    assert should_edit_existing_memory(user)
+
+    child = {**_CHILD_KV, "id": 3}
+    wife = {**_WIFE_KV, "id": 2}
+    yogurt = {**_YOGURT_KV, "id": 4}
+    self_row = {**_SELF_KV, "id": 1}
+    found = find_entry_for_memory_edit(user, [self_row, wife, child, yogurt])
+    assert found is not None
+    assert found["id"] == 3
+
+    action = {
+        "action": "add",
+        "category": "preference",
+        "quote": "パスタ（バジル系）とピザが好きって追記で覚えておいて",
+        "summary": {
+            "target": "好きな食べ物",
+            "stance": "好き",
+            "note": "パスタ（バジル系）・ピザが好き",
+            "tags": ["パスタ", "ピザ"],
+        },
+    }
+    ok, reason = should_accept_kv_action(user, action)
+    assert ok, reason
+
+    resolved = resolve_kv_mutation(user, action, [self_row, wife, child, yogurt])
+    assert resolved is not None
+    act, payload, tid = resolved
+    assert act == "update"
+    assert tid == 3
+    note = payload["summary"]["note"]
+    assert "2019年11月13日" in note
+    assert "パスタ" in note
+    assert payload["summary"]["target"] == child["summary"]["target"]
+    assert payload["quote"] == child["quote"]
+
+
+def test_merge_memory_note_appends_once():
+    old = "2019年11月13日生まれ、女性。"
+    new = "パスタ（バジル系）・ピザが好き"
+    merged = merge_memory_note(old, new)
+    assert "2019年11月13日" in merged
+    assert "パスタ" in merged
+    assert merge_memory_note(merged, new) == merged
+
+
+def test_update_without_target_still_resolves_by_name():
+    user = "emmaのプロフィールにピザ好きを追記して"
+    child = {**_CHILD_KV, "id": 9}
+    resolved = resolve_kv_mutation(
+        user,
+        {
+            "action": "update",
+            "summary": {"note": "ピザが好き"},
+        },
+        [child],
+    )
+    assert resolved is not None
+    assert resolved[0] == "update"
+    assert resolved[2] == 9

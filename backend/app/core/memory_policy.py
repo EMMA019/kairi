@@ -43,6 +43,10 @@ _MEMORY_SAVE_PATTERNS = [
     r"記録して",
     r"忘れないで",
     r"忘れんといて",
+    r"メモリへ(?:の)?追加",
+    r"メモリに追加",
+    r"記憶に追加",
+    r"追記",
     r"remember\s+(?:this|that|it)",
     r"please\s+remember",
 ]
@@ -122,6 +126,213 @@ def user_in_holdings_context(user_input: str) -> bool:
     return bool(_HOLDINGS_CONTEXT_RE.search(user_input or ""))
 
 
+# エントリに残した「この話題では記憶を使ってよい」許可（今の発話の「記憶を使って」ではない）
+_STANDING_GRANT_RE = re.compile(
+    r"(?:触れ(?:たら|た場合|たらば)|出たら|言及).{0,24}記憶"
+    r"|記憶使って(?:いい|良い|OK|おk)"
+    r"|記憶を使って(?:いい|良い)"
+    r"|記憶利用.{0,16}許可",
+    re.IGNORECASE,
+)
+_CHILD_SCOPE_RE = re.compile(r"子ども|子供|こども|お子様|娘|息子")
+
+
+def entry_has_standing_grant(entry: dict) -> bool:
+    """quote/note に継続的な記憶利用許可があるか。"""
+    summary = entry.get("summary") or {}
+    blob = f"{entry.get('quote') or ''}\n{summary.get('note') or ''}"
+    return bool(_STANDING_GRANT_RE.search(blob))
+
+
+def entry_in_standing_grant_scope(entry: dict, user_input: str) -> bool:
+    """許可済みエントリのスコープ（子ども/名前）に今の発話が触れているか。"""
+    if not entry_has_standing_grant(entry):
+        return False
+    text = (user_input or "").strip()
+    if not text:
+        return False
+    if entry_matches_user_input(entry, text):
+        return True
+    summary = entry.get("summary") or {}
+    tags = summary.get("tags") or []
+    blob = " ".join(
+        [
+            str(summary.get("target") or ""),
+            str(summary.get("note") or ""),
+            str(entry.get("quote") or ""),
+            " ".join(str(t) for t in tags),
+        ]
+    )
+    if _CHILD_SCOPE_RE.search(blob) and _CHILD_SCOPE_RE.search(text):
+        return True
+    text_lower = text.lower()
+    for m in re.finditer(r"[A-Za-z][A-Za-z0-9]{1,15}", blob):
+        if _ascii_token_in_text(m.group(0), text_lower):
+            return True
+    return False
+
+
+def standing_grant_allows_use(user_input: str, kv_text: str = "") -> bool:
+    """スコープ付きKV文面に継続許可があり、今の発話がそのスコープに触れているか。"""
+    text = (user_input or "").strip()
+    blob = kv_text or ""
+    if not text or not blob or not _STANDING_GRANT_RE.search(blob):
+        return False
+    if _CHILD_SCOPE_RE.search(blob) and _CHILD_SCOPE_RE.search(text):
+        return True
+    text_lower = text.lower()
+    for m in re.finditer(r"[A-Za-z][A-Za-z0-9]{1,15}", blob):
+        if _ascii_token_in_text(m.group(0), text_lower):
+            return True
+    return False
+
+
+FAMILY_TAG_SPOUSE = "family:spouse"
+FAMILY_TAG_CHILD = "family:child"
+FAMILY_TAGS = frozenset({FAMILY_TAG_SPOUSE, FAMILY_TAG_CHILD})
+
+_SPOUSE_RE = re.compile(r"妻|嫁|奥さん|家内|配偶者")
+_CHILD_MEMBER_RE = re.compile(r"子ども|子供|こども|お子様|娘|息子")
+_FAMILY_SLOT_RE = re.compile(
+    r"妻|嫁|奥さん|家内|配偶者|夫|主人|旦那|パートナー|"
+    r"子ども|子供|こども|お子様|娘|息子"
+)
+_FAMILY_TRAVEL_RE = re.compile(r"旅行|お出かけ|観光|宿|ホテル")
+_NEWS_DENY_RE = re.compile(r"ニュース|市況|決算|相場|ヘッドライン")
+_FAMILY_ALIAS_GROUPS = (
+    ("妻", "嫁", "奥さん", "家内", "配偶者"),
+    ("夫", "主人", "旦那"),
+    ("子ども", "子供", "こども", "お子様", "娘", "息子"),
+)
+
+
+def _entry_blob(entry: dict) -> str:
+    summary = entry.get("summary") or {}
+    tags = summary.get("tags") or []
+    return " ".join(
+        [
+            str(summary.get("target") or ""),
+            str(summary.get("note") or ""),
+            str(entry.get("quote") or ""),
+            " ".join(str(t) for t in tags),
+        ]
+    )
+
+
+def infer_family_tag(entry: dict) -> str | None:
+    """本人・好みには付けない。妻語なら spouse、子ども語なら child。"""
+    blob = _entry_blob(entry)
+    if _CHILD_MEMBER_RE.search(blob):
+        return FAMILY_TAG_CHILD
+    if _SPOUSE_RE.search(blob):
+        return FAMILY_TAG_SPOUSE
+    return None
+
+
+def entry_family_tag(entry: dict) -> str | None:
+    tags = (entry.get("summary") or {}).get("tags") or []
+    for tag in tags:
+        if tag in FAMILY_TAGS:
+            return str(tag)
+    return infer_family_tag(entry)
+
+
+def apply_family_tag(entry: dict) -> dict:
+    """tags に family:spouse / family:child を補完する（本人は触らない）。"""
+    tag = infer_family_tag(entry)
+    if not tag:
+        return entry
+    summary = entry.setdefault("summary", {})
+    tags = list(summary.get("tags") or [])
+    if tag not in tags:
+        tags.append(tag)
+        summary["tags"] = tags
+    return entry
+
+
+def memory_personalization_denied(user_input: str) -> bool:
+    """ニュース・おまかせ開発では家族フラグも使わない。"""
+    from app.core.omakase_policy import is_omakase_dev_request
+
+    text = user_input or ""
+    if is_omakase_dev_request(text):
+        return True
+    return bool(_NEWS_DENY_RE.search(text))
+
+
+def user_in_family_travel_context(user_input: str) -> bool:
+    """家族 × 旅行/お出かけ。『家族』や『旅の相談』だけでは不可。"""
+    text = user_input or ""
+    if "家族" not in text:
+        return False
+    return bool(_FAMILY_TRAVEL_RE.search(text))
+
+
+def user_in_family_topic_context(user_input: str) -> bool:
+    """妻/子どもが主語、または家族旅行。ニュース等は不可。"""
+    if memory_personalization_denied(user_input):
+        return False
+    text = user_input or ""
+    if user_in_family_travel_context(text):
+        return True
+    return bool(_FAMILY_SLOT_RE.search(text))
+
+
+def user_in_family_occasion_context(user_input: str) -> bool:
+    """後方互換。話題ゲートは記念日必須ではない。"""
+    return user_in_family_topic_context(user_input)
+
+
+def _family_slot_aliases_hit(text: str, blob: str) -> bool:
+    slots = _FAMILY_SLOT_RE.findall(text or "")
+    if not slots or not blob:
+        return False
+    for slot in slots:
+        group = next((g for g in _FAMILY_ALIAS_GROUPS if slot in g), (slot,))
+        if any(alias in blob for alias in group):
+            return True
+    return False
+
+
+def entry_matches_family_slot(entry: dict, user_input: str) -> bool:
+    """発話がこの行の家族フラグ（またはスロット語/名前）に触れているか。"""
+    if memory_personalization_denied(user_input):
+        return False
+    tag = entry_family_tag(entry)
+    if not tag:
+        return False
+    if user_in_family_travel_context(user_input):
+        return tag in FAMILY_TAGS
+    if tag == FAMILY_TAG_SPOUSE and (_SPOUSE_RE.search(user_input or "") or _family_slot_aliases_hit(user_input, _entry_blob(entry))):
+        return True
+    if tag == FAMILY_TAG_CHILD and (
+        _CHILD_MEMBER_RE.search(user_input or "") or _family_slot_aliases_hit(user_input, _entry_blob(entry))
+    ):
+        return True
+    text_lower = (user_input or "").lower()
+    for m in re.finditer(r"[A-Za-z][A-Za-z0-9]{1,15}", _entry_blob(entry)):
+        if _ascii_token_in_text(m.group(0), text_lower):
+            return True
+    return False
+
+
+def family_topic_allows_use(user_input: str, kv_text: str = "") -> bool:
+    """家族話題または家族旅行で、スコープ済みKVがそのスロットを含むときだけ許可。"""
+    if not user_in_family_topic_context(user_input) or not (kv_text or "").strip():
+        return False
+    family_kv = bool(re.search(r"family:(?:spouse|child)|妻|子ども|子供|お子様", kv_text, re.I))
+    if user_in_family_travel_context(user_input):
+        return family_kv
+    return _family_slot_aliases_hit(user_input, kv_text) or (
+        family_kv and bool(_FAMILY_SLOT_RE.search(user_input or ""))
+    )
+
+
+def family_occasion_allows_use(user_input: str, kv_text: str = "") -> bool:
+    """後方互換。"""
+    return family_topic_allows_use(user_input, kv_text)
+
+
 def _is_ascii_ticker_token(token: str) -> bool:
     return bool(re.fullmatch(r"[A-Za-z][A-Za-z0-9._^]{0,11}", token or ""))
 
@@ -148,11 +359,15 @@ def _token_matches_user_text(token: str, text: str, text_lower: str) -> bool:
     return tok in text
 
 
-def user_requests_memory_save(user_input: str) -> bool:
-    text = (user_input or "").strip()
+def _has_memory_save_phrase(text: str) -> bool:
+    text = (text or "").strip()
     if not text:
         return False
     return any(re.search(p, text, re.IGNORECASE) for p in _MEMORY_SAVE_PATTERNS)
+
+
+def user_requests_memory_save(user_input: str) -> bool:
+    return _has_memory_save_phrase(user_input)
 
 
 def user_requests_persona_change(user_input: str) -> bool:
@@ -171,6 +386,24 @@ def normalize_target_key(target: str) -> str:
     t = re.sub(r"[\s　_\-—–・/（）()【】\[\]「」『』]+", "", t)
     t = re.sub(r"[のはをがにとで]", "", t)
     return t
+
+
+# 「GOOGL保有」と「GOOGL保有状況」は同一スロット。接頭辞が違う主体（妻の生年月日）は別。
+_SAME_SLOT_SUFFIXES = ("状況", "情報", "のこと", "について")
+
+
+def targets_are_same_slot(a: str, b: str) -> bool:
+    """正規化キーが一致、または許可接尾辞だけの延長なら同一スロット。"""
+    ka = normalize_target_key(a)
+    kb = normalize_target_key(b)
+    if not ka or not kb:
+        return False
+    if ka == kb:
+        return True
+    longer, shorter = (ka, kb) if len(ka) >= len(kb) else (kb, ka)
+    if not longer.startswith(shorter):
+        return False
+    return longer[len(shorter):] in _SAME_SLOT_SUFFIXES
 
 
 # 旧デモシード（偽プロフィール）。purge-junk で除去対象にする
@@ -193,7 +426,7 @@ def is_demo_seed_memory(entry: dict) -> bool:
     return quote in _DEMO_SEED_QUOTES
 
 
-def is_junk_memory(entry: dict) -> bool:
+def is_junk_memory(entry: dict, user_input: str = "") -> bool:
     """ニュース・会話メタ・AI自己説明など長期記憶に不適切なエントリか。"""
     if is_demo_seed_memory(entry):
         return True
@@ -219,9 +452,7 @@ def is_junk_memory(entry: dict) -> bool:
     user_owned = bool(
         re.search(r"(?<!非)保有|持ってる|飼って|住んで|勤め|勤務", f"{note}{quote}{target}")
     )
-    explicit_save_quote = bool(
-        re.search(r"覚えておいて|記憶しておいて|記憶して|メモして", quote)
-    )
+    explicit_save_quote = _has_memory_save_phrase(quote) or _has_memory_save_phrase(user_input)
     if category in ("preference", "schedule") and stance in ("好き", "苦手", "条件付き", "予定", "約束"):
         return False
     if user_owned and category == "profile" and explicit_save_quote:
@@ -314,7 +545,7 @@ def should_accept_kv_action(user_input: str, kv_action: dict) -> tuple[bool, str
     if not user_requests_memory_save(user_input):
         return False, "明示的な保存指示がない（おまかせ等は不可）"
 
-    if is_junk_memory(kv_action):
+    if is_junk_memory(kv_action, user_input=user_input):
         return False, "ジャンク（ニュース/会話メタ/AI自己説明）"
 
     if not quote_supported_by_user(user_input, quote):
@@ -329,6 +560,123 @@ def should_accept_kv_action(user_input: str, kv_action: dict) -> tuple[bool, str
         return False, "target が空"
 
     return True, "explicit save"
+
+
+_APPEND_RE = re.compile(r"追記|書き足|足して覚えて|に足して")
+_EDIT_EXISTING_RE = re.compile(r"の記憶に|のプロフィールに|に追記|を更新|を足して")
+
+
+def user_requests_memory_append(user_input: str) -> bool:
+    return bool(_APPEND_RE.search(user_input or ""))
+
+
+def should_edit_existing_memory(user_input: str) -> bool:
+    """既存行への追記・更新か（新規スロット追加ではない）。"""
+    return user_requests_memory_append(user_input) or bool(_EDIT_EXISTING_RE.search(user_input or ""))
+
+
+def merge_memory_note(old: str, new: str) -> str:
+    old_s = (old or "").strip()
+    new_s = (new or "").strip()
+    if not new_s:
+        return old_s
+    if not old_s:
+        return new_s
+    if new_s in old_s:
+        return old_s
+    return f"{old_s.rstrip('。./')}。{new_s}"
+
+
+def find_entry_for_memory_edit(user_input: str, memories: list[dict]) -> dict | None:
+    """発話の人名/家族スロットに最も近い既存行。好みの汎用行（ヨーグルト）は選ばない。"""
+    text = (user_input or "").strip()
+    if not text or not memories:
+        return None
+    text_lower = text.lower()
+    scored: list[tuple[int, int, dict]] = []
+    for entry in memories:
+        if entry.get("category") == "exclusion":
+            continue
+        blob = _entry_blob(entry)
+        score = 0
+        for m in re.finditer(r"[A-Za-z][A-Za-z0-9]{1,15}", blob):
+            if _ascii_token_in_text(m.group(0), text_lower):
+                score += 5
+        tag = entry_family_tag(entry)
+        if tag == FAMILY_TAG_CHILD and _CHILD_MEMBER_RE.search(text):
+            score += 3
+        if tag == FAMILY_TAG_SPOUSE and _SPOUSE_RE.search(text):
+            score += 3
+        if score:
+            scored.append((score, int(entry.get("id") or 0), entry))
+    if not scored:
+        return None
+    scored.sort(key=lambda x: (-x[0], x[1]))
+    return scored[0][2]
+
+
+def build_append_update(existing: dict, kv_action: dict) -> dict:
+    """既存の target / quote / 家族フラグは残し、note と tags だけ足す。"""
+    incoming = kv_action.get("summary") or {}
+    old = existing.get("summary") or {}
+    tags = list(old.get("tags") or [])
+    for tag in incoming.get("tags") or []:
+        if tag and tag not in tags:
+            tags.append(tag)
+    incoming_note = str(incoming.get("note") or "").strip()
+    if not incoming_note:
+        incoming_note = str(kv_action.get("quote") or "").strip()
+    return {
+        "category": existing.get("category"),
+        "quote": existing.get("quote"),
+        "summary": {
+            "target": old.get("target"),
+            "stance": old.get("stance") or incoming.get("stance"),
+            "note": merge_memory_note(str(old.get("note") or ""), incoming_note),
+            "tags": tags,
+        },
+    }
+
+
+def resolve_kv_mutation(
+    user_input: str,
+    kv_action: dict,
+    memories: list[dict],
+) -> tuple[str, dict, int | None] | None:
+    """add/update を実際の書き込みに落とす。追記は target_id 無しでも人名で既存行へ。"""
+    if not isinstance(kv_action, dict):
+        return None
+    action = kv_action.get("action") or "none"
+    if action not in ("add", "update", "delete"):
+        return None
+
+    if action == "delete":
+        tid = kv_action.get("target_id")
+        return (action, kv_action, int(tid) if tid is not None else None)
+
+    existing = None
+    raw_id = kv_action.get("target_id")
+    if raw_id is not None and str(raw_id).strip() != "":
+        try:
+            want = int(raw_id)
+            existing = next((e for e in memories if e.get("id") == want), None)
+        except (TypeError, ValueError):
+            existing = None
+
+    if existing is None and (action == "update" or should_edit_existing_memory(user_input)):
+        existing = find_entry_for_memory_edit(user_input, memories)
+
+    if existing is not None and (action == "update" or should_edit_existing_memory(user_input)):
+        payload = (
+            build_append_update(existing, kv_action)
+            if should_edit_existing_memory(user_input)
+            else kv_action
+        )
+        return ("update", payload, int(existing["id"]))
+
+    if action == "update":
+        return None
+    return ("add", kv_action, None)
 
 
 def collect_memory_guard_keywords(memories: list[dict], user_input: str) -> list[str]:

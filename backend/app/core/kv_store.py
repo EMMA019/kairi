@@ -70,7 +70,7 @@ class KVStore:
         # id: 0, category: 1, quote: 2, target: 3, stance: 4, note: 5, tags: 6
         tags_str = row[6]
         tags = json.loads(tags_str) if tags_str else []
-        return {
+        entry = {
             "id": row[0],
             "category": row[1],
             "quote": row[2],
@@ -81,6 +81,8 @@ class KVStore:
                 "tags": tags
             }
         }
+        from app.core.memory_policy import apply_family_tag
+        return apply_family_tag(entry)
 
     async def get_all(self) -> list[dict]:
         """全KVエントリを取得"""
@@ -130,6 +132,10 @@ class KVStore:
             logger.info(f"KV重複抑制: '{target}' → 既存 id={similar['id']} を更新")
             updated = await self.update(similar["id"], entry)
             return updated or similar
+
+        from app.core.memory_policy import apply_family_tag
+        entry = apply_family_tag(entry)
+        summary = entry.get("summary", {}) or {}
 
         async with get_db() as db:
             tags = summary.get("tags", [])
@@ -188,6 +194,9 @@ class KVStore:
                         current["summary"][key] = val
             if "category" in entry and entry["category"] is not None:
                 current["category"] = entry["category"]
+
+            from app.core.memory_policy import apply_family_tag
+            current = apply_family_tag(current)
                 
             tags = current["summary"].get("tags", [])
             await db.execute(
@@ -231,8 +240,14 @@ class KVStore:
         - profile/preference の常時全注入はしない（記憶参照違反の主因だった）
         """
         from app.core.memory_policy import (
+            entry_family_tag,
+            entry_in_standing_grant_scope,
+            entry_matches_family_slot,
             entry_matches_user_input,
+            memory_personalization_denied,
             user_allows_memory_use,
+            user_in_family_topic_context,
+            user_in_family_travel_context,
         )
 
         all_memories = await self.get_all()
@@ -252,21 +267,40 @@ class KVStore:
             ]
             return broad[:top_k]
 
-        # デフォルト: キーワード一致のみ（一致なしなら空＝沈黙義務）
+        if memory_personalization_denied(user_input):
+            matched = [
+                e for e in candidates
+                if entry_matches_user_input(e, user_input) and not entry_family_tag(e)
+            ]
+            return matched[:top_k]
+
+        if user_in_family_travel_context(user_input) or user_in_family_topic_context(user_input):
+            matched = [e for e in candidates if entry_matches_family_slot(e, user_input)]
+            return matched[:top_k]
+
+        # デフォルト: キーワード一致 + 継続許可のスコープ（子ども/子供 など表記ゆれ）
         matched = [e for e in candidates if entry_matches_user_input(e, user_input)]
+        seen = {e.get("id") for e in matched}
+        for e in candidates:
+            if e.get("id") in seen:
+                continue
+            if entry_in_standing_grant_scope(e, user_input):
+                matched.append(e)
+                seen.add(e.get("id"))
         return matched[:top_k]
 
     async def find_similar_target(self, target: str) -> Optional[dict]:
-        """正規化 target が近い既存エントリを返す（重複追加防止）。"""
-        from app.core.memory_policy import normalize_target_key
+        """同一スロットの既存エントリを返す（重複追加防止）。
+
+        部分一致は使わない。妻の生年月日が本人の生年月日を潰さない。
+        """
+        from app.core.memory_policy import normalize_target_key, targets_are_same_slot
         key = normalize_target_key(target)
         if not key:
             return None
         for entry in await self.get_all():
-            existing = normalize_target_key((entry.get("summary") or {}).get("target") or "")
-            if not existing:
-                continue
-            if existing == key or key in existing or existing in key:
+            existing = (entry.get("summary") or {}).get("target") or ""
+            if targets_are_same_slot(target, existing):
                 return entry
         return None
 

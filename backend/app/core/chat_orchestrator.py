@@ -44,12 +44,19 @@ _FACT_SKIP_RE = re.compile(
     re.IGNORECASE,
 )
 
+_MEMORY_SAVE_SUCCESS_RE = re.compile(
+    r"追加した|記憶した|保存した|覚えました|記憶済み|追加いたしました|追記した|追記いたしました"
+)
+
 
 def build_executor_instruction(supervisor_json: dict, *, search_unsupported: bool = False) -> str:
     """Supervisor JSON から Executor 向け instruction 文字列を組み立てる。"""
     instruction_dict = supervisor_json.get("instruction", {})
+    rejected = (supervisor_json.get("kv_action") or {}).get("rejected_reason")
     if isinstance(instruction_dict, dict):
-        facts = instruction_dict.get("facts_to_present", [])
+        facts = list(instruction_dict.get("facts_to_present") or [])
+        if rejected:
+            facts = [f for f in facts if not _MEMORY_SAVE_SUCCESS_RE.search(str(f))]
         order = instruction_dict.get("logical_order", [])
         instruction = ""
         if facts:
@@ -62,6 +69,15 @@ def build_executor_instruction(supervisor_json: dict, *, search_unsupported: boo
                 instruction += f"- {o}\n"
     else:
         instruction = str(instruction_dict)
+
+    if rejected:
+        note = (
+            f"【記憶保存の結果】今回の内容はメモリに保存されませんでした（{rejected}）。"
+            "「メモリに追加しました」「記憶しました」等の成功表現は禁止。"
+            "保存できなかった旨を短く伝え、必要なら「覚えておいて」「メモリに追加」など"
+            "明示的な保存の言い方を案内すること。"
+        )
+        instruction = (note + "\n\n" + (instruction or "")).strip()
 
     if search_unsupported:
         from app.core.search_relevance import SEARCH_UNSUPPORTED_INSTRUCTION
@@ -105,25 +121,42 @@ def resolve_memory_inject(
     Executor への注入は次のいずれかでのみ許可:
     - 明示的な記憶参照（「記憶を使って」等）
     - 保有・ポジション・含み等の文脈
-    単なる銘柄ニュース質問ではスコープに保有が残っていても落とす。
+    - 保存済みのスコープ付き継続許可（例: 子どもに触れたら記憶を使ってよい）
+    - 家族フラグ付きスロット（妻/子どもの話題、家族で旅行）
+    ニュース・おまかせ開発・単なる旅の相談では家族記憶を落とす。
     """
-    from app.core.memory_policy import user_allows_memory_use, user_in_holdings_context
+    from app.core.memory_policy import (
+        family_topic_allows_use,
+        memory_personalization_denied,
+        standing_grant_allows_use,
+        user_allows_memory_use,
+        user_in_holdings_context,
+    )
 
     if not filtered_kv_text:
         if supervisor_json.get("memory_inject"):
             logger.warning("memory_inject=true を拒否（スコープ内の記憶なし）")
         supervisor_json["memory_inject"] = False
-    elif supervisor_json.get("memory_inject"):
-        allowed = user_allows_memory_use(user_input) or user_in_holdings_context(user_input)
-        if not allowed:
-            logger.warning(
-                "memory_inject=true を拒否（明示記憶参照/保有文脈なし — ニュース質問の保有パーソナライズ防止）"
-            )
-            supervisor_json["memory_inject"] = False
-    memory_to_inject = (
-        filtered_kv_text if supervisor_json.get("memory_inject") and filtered_kv_text else None
-    )
-    return supervisor_json, memory_to_inject
+        return supervisor_json, None
+
+    denied = memory_personalization_denied(user_input)
+    allowed = user_allows_memory_use(user_input) or user_in_holdings_context(user_input)
+    if not denied:
+        allowed = (
+            allowed
+            or standing_grant_allows_use(user_input, filtered_kv_text)
+            or family_topic_allows_use(user_input, filtered_kv_text)
+        )
+    if allowed:
+        supervisor_json["memory_inject"] = True
+        return supervisor_json, filtered_kv_text
+
+    if supervisor_json.get("memory_inject"):
+        logger.warning(
+            "memory_inject=true を拒否（明示記憶参照/保有文脈/継続許可なし — ニュース質問の保有パーソナライズ防止）"
+        )
+        supervisor_json["memory_inject"] = False
+    return supervisor_json, None
 
 
 def note_search_inject(search_results_text: Optional[str], supervisor_json: dict) -> Optional[str]:

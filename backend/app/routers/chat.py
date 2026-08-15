@@ -99,11 +99,15 @@ async def chat(request: ChatRequest):
 
     # KV フィルタリング + KV一覧 + プロンプト構築
     # ※ filter_by_scope はオプトイン（明示許可 or キーワード一致のみ）。空なら注入しない。
-    from app.core.memory_policy import user_allows_memory_use
+    from app.core.memory_policy import user_allows_memory_use, user_requests_memory_save
     relevant_kv = await kv_store.filter_by_scope(user_input)
     filtered_kv_text = kv_store.format_for_prompt(relevant_kv) if relevant_kv else ""
-    # 全件一覧は「記憶を使って/覚えてる？」等の明示時のみ Supervisor に渡す（漏洩防止）
-    kv_summary = await kv_store.format_summary() if user_allows_memory_use(user_input) else ""
+    # 参照時に加え、保存・追記時も ID 一覧を渡す（update の target_id 用）
+    kv_summary = (
+        await kv_store.format_summary()
+        if user_allows_memory_use(user_input) or user_requests_memory_save(user_input)
+        else ""
+    )
     mood = get_mood()
 
     # --- ギャルモード (Lv3 Hyper Gal / omous Engine) 判定 ---
@@ -420,7 +424,7 @@ async def chat(request: ChatRequest):
             # バックグラウンド処理: メモリ抽出 (Supervisor判断 + コード側ゲートで拒否)
             kv_action = supervisor_json.get("kv_action")
             if kv_action and isinstance(kv_action, dict) and kv_action.get("action") in ["add", "update", "delete"]:
-                from app.core.memory_policy import should_accept_kv_action
+                from app.core.memory_policy import resolve_kv_mutation, should_accept_kv_action
                 accepted, reason = should_accept_kv_action(user_input, kv_action)
                 if not accepted:
                     logger.warning(
@@ -430,21 +434,37 @@ async def chat(request: ChatRequest):
                     supervisor_json["kv_action"] = {"action": "none", "rejected_reason": reason}
                 else:
                     try:
-                        action = kv_action.get("action")
-                        if action == "add":
-                            await kv_store.add(kv_action)
-                            logger.info(
-                                f"Supervisor指示によるメモリ追加: "
-                                f"{kv_action.get('summary', {}).get('target')} ({reason})"
+                        resolved = resolve_kv_mutation(
+                            user_input, kv_action, await kv_store.get_all()
+                        )
+                        if resolved is None:
+                            logger.warning(
+                                "KV更新を拒否 (既存行を特定できない): "
+                                f"action={kv_action.get('action')} target={kv_action.get('summary', {}).get('target')}"
                             )
-                        elif action == "update" and kv_action.get("target_id"):
-                            target_id = int(kv_action["target_id"])
-                            await kv_store.update(target_id, kv_action)
-                            logger.info(f"Supervisor指示によるメモリ更新: ID {target_id}")
-                        elif action == "delete" and kv_action.get("target_id"):
-                            target_id = int(kv_action["target_id"])
-                            await kv_store.delete(target_id)
-                            logger.info(f"Supervisor指示によるメモリ削除: ID {target_id}")
+                            supervisor_json["kv_action"] = {
+                                "action": "none",
+                                "rejected_reason": "更新対象の記憶が見つからない",
+                            }
+                        else:
+                            action, payload, target_id = resolved
+                            if action == "add":
+                                await kv_store.add(payload)
+                                logger.info(
+                                    f"Supervisor指示によるメモリ追加: "
+                                    f"{payload.get('summary', {}).get('target')} ({reason})"
+                                )
+                            elif action == "update" and target_id is not None:
+                                await kv_store.update(int(target_id), payload)
+                                logger.info(f"Supervisor指示によるメモリ更新: ID {target_id}")
+                            elif action == "delete" and target_id is not None:
+                                await kv_store.delete(int(target_id))
+                                logger.info(f"Supervisor指示によるメモリ削除: ID {target_id}")
+                            else:
+                                supervisor_json["kv_action"] = {
+                                    "action": "none",
+                                    "rejected_reason": "更新対象の記憶が見つからない",
+                                }
 
                         # KVメモリが更新されたので、プロンプト用のテキストを再生成する
                         relevant_kv = await kv_store.filter_by_scope(user_input)

@@ -88,6 +88,7 @@ def grade_fleet(
     *,
     pool_total: int,
     pool_last_18h: int,
+    now: Optional[datetime] = None,
 ) -> dict[str, Any]:
     """
     Aggregate per-feed grades into a fleet verdict.
@@ -95,7 +96,7 @@ def grade_fleet(
     `ok` remains loosely True unless the fleet is UNHEALTHY — monitors that
     only check a boolean keep working; clients that care use `verdict`.
     """
-    graded = [grade_feed(f) for f in feeds]
+    graded = [grade_feed(f, now=now) for f in feeds]
     counts = {
         OK: 0,
         EMPTY: 0,

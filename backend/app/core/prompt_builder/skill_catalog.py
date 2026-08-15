@@ -59,7 +59,7 @@ def catalog_digest(user_input: str = "") -> str:
     matched = matching_skill_ids(user_input)
     parts = [f"{e['id']}|{(e.get('description') or '').strip()}" for e in entries]
     parts.append("matched:" + ",".join(sorted(matched)))
-    blob = "\\n".join(parts).encode("utf-8")
+    blob = "\n".join(parts).encode("utf-8")
     return hashlib.sha256(blob).hexdigest()[:16]
 
 
@@ -76,7 +76,7 @@ def load_skill_body(skill_id: str) -> Tuple[bool, str]:
         content = skill_file.read_text(encoding="utf-8")
         meta, body = parse_skill_frontmatter(content)
         display = meta.get("name") or safe
-        text = f"### 【Loaded Skill: {display}】\\n" + (body or content)
+        text = f"### 【Loaded Skill: {display}】\n" + (body or content)
         return True, text
     except Exception as e:
         return False, f"[ERROR] スキル読込失敗 ({safe}): {e}"
@@ -105,7 +105,7 @@ def build_skill_catalog_prompt(user_input: str = "") -> str:
         if len(desc) > 120:
             desc = desc[:117] + "..."
         lines.append(f"- {e['id']}: {desc}{flag}")
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def maybe_catalog_refresh_message(session_id: str, user_input: str = "") -> str:
@@ -134,6 +134,6 @@ def maybe_catalog_refresh_message(session_id: str, user_input: str = "") -> str:
         logger.warning("catalog_refresh event failed: %s", e)
     prompt = build_skill_catalog_prompt(user_input)
     return (
-        "【スキルカタログ更新】カタログ内容が変わりました。最新の一覧を参照してください。\\n\\n"
+        "【スキルカタログ更新】カタログ内容が変わりました。最新の一覧を参照してください。\n\n"
         + prompt
     )

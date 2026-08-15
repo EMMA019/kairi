@@ -70,7 +70,7 @@ def test_fleet_verdicts():
     }
     dead = {"feed_name": "b", "consecutive_failures": 4, "last_item_count": 0}
 
-    healthy = grade_fleet([ok_feed], pool_total=10, pool_last_18h=5)
+    healthy = grade_fleet([ok_feed], pool_total=10, pool_last_18h=5, now=now)
     assert healthy["verdict"] == HEALTHY
     assert healthy["ok"] is True
 
@@ -78,11 +78,17 @@ def test_fleet_verdicts():
         [ok_feed, {**ok_feed, "feed_name": "c", "consecutive_failures": 1}],
         pool_total=10,
         pool_last_18h=5,
+        now=now,
     )
     assert warn["verdict"] == WARNING
     assert warn["status_counts"][COVERAGE_PARTIAL] == 1
 
-    unhealthy = grade_fleet([dead, {**dead, "feed_name": "d"}], pool_total=0, pool_last_18h=0)
+    unhealthy = grade_fleet(
+        [dead, {**dead, "feed_name": "d"}],
+        pool_total=0,
+        pool_last_18h=0,
+        now=now,
+    )
     assert unhealthy["verdict"] == UNHEALTHY
     assert unhealthy["ok"] is False
 
@@ -90,5 +96,6 @@ def test_fleet_verdicts():
         [dead, ok_feed, {**dead, "feed_name": "e"}],
         pool_total=0,
         pool_last_18h=0,
+        now=now,
     )
     assert degraded["verdict"] in (DEGRADED, UNHEALTHY)

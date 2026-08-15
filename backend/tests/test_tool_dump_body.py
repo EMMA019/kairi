@@ -89,7 +89,7 @@ def test_duplicate_tool_shutdown_synthesizes_without_dump():
             ]
             return current_response, []
 
-    async def fake_compress(history):
+    async def fake_compress(history, **_kwargs):
         return history
 
     async def _run():
@@ -163,7 +163,7 @@ def test_normal_single_tool_then_prose_no_leak():
             ]
             return current_response, []
 
-    async def fake_compress(history):
+    async def fake_compress(history, **_kwargs):
         return history
 
     async def _run():

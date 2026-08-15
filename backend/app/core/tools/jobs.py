@@ -53,8 +53,16 @@ def _run_job(job_id: str, command: str, session_id: str, workspace: str) -> None
 
             sb = get_sandbox(session_id, workspace)
             output = sb.run_command(command, timeout=300) or ""
+            if "[TOOL_TIMEOUT]" in output or "code: TOOL_TIMEOUT" in output:
+                status = "timeout"
         except Exception as e:
             logger.info("jobs: sandbox unavailable (%s); using subprocess", e)
+            from app.core.process_env import (
+                scrubbed_environ,
+                format_command_result,
+                format_tool_timeout_result,
+            )
+
             res = subprocess.run(
                 command,
                 shell=True,
@@ -62,14 +70,20 @@ def _run_job(job_id: str, command: str, session_id: str, workspace: str) -> None
                 capture_output=True,
                 text=True,
                 timeout=300,
+                env=scrubbed_environ(),
             )
-            output = (res.stdout or "") + (("\n" + res.stderr) if res.stderr else "")
+            output = format_command_result(
+                stdout=res.stdout or "",
+                stderr=res.stderr or "",
+                exit_code=int(res.returncode if res.returncode is not None else 1),
+                command=command,
+            )
             if res.returncode not in (0, None):
                 status = "failed"
-                output = f"[exit {res.returncode}]\n{output}"
     except subprocess.TimeoutExpired:
         status = "timeout"
-        output = "[ERROR] job timed out"
+        from app.core.process_env import format_tool_timeout_result
+        output = format_tool_timeout_result(timeout_sec=300, command=command)
     except Exception as e:
         status = "failed"
         output = f"[ERROR] {e}"

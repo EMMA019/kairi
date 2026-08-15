@@ -14,6 +14,7 @@ ripgrep (rg) または grep -rn を使ってプロジェクト全体を横断検
 """
 import re
 import subprocess
+from app.core.process_env import scrubbed_environ
 from pathlib import Path
 from typing import Optional
 from app.utils.logger import get_logger
@@ -83,6 +84,7 @@ def _check_command(cmd: str) -> bool:
             capture_output=True,
             text=True,
             timeout=5,
+            env=scrubbed_environ(),
         )
         return True
     except (subprocess.SubprocessError, FileNotFoundError):

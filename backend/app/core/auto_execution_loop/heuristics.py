@@ -76,6 +76,9 @@ def _detect_error(tool_result: str) -> Optional[str]:
     """ツール実行結果からエラーを検出"""
     if not tool_result or len(tool_result.strip()) < 5:
         return None
+
+    if "[TOOL_TIMEOUT]" in tool_result or "code: TOOL_TIMEOUT" in tool_result:
+        return "TOOL_TIMEOUT: command exceeded its time budget (not a generic failure)"
         
     # テスト失敗の専用チェック
     test_info = _detect_test_failure(tool_result)

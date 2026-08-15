@@ -39,7 +39,9 @@ def run_workspace_build(
     if pkg.exists():
         npm = _npm_cmd()
         # Prefer local node binaries on PATH for scripts
-        env = os.environ.copy()
+        from app.core.process_env import scrubbed_environ
+
+        env = scrubbed_environ()
         node_bin = ws / "node_modules" / ".bin"
         if node_bin.is_dir():
             env["PATH"] = str(node_bin) + os.pathsep + env.get("PATH", "")

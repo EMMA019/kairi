@@ -111,17 +111,26 @@ async def compress_messages_stage2(
         old_convo_str += f"[{role}]: {content}\n\n"
 
     system_instruction = (
-        "あなたはAIアシスタントのコンテキスト圧縮モジュールです。\n"
-        "以下の古い会話履歴を読み、重要な事実（ファクト）を抽出し、以下のJSON形式のみを出力してください。\n"
-        "{\n"
-        "  \"summary\": \"会話全体の簡潔な要約（箇条書き等）\",\n"
-        "  \"key_facts\": [\n"
-        "    {\"target\": \"銘柄名や話題（例：半導体株, 予算）\", \"note\": \"関連ファクトや方針（例：短期狙いだった, 10万円以内）\"}\n"
-        "  ]\n"
-        "}\n"
-        "細かい挨拶や不要な相槌は省き、後続の会話でAIが文脈を見失わないための引き継ぎメモを作成してください。"
+        "You are the context compaction module for an agent loop.\n"
+        "Read the older conversation below and emit ONE checkpoint in EXACTLY this markdown structure.\n"
+        "Use '(none)' for empty sections. Do NOT copy a prior checkpoint; merge facts into this one.\n"
+        "Do not invent files, errors, or jobs that are not in the history.\n\n"
+        "## Primary Request and Intent\n"
+        "(one short paragraph)\n\n"
+        "## Files and Code\n"
+        "- path: note (or (none))\n\n"
+        "## Errors and Fixes\n"
+        "- error -> fix (or (none))\n\n"
+        "## Pending Jobs\n"
+        "- job (or (none))\n\n"
+        "## Current Work\n"
+        "(what was in progress)\n\n"
+        "## Next Step\n"
+        "(concrete next action)\n\n"
+        "## Critical Context\n"
+        "- durable fact the next turn must not forget (or (none))\n"
     )
-    
+
     try:
         # LLMでの要約実行（高速なプランナーモデル等を使用）
         summary_result = await call_model(
@@ -142,8 +151,11 @@ async def compress_messages_stage2(
     # DeepSeek Reasoning などの <think> タグを除去する
     summary_result = re.sub(r'<think>.*?</think>', '', summary_result, flags=re.DOTALL).strip()
 
-    # JSON抽出のみ。key_facts は履歴要約に折り込む（永続KVへの書き込みは禁止＝増殖防止）
+    # Prefer structured checkpoint markdown; fall back to legacy JSON key_facts fold-in
     extracted_summary = summary_result
+    if "## Primary Request and Intent" in (summary_result or ""):
+        # Checkpoint template hit — keep markdown as-is
+        pass
     try:
         from app.utils.parser import find_json_objects
         objs = find_json_objects(summary_result)
@@ -168,10 +180,10 @@ async def compress_messages_stage2(
         logger.error(f"圧縮モジュールのJSONパースエラー: {e}")
 
     summary_text = (
-        "【過去の会話の重要コンテキスト要約】\n"
-        f"※これより前に行われた合計{len(old_messages)}ターンの会話の要約です。\n\n"
+        "【Agent Checkpoint / compacted context】\n"
+        f"※ Prior {len(old_messages)} turns compacted into a structured checkpoint.\n\n"
         f"{extracted_summary}\n\n"
-        "【要約終了】"
+        "【End checkpoint】"
     )
     
     # 圧縮結果を先頭に挿入

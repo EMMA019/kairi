@@ -126,18 +126,34 @@ class DockerSandbox:
                 self._docker_unavailable = True
 
     def run_command(self, command: str, timeout: int = 60) -> str:
-        """コマンドを実行する（Dockerコンテナ優先。ホストfallbackは ALLOW_HOST_FALLBACK=1 時のみ）"""
+        """Run command in Docker (or host fallback).
+
+        Child processes get a scrubbed env (no KEY/SECRET/TOKEN/PASSWORD).
+        Timeouts return structured TOOL_TIMEOUT; exitCode and timedOut are independent.
+        """
+        from app.core.process_env import (
+            scrubbed_environ,
+            format_command_result,
+            format_tool_timeout_result,
+            resolve_command_timeout,
+        )
+
         try:
             if getattr(self, "_docker_unavailable", False) and not self.use_host_fallback:
                 return (
-                    "❌ コマンド実行不可: Dockerが利用できず、ホストfallbackも無効です。"
-                    "Dockerを起動するか、開発時のみ ALLOW_HOST_FALLBACK=1 を設定してください。"
+                    "❌ command unavailable: Docker missing and host fallback disabled. "
+                    "Start Docker or set ALLOW_HOST_FALLBACK=1 for local dev only."
                 )
 
-            build_keywords = ["npm install", "npm i", "npm run build", "create-vite", "create-next-app", "npx", "yarn", "pnpm", "cargo", "pip install", "pytest", "jest", "tsc"]
-            if any(kw in command for kw in build_keywords) and timeout <= 60:
-                timeout = 300
-                logger.info(f"🔧 ビルド/インストールコマンドを検出したため、タイムアウトを {timeout} 秒に自動延長しました: {command[:50]}...")
+            timeout = resolve_command_timeout(command, default=timeout)
+            if timeout >= 300:
+                logger.info(
+                    "build/test timeout budget %ss: %s...",
+                    timeout,
+                    command[:50],
+                )
+
+            child_env = scrubbed_environ()
 
             if self.use_host_fallback:
                 res = subprocess.run(
@@ -146,32 +162,51 @@ class DockerSandbox:
                     cwd=self.workspace_dir,
                     capture_output=True,
                     text=True,
-                    timeout=timeout
+                    timeout=timeout,
+                    env=child_env,
                 )
             else:
                 res = subprocess.run(
                     ["docker", "exec", self.container_name, "bash", "-c", command],
                     capture_output=True,
                     text=True,
-                    timeout=timeout
+                    timeout=timeout,
+                    env=child_env,
                 )
-            output = (res.stdout or "") + (res.stderr or "")
-            
-            if not output.strip():
-                if res.returncode == 0:
-                    return "[コマンドは成功しましたが、出力はありません]"
-                else:
-                    return f"[コマンドはエラーコード {res.returncode} で失敗しました。出力はありません]"
-                    
-            if len(output) > 20000:
-                output = output[:10000] + "\n\n... (出力が長すぎるため省略されました) ...\n\n" + output[-10000:]
-                
-            return output
-            
-        except subprocess.TimeoutExpired:
-            return f"[エラー: コマンドが {timeout} 秒でタイムアウトしました]"
+            return format_command_result(
+                stdout=res.stdout or "",
+                stderr=res.stderr or "",
+                exit_code=int(res.returncode if res.returncode is not None else 1),
+                timed_out=False,
+                command=command,
+            )
+
+        except subprocess.TimeoutExpired as e:
+            partial_out = ""
+            partial_err = ""
+            try:
+                if getattr(e, "stdout", None):
+                    partial_out = (
+                        e.stdout
+                        if isinstance(e.stdout, str)
+                        else e.stdout.decode("utf-8", "replace")
+                    )
+                if getattr(e, "stderr", None):
+                    partial_err = (
+                        e.stderr
+                        if isinstance(e.stderr, str)
+                        else e.stderr.decode("utf-8", "replace")
+                    )
+            except Exception:
+                pass
+            return format_tool_timeout_result(
+                timeout_sec=timeout,
+                command=command,
+                partial_stdout=partial_out,
+                partial_stderr=partial_err,
+            )
         except Exception as e:
-            return f"[エラー: コマンド実行中に例外が発生しました: {e}]"
+            return f"[ERROR] command execution exception: {e}"
 
     def read_file(self, file_path: str) -> str:
         """安全なファイル読み込み"""

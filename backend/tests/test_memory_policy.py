@@ -550,3 +550,23 @@ def test_update_without_target_still_resolves_by_name():
     assert resolved is not None
     assert resolved[0] == "update"
     assert resolved[2] == 9
+
+
+def test_strip_child_ask_on_event_query_keeps_child_subject():
+    from app.core.fact_filters.format import strip_unrequested_child_ask
+
+    event = "今日埼玉か東京でイベント的なのあるかな？"
+    leaked = (
+        "埼玉の花火大会があります。\n"
+        "ちなみに今回はお車と電車どちらでしょう？お子様の年齢に合わせて最適なプランに調整できますので、もしよろしければお知らせくださいね。"
+    )
+    cleaned = strip_unrequested_child_ask(leaked, event)
+    assert "お子様の年齢" not in cleaned
+    assert "花火大会" in cleaned
+
+    with_child = (
+        "6歳のemmaちゃんとお二人ですね。お子様の年齢に合わせて昆虫展がよいです。"
+    )
+    kept = strip_unrequested_child_ask(with_child, "妻が出かけてて子どもと2人なんだよねえ")
+    assert "emma" in kept
+    assert "昆虫展" in kept

@@ -52,6 +52,31 @@ def test_market_today_shortcut_japan():
     assert any("業種" in q or "先物" in q for q in out["search_queries"])
 
 
+def test_event_today_is_not_market_todayish():
+    from app.core.chat_search import _is_todayish_market_query
+
+    assert _is_todayish_market_query("今日埼玉か東京でイベント的なのあるかな？") is False
+    assert _is_todayish_market_query("今日の日経どう？") is True
+
+
+def test_drop_market_sources_on_event_query():
+    from app.core.search_relevance import drop_offtopic_market_sources
+
+    sources = [
+        {"title": "埼玉のイベント【2026年8月16日】", "url": "https://walkerplus.com/event", "source": "walker"},
+        {"title": "特別配当ネクソンがストップ高／日経平均続伸", "url": "https://news.yahoo.co.jp/zai", "source": "ZAi"},
+        {"title": "来週の東京株式市場", "url": "https://www.reuters.com/jp", "source": "ロイター"},
+    ]
+    kept = drop_offtopic_market_sources("今日埼玉か東京でイベント的なのあるかな？", sources)
+    titles = " ".join(s["title"] for s in kept)
+    assert "イベント" in titles
+    assert "ストップ高" not in titles
+    assert "株式市場" not in titles
+
+    market_kept = drop_offtopic_market_sources("今日の日経どう？", sources)
+    assert len(market_kept) == 3
+
+
 def test_japan_morning_session_is_todayish():
     needed, queries = balance_search_queries(
         "7/29の日本市場前場がどんな感じだった？",

@@ -92,6 +92,42 @@ async def auto_execute_with_retry(
             instruction = (_catalog_refresh + "\n\n" + (instruction or "")).strip()
     except Exception:
         pass
+
+    prev_goal = None
+    this_run_gate_cap = MAX_GATE_REINJECT
+    persist_gate = None  # type: ignore[assignment]
+    try:
+        from app.core.goal_state import (
+            format_resume_instruction,
+            is_blocked,
+            latest_goal,
+            persist_gate as _persist_gate,
+            remaining_rounds,
+        )
+        from app.core.chat_orchestrator import is_continuation_utterance
+
+        persist_gate = _persist_gate
+        prev_goal = latest_goal(session_id)
+        resume_goal = (
+            prev_goal
+            if is_continuation_utterance(user_input) and is_blocked(prev_goal)
+            else None
+        )
+        if resume_goal:
+            resume_msg = format_resume_instruction(resume_goal)
+            loop_history.append({"role": "user", "content": resume_msg})
+            instruction = (resume_msg + "\n\n" + (instruction or "")).strip()
+            _remain = remaining_rounds(resume_goal)
+            this_run_gate_cap = min(MAX_GATE_REINJECT, _remain)
+            logger.info(
+                "goal resume session=%s reasons=%s remain=%s gate_cap=%s",
+                (session_id or "")[:16],
+                resume_goal.get("reasons"),
+                _remain,
+                this_run_gate_cap,
+            )
+    except Exception as e:
+        logger.debug("goal resume skipped: %s", e)
     
     # ワークスペースパスの解決
     try:
@@ -378,7 +414,7 @@ async def auto_execute_with_retry(
                         # Completion gate: acceptance + build — reinject if not ok
                         try:
                             gate = _run_task_completion_gate()
-                            if not gate.get("ok") and gate_fix_attempts < MAX_GATE_REINJECT:
+                            if not gate.get("ok") and gate_fix_attempts < this_run_gate_cap:
                                 gate_fix_attempts += 1
                                 if yield_sse_func:
                                     yield_sse_func({
@@ -580,6 +616,32 @@ async def auto_execute_with_retry(
             )
         except Exception as e:
             logger.warning(f"final completion gate: {e}")
+            gate = last_gate_meta
+        if persist_gate:
+            try:
+                persist_gate(
+                    session_id,
+                    gate or last_gate_meta,
+                    hit_loop_cap=hit_loop_cap,
+                    mode=mode,
+                    user_input=user_input,
+                    prev=prev_goal,
+                )
+            except Exception as e:
+                logger.warning("goal persist skipped: %s", e)
+    elif hit_loop_cap and mode in ("task", "coding"):
+        if persist_gate:
+            try:
+                persist_gate(
+                    session_id,
+                    last_gate_meta or {"ok": False, "verdict": "fail", "acceptance": {}, "build": {}},
+                    hit_loop_cap=True,
+                    mode=mode,
+                    user_input=user_input,
+                    prev=prev_goal,
+                )
+            except Exception as e:
+                logger.warning("goal persist (loop cap) skipped: %s", e)
 
     final_accumulated_response, tool_results_summary = await finalize_loop_response(
         user_input=user_input,

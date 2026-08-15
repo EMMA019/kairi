@@ -43,6 +43,7 @@ EVENT_TYPES = frozenset(
         "job/end",
         "prompt/static",
         "prompt/dynamic",
+        "goal/change",
     }
 )
 

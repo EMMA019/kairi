@@ -249,6 +249,21 @@ async def chat(request: ChatRequest):
         recommended_mode = search_plan.get("recommended_mode")
         if recommended_mode in ["chat", "task"]:
             mode = recommended_mode
+
+        # 「続きを」は blocked ゴールを優先（planner が chat に倒しても task に戻す）
+        if is_continuation_utterance(user_input):
+            try:
+                from app.core.goal_state import is_blocked, latest_goal
+
+                _goal = latest_goal(session_id)
+                if is_blocked(_goal) and (_goal.get("mode") in ("task", "coding") or _goal.get("reasons")):
+                    mode = "task"
+                    logger.info(
+                        "goal resume → mode=task reasons=%s",
+                        _goal.get("reasons"),
+                    )
+            except Exception as e:
+                logger.debug("goal resume mode skip: %s", e)
             
         yield _sse_event({"type": "mode_switch", "mode": mode})
         

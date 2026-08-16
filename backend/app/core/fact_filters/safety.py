@@ -14,8 +14,6 @@ NUMERIC_LIMITS_MARKERS = [
     r"\d+件/日",
     r"\d+回/日",
     r"\d+回/分",
-    r"月額\$?\d+",
-    r"\$?\d+/月",
 ]
 
 NUMERIC_LIMITS_PATTERN = re.compile("|".join(NUMERIC_LIMITS_MARKERS))

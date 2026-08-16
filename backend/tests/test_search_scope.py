@@ -127,6 +127,45 @@ def test_drop_sec_8k_on_english_event_query():
     assert len(finance_kept) == 3
 
 
+def test_drop_goldman_premarket_on_edu_app_query():
+    from app.core.search_relevance import drop_offtopic_market_sources
+
+    sources = [
+        {
+            "title": "ロジックラボ プログラミング思考アプリ",
+            "url": "https://logiclab.example/app",
+            "source": "logiclab",
+        },
+        {
+            "title": "Goldman Sachs: biggest moves in premarket",
+            "url": "https://www.bloomberg.com/premarket",
+            "source": "Bloomberg",
+        },
+        {
+            "title": "Sandisk is up more than 8% in premarket trading",
+            "url": "https://finance.yahoo.com/news/sandisk",
+            "source": "Yahoo",
+        },
+        {
+            "title": "JPMorgan upgrades chip names",
+            "url": "https://www.reuters.com/markets",
+            "source": "Reuters",
+        },
+    ]
+    kept = drop_offtopic_market_sources(
+        "ロジックラボみたいな教育アプリ作りたいな",
+        sources,
+    )
+    titles = " ".join(s["title"] for s in kept)
+    assert "ロジックラボ" in titles
+    assert "Goldman" not in titles
+    assert "Sandisk" not in titles
+    assert "JPMorgan" not in titles
+
+    finance_kept = drop_offtopic_market_sources("今日の日経どう？", sources)
+    assert len(finance_kept) == 4
+
+
 def test_japan_morning_session_is_todayish():
     needed, queries = balance_search_queries(
         "7/29の日本市場前場がどんな感じだった？",

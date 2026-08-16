@@ -101,7 +101,7 @@ async def run_executor(
     実行モデル (LLM) を呼び出し、回答をストリーミング生成する。
 
     enable_thinking:
-      None のとき mode から推定（chat/char は OFF、task/coding/research は ON）。
+      None のとき mode から推定（chat/char/hearing/spec_generation は OFF、task/coding/research は ON）。
       継続生成など明示指定時は呼び出し側の値を優先。
     """
     if mode == "char" and system_instruction:
@@ -203,7 +203,7 @@ Docker Compose の操作が必要な場合は、以下の curl コマンドで�
 
     # 雑談で長い think が本文トークンを食い潰すのを防ぐ
     if enable_thinking is None:
-        enable_thinking = mode not in ("chat", "char")
+        enable_thinking = mode not in ("chat", "char", "hearing", "spec_generation")
     
     stream = stream_model(
         system_instruction=system_prompt,

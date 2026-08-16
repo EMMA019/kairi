@@ -121,7 +121,9 @@ def is_search_effectively_empty(
 _MARKET_SOURCE_NOISE_RE = re.compile(
     r"日経|ロイター|Reuters|ZAi|ザイ|ストップ高|注目株|株式市場|"
     r"ダイヤモンド.?ザイ|日本株市場|daily.?zai|finance\.yahoo|"
-    r"\b8-K\b|sec\.gov|\bEDGAR\b|sec filing",
+    r"\b8-K\b|sec\.gov|\bEDGAR\b|sec filing|"
+    r"premarket|biggest moves|is up more than|"
+    r"Goldman|JPMorgan|Sandisk",
     re.IGNORECASE,
 )
 _FINANCE_QUERY_RE = re.compile(

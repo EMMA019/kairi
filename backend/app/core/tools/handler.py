@@ -193,6 +193,28 @@ class ToolHandler:
         self.tool_results = []
         self.has_escalation = False
         events = []
+
+        if self.mode in ("hearing", "spec_generation"):
+            banned = (
+                "<file path=" in current_response
+                or "<replace path=" in current_response
+                or "<edit path=" in current_response
+                or "<run_command" in current_response
+            )
+            if banned:
+                error_msg = "hearing/spec では実装ツールは使えません。検索と本文だけにしてください。"
+                logger.error(error_msg)
+                self.tool_results.append(error_msg)
+                current_response = re.sub(
+                    r"<(file|replace|edit)\b[\s\S]*?(?:/>|</\1>)",
+                    "",
+                    current_response,
+                )
+                current_response = re.sub(
+                    r"<run_command\b[\s\S]*?</run_command>",
+                    "",
+                    current_response,
+                )
         
         # 1. ワークスペースの変更検知と自動スナップショット
         if self.mode in ["task", "research"]:

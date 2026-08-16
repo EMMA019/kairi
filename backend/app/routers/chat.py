@@ -45,6 +45,7 @@ from app.core.chat_orchestrator import (
     compose_hearing_user_text,
     compose_spec_user_text,
     extract_supervisor_search_queries,
+    hearing_spec_tool_loop_cap,
     is_continuation_utterance,
     is_plan_approval_utterance,
     resolve_memory_inject,
@@ -549,27 +550,6 @@ async def chat(request: ChatRequest):
                         facts.insert(0, "参考: " + " / ".join(str(t) for t in titles))
                         inst["facts_to_present"] = facts
 
-                body = (
-                    compose_hearing_user_text(supervisor_json)
-                    if mode == "hearing"
-                    else compose_spec_user_text(supervisor_json)
-                )
-                if is_hyper_gal and body:
-                    body = to_hyper_gal_v3(body)
-                if body:
-                    yield _sse_event({"type": "chunk", "content": body})
-                await _save_messages(
-                    session_id,
-                    user_input,
-                    body,
-                    json.dumps(supervisor_json, ensure_ascii=False),
-                    supervisor_json,
-                    "",
-                    search_sources,
-                )
-                yield _sse_event({"type": "done", "content": body, "ok": bool((body or "").strip())})
-                return
-            
             if mode == "coding":
                 mode = "task" # 実行モデル向けにTaskモードとして扱う
 
@@ -640,7 +620,7 @@ async def chat(request: ChatRequest):
 
             # 3. 自律実行ループ（Auto Execution Loop）
             instruction = build_executor_instruction(
-                supervisor_json, search_unsupported=search_unsupported
+                supervisor_json, search_unsupported=search_unsupported, mode=mode
             )
             supervisor_json, memory_to_inject = resolve_memory_inject(
                 supervisor_json, filtered_kv_text, user_input=user_input
@@ -684,7 +664,7 @@ async def chat(request: ChatRequest):
                         history_messages=messages,
                         search_results=search_to_inject,
                         memory_text=memory_to_inject,
-                        max_tool_loops=40,
+                        max_tool_loops=hearing_spec_tool_loop_cap(mode),
                         max_supervisor_retries=5,
                         yield_sse_func=_yield_sse,
                     )
@@ -713,6 +693,24 @@ async def chat(request: ChatRequest):
 
             # thinking データ（デバッグ/分析用）
             yield _sse_event({"type": "thinking", "data": supervisor_json})
+
+            if mode in ("hearing", "spec_generation") and not (ai_response or "").strip():
+                ai_response = (
+                    compose_hearing_user_text(supervisor_json)
+                    if mode == "hearing"
+                    else compose_spec_user_text(supervisor_json)
+                )
+                if ai_response.strip():
+                    try:
+                        from app.core.fact_filters.pipeline import apply_grounding_pipeline
+
+                        ai_response = apply_grounding_pipeline(
+                            ai_response,
+                            source_text=search_to_inject or "",
+                            user_input=user_input,
+                        )
+                    except Exception as ge:
+                        logger.warning(f"hearing/spec fallback grounding failed: {ge}")
 
             # 応答が空（0文字）の場合はエラーとして扱い、DBに保存しない（履歴汚染の防止）
             if not ai_response.strip():

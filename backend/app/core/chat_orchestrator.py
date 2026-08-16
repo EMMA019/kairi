@@ -45,10 +45,11 @@ _FACT_SKIP_RE = re.compile(
 )
 
 # hearing/spec に混ざる監督思考（モード議論・JSON設計）
+# JSON形式 は仕様書の一括投入方式でも使うので入れない
 _HEARING_META_RE = re.compile(
     r"mode\s*=\s*hearing|search_used|facts_to_present|hearing_state|"
-    r"kv_action|violation_risk|spec_document|logical_order|"
-    r"実行モデル|思考・監督|JSON形式|JSONで出力|"
+    r"kv_action|violation_risk|"
+    r"実行モデル|思考・監督|JSONで出力|"
     r"ユーザーは「.{0,80}」と言っている|"
     r"これは開発依頼|ヒアリング項目|ヒアリング中|"
     r"私は思考|監督モデル",
@@ -67,7 +68,27 @@ _MEMORY_SAVE_SUCCESS_RE = re.compile(
 )
 
 
-def build_executor_instruction(supervisor_json: dict, *, search_unsupported: bool = False) -> str:
+_HEARING_SPEC_EXEC_RULES = (
+    "【hearing/spec 本文ルール】ユーザー向け本文だけ書け。"
+    "思考・JSON・mode 議論・facts_to_present は出すな。"
+    "<file> <replace> <edit> <run_command> は禁止。足りない事実だけ <search> してよい。"
+    "未検証・二次ソースの料金・級数・問題数は断定するな。検索に無い数字は「公式未確認」にする。"
+)
+
+
+def hearing_spec_tool_loop_cap(mode: str) -> int:
+    """hearing/spec は検索だけの短いループ。実装ループにはしない。"""
+    if mode in ("hearing", "spec_generation"):
+        return 4
+    return 40
+
+
+def build_executor_instruction(
+    supervisor_json: dict,
+    *,
+    search_unsupported: bool = False,
+    mode: str = "",
+) -> str:
     """Supervisor JSON から Executor 向け instruction 文字列を組み立てる。"""
     instruction_dict = supervisor_json.get("instruction", {})
     rejected = (supervisor_json.get("kv_action") or {}).get("rejected_reason")
@@ -100,6 +121,18 @@ def build_executor_instruction(supervisor_json: dict, *, search_unsupported: boo
     if search_unsupported:
         from app.core.search_relevance import SEARCH_UNSUPPORTED_INSTRUCTION
         instruction = (SEARCH_UNSUPPORTED_INSTRUCTION + "\n\n" + (instruction or "")).strip()
+
+    if mode in ("hearing", "spec_generation"):
+        draft = (
+            compose_hearing_user_text(supervisor_json)
+            if mode == "hearing"
+            else compose_spec_user_text(supervisor_json)
+        )
+        instruction = (
+            f"{_HEARING_SPEC_EXEC_RULES}\n\n"
+            f"【下書き（これを正文化せよ。独白は捨てよ）】\n{draft}\n\n"
+            f"{instruction or ''}"
+        ).strip()
     return instruction
 
 
@@ -189,10 +222,24 @@ def should_emit_reasoning(mode: str) -> bool:
     return mode not in ("hearing", "spec_generation")
 
 
+def _looks_like_spec_markdown(text: str) -> bool:
+    """ユーザー向け仕様書（見出し・箇条書き）か。監督独白との切り分け用。"""
+    t = (text or "").strip()
+    if not t:
+        return False
+    if re.search(r"(?m)^#{1,3}\s+\S", t):
+        return True
+    if len(t) >= 240 and t.count("\n") >= 3:
+        return any(k in t for k in ("対象", "プラットフォーム", "機能", "仕様", "Acceptance"))
+    return False
+
+
 def _is_internal_hearing_text(text: str) -> bool:
     """監督のモード議論・JSON設計がユーザー本文に混ざったか。"""
     t = (text or "").strip()
     if not t:
+        return False
+    if _looks_like_spec_markdown(t):
         return False
     if _HEARING_META_RE.search(t):
         return True
@@ -204,6 +251,24 @@ def _is_internal_hearing_text(text: str) -> bool:
     except Exception:
         pass
     return False
+
+
+def _resolve_spec_surface(supervisor_json: dict) -> str:
+    """surface が空／独白でも、internal や文字列の spec_document から本文を拾う。"""
+    spec = (supervisor_json or {}).get("spec_document")
+    surface = ""
+    internal = ""
+    if isinstance(spec, str):
+        surface = spec.strip()
+    elif isinstance(spec, dict):
+        surface = str(spec.get("surface") or "").strip()
+        internal = str(spec.get("internal") or "").strip()
+    for candidate in (surface, internal):
+        if candidate and not _is_internal_hearing_text(candidate):
+            return candidate
+        if _looks_like_spec_markdown(candidate):
+            return candidate
+    return ""
 
 
 def _sanitize_hearing_question(text: str) -> str:
@@ -285,7 +350,7 @@ def _user_facing_facts(supervisor_json: dict, *, limit: int = 6) -> list[str]:
 
 
 def compose_hearing_user_text(supervisor_json: dict) -> str:
-    """hearing: サイド質問への回答断片 + next_question を1本文に合成。"""
+    """hearing の Executor 下書き／空応答フォールバック。最終本文の正ではない。"""
     hearing = supervisor_json.get("hearing_state") or {}
     next_q = ""
     if isinstance(hearing, dict):
@@ -301,15 +366,16 @@ def compose_hearing_user_text(supervisor_json: dict) -> str:
 
 
 def compose_spec_user_text(supervisor_json: dict) -> str:
-    """spec_generation: 未回答サイド質問への短い回答を surface の前に付けられる。"""
-    spec = supervisor_json.get("spec_document") or {}
-    surface = ""
-    if isinstance(spec, dict):
-        surface = (spec.get("surface") or "").strip()
-    if not surface or _is_internal_hearing_text(surface):
+    """spec の Executor 下書き／空応答フォールバック。最終本文の正ではない。"""
+    surface = _resolve_spec_surface(supervisor_json)
+    if not surface:
         surface = "仕様書ができました。"
 
-    facts = _user_facing_facts(supervisor_json, limit=4)
+    facts = [
+        f
+        for f in _user_facing_facts(supervisor_json, limit=4)
+        if "未検証" not in f and "学習データに基づく仮説" not in f
+    ]
     if not facts:
         return surface
     return "\n\n".join(["\n".join(facts), surface])

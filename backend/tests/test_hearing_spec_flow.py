@@ -9,6 +9,7 @@ from app.core.chat_orchestrator import (
     apply_post_spec_approval_gate,
     compose_hearing_user_text,
     compose_spec_user_text,
+    extract_supervisor_search_queries,
     is_spec_approval_utterance,
     should_emit_reasoning,
 )
@@ -35,6 +36,34 @@ def test_compose_hearing_includes_facts_and_question():
 def test_compose_hearing_falls_back_to_question_only():
     sj = {"hearing_state": {"next_question": "何を作りたい？"}, "instruction": {}}
     assert compose_hearing_user_text(sj) == "何を作りたい？"
+
+
+def test_compose_hearing_strips_supervisor_cot_from_body():
+    dump = (
+        "ユーザーは「ロジックラボみたいな教育アプリ作りたいな。アイディアください。」と言っている。"
+        "これは開発依頼の初期段階である。mode=hearing にするのが適切。"
+        "search_used を true にするか。facts_to_present にアイディアを書く。"
+        "実行モデルに <search query=\"ロジックラボ アプリ プログラミング思考\" /> を指示する。\n"
+        "ターゲットはお子様向けと大人向けのどちらを想定されていますか？"
+    )
+    sj = {
+        "mode": "hearing",
+        "hearing_state": {"next_question": dump},
+        "instruction": {
+            "facts_to_present": [
+                dump,
+                "ビジュアルプログラミング迷路で命令ブロックを並べてゴールを目指す。",
+            ]
+        },
+    }
+    body = compose_hearing_user_text(sj)
+    assert "mode=hearing" not in body
+    assert "facts_to_present" not in body
+    assert "search_used" not in body
+    assert "ユーザーは「" not in body
+    assert "ビジュアルプログラミング迷路" in body
+    assert "お子様向け" in body
+    assert extract_supervisor_search_queries(sj) == ["ロジックラボ アプリ プログラミング思考"]
 
 
 def test_compose_spec_prepends_side_answer():

@@ -44,6 +44,7 @@ from app.core.chat_orchestrator import (
     apply_post_spec_approval_gate,
     compose_hearing_user_text,
     compose_spec_user_text,
+    extract_supervisor_search_queries,
     is_continuation_utterance,
     is_plan_approval_utterance,
     resolve_memory_inject,
@@ -524,26 +525,47 @@ async def chat(request: ChatRequest):
             if supervisor_json.get("chart_data"):
                 yield _sse_event({"type": "chart", "data": supervisor_json["chart_data"]})
             
-            if mode == "hearing":
-                body = compose_hearing_user_text(supervisor_json)
-                if is_hyper_gal and body:
-                    body = to_hyper_gal_v3(body)
-                if body:
-                    yield _sse_event({"type": "chunk", "content": body})
-                await _save_messages(
-                    session_id, user_input, body, json.dumps(supervisor_json, ensure_ascii=False), supervisor_json, reasoning, search_sources
+            if mode in ("hearing", "spec_generation"):
+                extra_q = extract_supervisor_search_queries(supervisor_json)
+                if extra_q and not (search_results_text or "").strip():
+                    async for ev in run_web_search(
+                        user_input=user_input,
+                        search_queries=extra_q,
+                        search_providers=search_providers,
+                        session_id=session_id,
+                    ):
+                        if ev.get("type") == "_result":
+                            search_results_text = ev.get("text")
+                            search_sources = ev.get("sources") or search_sources
+                        else:
+                            yield _sse_event(ev)
+                    titles = [s.get("title") for s in (search_sources or []) if s.get("title")][:2]
+                    if titles:
+                        inst = supervisor_json.get("instruction")
+                        if not isinstance(inst, dict):
+                            inst = {}
+                            supervisor_json["instruction"] = inst
+                        facts = list(inst.get("facts_to_present") or [])
+                        facts.insert(0, "参考: " + " / ".join(str(t) for t in titles))
+                        inst["facts_to_present"] = facts
+
+                body = (
+                    compose_hearing_user_text(supervisor_json)
+                    if mode == "hearing"
+                    else compose_spec_user_text(supervisor_json)
                 )
-                yield _sse_event({"type": "done", "content": body, "ok": bool((body or "").strip())})
-                return
-            
-            if mode == "spec_generation":
-                body = compose_spec_user_text(supervisor_json)
                 if is_hyper_gal and body:
                     body = to_hyper_gal_v3(body)
                 if body:
                     yield _sse_event({"type": "chunk", "content": body})
                 await _save_messages(
-                    session_id, user_input, body, json.dumps(supervisor_json, ensure_ascii=False), supervisor_json, reasoning, search_sources
+                    session_id,
+                    user_input,
+                    body,
+                    json.dumps(supervisor_json, ensure_ascii=False),
+                    supervisor_json,
+                    "",
+                    search_sources,
                 )
                 yield _sse_event({"type": "done", "content": body, "ok": bool((body or "").strip())})
                 return

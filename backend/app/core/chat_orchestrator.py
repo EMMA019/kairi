@@ -44,6 +44,22 @@ _FACT_SKIP_RE = re.compile(
     re.IGNORECASE,
 )
 
+# hearing/spec に混ざる監督思考（モード議論・JSON設計）
+_HEARING_META_RE = re.compile(
+    r"mode\s*=\s*hearing|search_used|facts_to_present|hearing_state|"
+    r"kv_action|violation_risk|spec_document|logical_order|"
+    r"実行モデル|思考・監督|JSON形式|JSONで出力|"
+    r"ユーザーは「.{0,80}」と言っている|"
+    r"これは開発依頼|ヒアリング項目|ヒアリング中|"
+    r"私は思考|監督モデル",
+    re.IGNORECASE,
+)
+_SEARCH_QUERY_RE = re.compile(
+    r"""<search\b[^>]*\bquery=["']([^"']+)["']""",
+    re.IGNORECASE,
+)
+_HEARING_QUESTION_FALLBACK = "対象や作りたい形を、もう少し具体的に教えてください。"
+
 _MEMORY_SAVE_SUCCESS_RE = re.compile(
     r"追加した|記憶した|保存した|覚えました|記憶済み|追加いたしました|追記した|追記いたしました|"
     r"added to memory|I (?:saved|remembered) (?:that|this|it)|saved (?:that|this) to memory",
@@ -173,6 +189,64 @@ def should_emit_reasoning(mode: str) -> bool:
     return mode not in ("hearing", "spec_generation")
 
 
+def _is_internal_hearing_text(text: str) -> bool:
+    """監督のモード議論・JSON設計がユーザー本文に混ざったか。"""
+    t = (text or "").strip()
+    if not t:
+        return False
+    if _HEARING_META_RE.search(t):
+        return True
+    try:
+        from app.core.fact_filters.markup import looks_like_supervisor_dump
+
+        if looks_like_supervisor_dump(t):
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _sanitize_hearing_question(text: str) -> str:
+    """next_question に思考全文が載ったとき、末尾の質問文だけ残す。"""
+    t = (text or "").strip()
+    if not t:
+        return _HEARING_QUESTION_FALLBACK
+    if not (_is_internal_hearing_text(t) or len(t) > 400):
+        return t
+    candidates = re.findall(r"[^。\n]{8,240}[？?]", t)
+    for q in reversed(candidates):
+        q = q.strip()
+        if q and not _is_internal_hearing_text(q):
+            return q
+    return _HEARING_QUESTION_FALLBACK
+
+
+def extract_supervisor_search_queries(supervisor_json: dict) -> list[str]:
+    """hearing が Executor を飛ばすため、委譲用 <search> を拾って先に実行する。"""
+    blobs: list[str] = []
+    instruction = (supervisor_json or {}).get("instruction") or {}
+    if isinstance(instruction, dict):
+        for key in ("facts_to_present", "verified_facts", "unverified_facts", "logical_order"):
+            for item in instruction.get(key) or []:
+                if isinstance(item, str):
+                    blobs.append(item)
+    elif isinstance(instruction, str):
+        blobs.append(instruction)
+    hearing = (supervisor_json or {}).get("hearing_state") or {}
+    if isinstance(hearing, dict):
+        blobs.append(str(hearing.get("next_question") or ""))
+        blobs.append(str(hearing.get("answer_preamble") or ""))
+    found: list[str] = []
+    seen: set[str] = set()
+    for blob in blobs:
+        for m in _SEARCH_QUERY_RE.finditer(blob):
+            q = (m.group(1) or "").strip()
+            if q and q not in seen:
+                seen.add(q)
+                found.append(q)
+    return found[:4]
+
+
 def _user_facing_facts(supervisor_json: dict, *, limit: int = 6) -> list[str]:
     """facts_to_present 等からユーザーに見せてよい短文だけ抽出。"""
     instruction = supervisor_json.get("instruction") or {}
@@ -199,7 +273,7 @@ def _user_facing_facts(supervisor_json: dict, *, limit: int = 6) -> list[str]:
         text = item.strip()
         if not text or text in seen:
             continue
-        if _FACT_SKIP_RE.search(text):
+        if _FACT_SKIP_RE.search(text) or _is_internal_hearing_text(text):
             continue
         if len(text) > 500:
             text = text[:497] + "…"
@@ -216,8 +290,7 @@ def compose_hearing_user_text(supervisor_json: dict) -> str:
     next_q = ""
     if isinstance(hearing, dict):
         next_q = (hearing.get("next_question") or "").strip()
-    if not next_q:
-        next_q = "どうする？"
+    next_q = _sanitize_hearing_question(next_q)
 
     facts = _user_facing_facts(supervisor_json)
     parts: list[str] = []
@@ -233,7 +306,7 @@ def compose_spec_user_text(supervisor_json: dict) -> str:
     surface = ""
     if isinstance(spec, dict):
         surface = (spec.get("surface") or "").strip()
-    if not surface:
+    if not surface or _is_internal_hearing_text(surface):
         surface = "仕様書ができました。"
 
     facts = _user_facing_facts(supervisor_json, limit=4)

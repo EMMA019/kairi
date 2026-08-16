@@ -547,6 +547,39 @@ def _is_todayish_market_query(user_input: str, *, now_jst: datetime | None = Non
     return parse_explicit_calendar_date(text) is not None
 
 
+_GENERIC_LIKE_NAMES = frozenset(
+    {"こんな", "そんな", "あんな", "どういう", "どんな", "これ", "それ", "あれ"}
+)
+
+
+def named_reference_search_queries(user_input: str) -> list[str]:
+    """『ロジックラボみたいな』など、固有名の参照は検索しないと監督が推測で埋める。"""
+    text = user_input or ""
+    out: list[str] = []
+    seen: set[str] = set()
+    for m in re.finditer(r"([一-龥ァ-ヶーA-Za-z0-9]{2,24})みたいな", text):
+        name = m.group(1)
+        if name in _GENERIC_LIKE_NAMES:
+            continue
+        for q in (f"{name} とは", f"{name} アプリ"):
+            if q not in seen:
+                seen.add(q)
+                out.append(q)
+    for m in re.finditer(
+        r"(?:like|similar to)\s+([A-Za-z][A-Za-z0-9 \-]{1,32})",
+        text,
+        re.IGNORECASE,
+    ):
+        name = m.group(1).strip()
+        if not name:
+            continue
+        q = f"{name} app"
+        if q not in seen:
+            seen.add(q)
+            out.append(q)
+    return out[:4]
+
+
 def balance_search_queries(
     user_input: str,
     search_needed: bool,
@@ -555,6 +588,12 @@ def balance_search_queries(
     session_id: str | None = None,
 ) -> tuple[bool, list]:
     """市場・ネガティブ問いに対するクエリバランス補完（地域スコープ付き）。"""
+    search_queries = list(search_queries or [])
+    for q in named_reference_search_queries(user_input):
+        search_needed = True
+        if q not in search_queries:
+            search_queries.append(q)
+
     now_jst = datetime.now(JST)
     jp_anchor = resolve_market_anchor_date(user_input, market="jp", now_jst=now_jst)
     us_anchor = resolve_market_anchor_date(user_input, market="us", now_jst=now_jst)

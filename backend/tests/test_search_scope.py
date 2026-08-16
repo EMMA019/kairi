@@ -1,5 +1,9 @@
 """検索スコープ・鮮度・市場ショートサーキットのテスト。"""
-from app.core.chat_search import balance_search_queries, should_skip_deep_fetch
+from app.core.chat_search import (
+    balance_search_queries,
+    named_reference_search_queries,
+    should_skip_deep_fetch,
+)
 from app.core.search_planner import _market_today_shortcut
 from app.core.search.reranker import rerank, _freshness_score, _jp_market_noise_penalty
 
@@ -50,6 +54,19 @@ def test_market_today_shortcut_japan():
     assert any("日経" in q for q in out["search_queries"])
     assert any("TOPIX" in q for q in out["search_queries"])
     assert any("業種" in q or "先物" in q for q in out["search_queries"])
+
+
+def test_named_reference_forces_search_for_like_app():
+    qs = named_reference_search_queries("ロジックラボみたいな教育アプリ作りたいな。アイディアください。")
+    assert any("ロジックラボ" in q for q in qs)
+    needed, queries = balance_search_queries(
+        "ロジックラボみたいな教育アプリ作りたいな。アイディアください。",
+        search_needed=False,
+        search_queries=[],
+    )
+    assert needed is True
+    assert any("ロジックラボ" in q for q in queries)
+    assert named_reference_search_queries("こんなみたいな感じで") == []
 
 
 def test_event_today_is_not_market_todayish():

@@ -6,7 +6,7 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   reasoning?: string;
-  sources?: Array<{ title: string; url: string; tier?: number }>;
+  sources?: Array<{ title: string; url: string; tier?: number; n?: number }>;
   chartData?: { type: "bar" | "line" | "pie"; title: string; data: any[] };
 }
 

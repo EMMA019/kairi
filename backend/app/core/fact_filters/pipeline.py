@@ -38,6 +38,8 @@ def apply_grounding_pipeline(
     text: str,
     source_text: str = "",
     user_input: str = "",
+    *,
+    citation_max_n: int | None = None,
 ) -> str:
     """Executor最終出力に対する統合グラウンディング後処理。"""
     if not text:
@@ -229,7 +231,11 @@ def apply_grounding_pipeline(
     )
 
     # 中核: 引用契約
-    text = _run_step("verify_citations", text, lambda: verify_citations(text, src))
+    text = _run_step(
+        "verify_citations",
+        text,
+        lambda: verify_citations(text, src, citation_max_n=citation_max_n),
+    )
     text = _run_step(
         "ensure_markdown_block_breaks",
         text,

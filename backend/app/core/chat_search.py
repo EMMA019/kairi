@@ -921,11 +921,16 @@ async def run_web_search(
     search_queries: list,
     search_providers: list,
     session_id: str | None = None,
+    source_index=None,
 ) -> AsyncGenerator[dict, None]:
     """
     検索を実行し、SSE用イベント dict を yield。
     最後に {"type": "_result", "text": ..., "sources": ...} を返す。
     """
+    from app.core.search.source_index import SourceIndex
+
+    if source_index is None:
+        source_index = SourceIndex()
     search_results_text = None
     search_sources: list = []
     tasks = []
@@ -1008,7 +1013,6 @@ async def run_web_search(
         combined_texts.insert(0 if not single_quote_block else 1, snapshot_block)
     if all_raw_sources:
         from app.core.search.reranker import rerank
-        from app.core.search.formatter import format_for_prompt
         from app.core.source_evaluator import evaluate_source_authority
         from app.core.search.router import fetch_url
 
@@ -1016,12 +1020,13 @@ async def run_web_search(
         from app.core.search_relevance import drop_offtopic_market_sources
 
         global_top_sources = drop_offtopic_market_sources(user_input, global_top_sources)
+        source_index.add(global_top_sources)
 
         deep_fetched_text = ""
         skip_deep = should_skip_deep_fetch(user_input)
         if skip_deep:
             logger.info("⏩ 市場終値/今日系のため Tier1 ディープフェッチをスキップ")
-        for src in global_top_sources:
+        for src in source_index.items():
             if skip_deep:
                 break
             url = src.get("url", "")
@@ -1041,23 +1046,35 @@ async def run_web_search(
                 except Exception as e:
                     logger.warning(f"Tier 1記事の本文取得失敗 {url}: {e}")
 
-        global_text = format_for_prompt(global_top_sources, user_input)
-        combined_texts.append(f"【統合検索結果（関連度トップ20件）】\n{global_text}")
         if deep_fetched_text:
             combined_texts.append(deep_fetched_text)
-        search_sources = global_top_sources
 
-    if combined_texts:
-        search_results_text = clip_search_results("\n\n".join(combined_texts))
+    preamble = "\n\n".join(t for t in combined_texts if t)
+    numbered_block = ""
+    if source_index.max_n():
+        numbered_block = (
+            "【統合検索結果（関連度トップ20件）】\n"
+            + source_index.format_for_prompt(user_input)
+        )
+        max_bytes = 100_000
+        while (
+            len(preamble) + (2 if preamble else 0) + len(numbered_block) > max_bytes
+            and source_index.max_n() > 3
+        ):
+            source_index.drop_trailing(source_index.max_n() - 1)
+            numbered_block = (
+                "【統合検索結果（関連度トップ20件）】\n"
+                + source_index.format_for_prompt(user_input)
+            )
+        budget = max_bytes - len(numbered_block) - (2 if preamble else 0)
+        if preamble and len(preamble) > max(budget, 1000):
+            preamble = clip_search_results(preamble, max_bytes=max(budget, 1000))
+        search_results_text = "\n\n".join(t for t in (preamble, numbered_block) if t)
+    elif preamble:
+        search_results_text = clip_search_results(preamble)
 
+    search_sources = source_index.as_ui_list()
     if search_sources:
-        unique_sources = []
-        seen_urls = set()
-        for s in search_sources:
-            if s["url"] not in seen_urls:
-                seen_urls.add(s["url"])
-                unique_sources.append(s)
-        search_sources = unique_sources
         yield {"type": "sources", "data": search_sources}
 
     yield {"type": "_result", "text": search_results_text, "sources": search_sources}

@@ -401,11 +401,14 @@ async def finalize_loop_response(
         from app.core.auto_execution_loop.grounding_waterfall import apply_grounding_stage
 
         _sid = getattr(tool_handler, "session_id", None) or ""
+        _idx = getattr(tool_handler, "source_index", None)
+        _max_n = _idx.max_n() if _idx is not None else 0
         final_accumulated_response = apply_grounding_stage(
             pre_sanitize,
             search_results=search_results,
             user_input=user_input or "",
             session_id=_sid,
+            citation_max_n=_max_n or None,
         )
     except Exception as e:
         logger.warning(f"Fact filter validation warning in auto_execution_loop: {e}")

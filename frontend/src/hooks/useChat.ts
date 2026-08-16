@@ -20,7 +20,7 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
   const [status, setStatus] = useState<ChatStatus>("idle");
   const [streamingContent, setStreamingContent] = useState("");
   const [streamingReasoning, setStreamingReasoning] = useState<string | undefined>();
-  const [streamingSources, setStreamingSources] = useState<Array<{title: string, url: string, tier?: number}> | undefined>();
+  const [streamingSources, setStreamingSources] = useState<Array<{title: string, url: string, tier?: number, n?: number}> | undefined>();
   const [streamingChart, setStreamingChart] = useState<any>(undefined);
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
   const [searchQuery, setSearchQuery] = useState<string | null>(null);
@@ -29,7 +29,7 @@ export function useChat(sessionId: string, onMessageComplete?: () => void) {
   const messageIdRef = useRef<number>(0);
   const streamingContentRef = useRef<string>("");
   const streamingReasoningRef = useRef<string | undefined>(undefined);
-  const streamingSourcesRef = useRef<Array<{title: string, url: string, tier?: number}> | undefined>(undefined);
+  const streamingSourcesRef = useRef<Array<{title: string, url: string, tier?: number, n?: number}> | undefined>(undefined);
   const streamingChartRef = useRef<any>(undefined);
   // メッセージIDのセット（二重保存防止）
   const messageIdSetRef = useRef<Set<string>>(new Set());

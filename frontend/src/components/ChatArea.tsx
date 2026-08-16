@@ -99,10 +99,30 @@ interface ChatAreaProps {
   searchQuery: string | null;
   isFetchingHistory: boolean;
   streamingReasoning?: string;
-  streamingSources?: Array<{title: string, url: string, tier?: number}>;
+  streamingSources?: Array<{title: string, url: string, tier?: number, n?: number}>;
   streamingChart?: any;
   pipelineStages?: Array<{stage: string, detail: string, status: "pending" | "active" | "done"}>;
   onSend?: (content: string) => void;
+}
+
+type SourceRow = { title: string; url: string; tier?: number; n?: number };
+
+function SourcesPanel({ sources }: { sources: SourceRow[] }) {
+  return (
+    <div className="mb-3 text-xs bg-[#1a1b1e] border border-[#3c4043] rounded p-2">
+      <div className="text-gray-400 font-medium mb-1">🔗 Sources:</div>
+      <ul className="text-blue-400 space-y-0.5">
+        {sources.map((s, idx) => (
+          <li key={s.url || idx} className="truncate">
+            <span className="text-gray-500 mr-1">[{s.n ?? idx + 1}]</span>
+            <a href={s.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+              {s.title || s.url}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 // 簡易マークダウンリンク ＆ 添付ファイルパーサー
@@ -315,18 +335,7 @@ export const ChatArea = memo(({
                     <DataChart data={msg.chartData} />
                   )}
                   {msg.role === "assistant" && msg.sources && msg.sources.length > 0 && (
-                    <div className="mb-3 text-xs bg-[#1a1b1e] border border-[#3c4043] rounded p-2">
-                      <div className="text-gray-400 font-medium mb-1">🔗 Sources:</div>
-                      <ul className="list-disc list-inside text-blue-400">
-                        {msg.sources.map((s: { title: string; url: string; tier?: number }, idx: number) => (
-                          <li key={idx} className="truncate">
-                            <a href={s.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                              {s.title || s.url}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                    <SourcesPanel sources={msg.sources} />
                   )}
                   {renderBlocks(renderMessageContent(msg.content).blocks, onSend)}
                 </div>
@@ -398,18 +407,7 @@ export const ChatArea = memo(({
                   <DataChart data={streamingChart} />
                 )}
                 {streamingSources && streamingSources.length > 0 && (
-                  <div className="mb-3 text-xs bg-[#1a1b1e] border border-[#3c4043] rounded p-2">
-                    <div className="text-gray-400 font-medium mb-1">🔗 Sources:</div>
-                    <ul className="list-disc list-inside text-blue-400">
-                      {streamingSources.map((s, idx) => (
-                        <li key={idx} className="truncate">
-                          <a href={s.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                            {s.title || s.url}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  <SourcesPanel sources={streamingSources} />
                 )}
                 {renderBlocks(renderMessageContent(streamingContent).blocks, onSend)}
                 <span

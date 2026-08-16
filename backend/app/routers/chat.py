@@ -308,6 +308,9 @@ async def chat(request: ChatRequest):
         
         search_results_text = None
         search_sources = []
+        from app.core.search.source_index import SourceIndex
+
+        source_index = SourceIndex()
 
         if search_needed:
             async for ev in run_web_search(
@@ -315,6 +318,7 @@ async def chat(request: ChatRequest):
                 search_queries=search_queries,
                 search_providers=search_providers,
                 session_id=session_id,
+                source_index=source_index,
             ):
                 if ev.get("type") == "_result":
                     search_results_text = ev.get("text")
@@ -534,6 +538,7 @@ async def chat(request: ChatRequest):
                         search_queries=extra_q,
                         search_providers=search_providers,
                         session_id=session_id,
+                        source_index=source_index,
                     ):
                         if ev.get("type") == "_result":
                             search_results_text = ev.get("text")
@@ -667,6 +672,7 @@ async def chat(request: ChatRequest):
                         max_tool_loops=hearing_spec_tool_loop_cap(mode),
                         max_supervisor_retries=5,
                         yield_sse_func=_yield_sse,
+                        source_index=source_index,
                     )
                 )
                 
@@ -708,6 +714,7 @@ async def chat(request: ChatRequest):
                             ai_response,
                             source_text=search_to_inject or "",
                             user_input=user_input,
+                            citation_max_n=source_index.max_n() or None,
                         )
                     except Exception as ge:
                         logger.warning(f"hearing/spec fallback grounding failed: {ge}")
@@ -735,6 +742,10 @@ async def chat(request: ChatRequest):
 
             if is_hyper_gal and ai_response:
                 ai_response = to_hyper_gal_v3(ai_response)
+
+            search_sources = source_index.as_ui_list() or search_sources
+            if search_sources:
+                yield _sse_event({"type": "sources", "data": search_sources})
 
             # バックグラウンド処理: DB保存
             await _save_messages(

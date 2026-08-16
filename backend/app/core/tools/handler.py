@@ -78,10 +78,11 @@ class ToolHandler:
     実行モデル(Executor)が生成したXMLタグをパースし、
     ファイルの作成・更新、コマンド実行、スクレイピングなどのツール処理を安全に実行する。
     """
-    def __init__(self, session_id: str, mode: str, allow_mocks: bool = False):
+    def __init__(self, session_id: str, mode: str, allow_mocks: bool = False, source_index=None):
         self.session_id = session_id
         self.mode = mode
         self.allow_mocks = allow_mocks
+        self.source_index = source_index
         self.tool_results: List[str] = []
         self.escalation_history: List[str] = []
         self.has_escalation: bool = False
@@ -357,8 +358,18 @@ class ToolHandler:
                     self.tool_results.append(f"【検索エラー: {q}】\n{str(res)}")
                 else:
                     results_text, sources = res
-                    if sources:
-                        events.append({"type": "sources", "data": sources})
+                    if self.source_index is not None:
+                        numbered = self.source_index.ingest_hits(sources, q)
+                        results_text = numbered or "（既出ソース。新しい番号はなし）"
+                    if sources or (self.source_index and self.source_index.max_n()):
+                        events.append({
+                            "type": "sources",
+                            "data": (
+                                self.source_index.as_ui_list()
+                                if self.source_index is not None
+                                else sources
+                            ),
+                        })
                     self.tool_results.append(f"【一般検索結果: {q}】\n{results_text}")
                     
             current_response = re.sub(r'<search\s+query=[^>]+>', f"\n\n*[🔍 一般検索完了 ({len(queries)}件)]*\n\n", current_response)
@@ -383,8 +394,18 @@ class ToolHandler:
                 else:
                     results_text, sources = res
                     this_pool = False
+                    if self.source_index is not None:
+                        numbered = self.source_index.ingest_hits(sources, q)
+                        results_text = numbered or "（既出ソース。新しい番号はなし）"
                     if sources:
-                        events.append({"type": "sources", "data": sources})
+                        events.append({
+                            "type": "sources",
+                            "data": (
+                                self.source_index.as_ui_list()
+                                if self.source_index is not None
+                                else sources
+                            ),
+                        })
                         this_pool = any(
                             str(s.get("source") or "").startswith("POOL")
                             for s in sources

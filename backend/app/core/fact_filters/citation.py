@@ -109,11 +109,25 @@ def _collect_risky_name_candidates(text: str) -> list[str]:
     return uniq
 
 
+def drop_unknown_citations(text: str, citation_max_n: int | None) -> str:
+    """Remove [n] that are outside the canonical source list. Leave body otherwise."""
+    if not text or citation_max_n is None or citation_max_n < 1:
+        return text
+
+    def _keep(m: re.Match) -> str:
+        n = int(m.group(1))
+        return m.group(0) if 1 <= n <= citation_max_n else ""
+
+    out = _CITATION_RE.sub(_keep, text)
+    return re.sub(r" {2,}", " ", out)
+
+
 def verify_citations(
     text: str,
     source_text: str = "",
     *,
     soften_uncited: bool = True,
+    citation_max_n: int | None = None,
 ) -> str:
     """
     引用契約の検証。
@@ -205,6 +219,8 @@ def verify_citations(
             else:
                 new_parts.append(part)
         text = "".join(new_parts)
+
+    text = drop_unknown_citations(text, citation_max_n)
 
     _last_metrics = metrics
     return text

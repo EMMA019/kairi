@@ -68,7 +68,12 @@ def format_results(results: list[dict], query: str = "") -> list[dict]:
     return annotated
 
 
-def format_for_prompt(results: list[dict], query: str = "") -> str:
+def format_for_prompt(
+    results: list[dict],
+    query: str = "",
+    *,
+    include_contract: bool = True,
+) -> str:
     """プロンプト注入用テキストに整形。結果なしの場合は強い制約を返す"""
     if not results:
         # ハルシネーションを絶対に防ぐための強い制約
@@ -78,23 +83,26 @@ def format_for_prompt(results: list[dict], query: str = "") -> str:
             "必ず「検索結果が見つからなかったため、回答を保留します。恐れ入りますが公式サイト等をご確認ください。」とだけ返答してください。\n"
             "推測や古い情報を混ぜることは固く禁じます。"
         )
-        
-    lines = [
-        "【引用契約】以下の各ソースには番号 [n] が付いています。"
-        "時事的な事実（人名/役職/数値/レース結果/市場結果等）を断定する文には、"
-        "根拠としたソース番号を文末に [n] 形式で必ず付与してください。"
-        "番号を付けられない事実は断定せず、『（要確認）』とするか書かないでください。"
-        "published は観測/公開時刻、fetched_at は取得時刻。"
-        "時系列整理には published を使い、fetched_at を公開日時とみなすな。"
-        "日時不明の水準同士を因果でつなげないでください。"
-    ]
+
+    lines = []
+    if include_contract:
+        lines.append(
+            "【引用契約】以下の各ソースには番号 [n] が付いています。"
+            "時事的な事実（人名/役職/数値/レース結果/市場結果等）を断定する文には、"
+            "根拠としたソース番号を文末に [n] 形式で必ず付与してください。"
+            "番号を付けられない事実は断定せず、『（要確認）』とするか書かないでください。"
+            "published は観測/公開時刻、fetched_at は取得時刻。"
+            "時系列整理には published を使い、fetched_at を公開日時とみなすな。"
+            "日時不明の水準同士を因果でつなげないでください。"
+        )
     for i, r in enumerate(results, 1):
-        display_src = r.get("display_source", r["source"])
+        n = r.get("n") or i
+        display_src = r.get("display_source", r.get("source", "unknown"))
         warning = " ⚠️【学術ドメイン偽装疑い】" if r.get("is_spoofed") else ""
         clocks = format_source_clocks(r)
         lines.append(
-            f"[{i}] ({clocks}) [{display_src}]{warning} {r['title']}\n"
-            f"   {r['snippet']}\n"
-            f"   URL: {r['url']}"
+            f"[{n}] ({clocks}) [{display_src}]{warning} {r.get('title') or ''}\n"
+            f"   {r.get('snippet') or ''}\n"
+            f"   URL: {r.get('url') or ''}"
         )
     return "\n\n".join(lines)

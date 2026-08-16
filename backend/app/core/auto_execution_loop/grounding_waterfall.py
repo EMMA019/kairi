@@ -22,6 +22,7 @@ def apply_grounding_stage(
     search_results: Optional[str] = None,
     user_input: str = "",
     session_id: str = "",
+    citation_max_n: Optional[int] = None,
 ) -> str:
     """
     Run the grounding pipeline as a named post-loop stage.
@@ -57,7 +58,10 @@ def apply_grounding_stage(
 
     def _run_pipeline(t: str) -> str:
         return apply_grounding_pipeline(
-            t, str(search_results or ""), user_input=user_input or ""
+            t,
+            str(search_results or ""),
+            user_input=user_input or "",
+            citation_max_n=citation_max_n,
         )
 
     try:

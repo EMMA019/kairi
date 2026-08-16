@@ -57,6 +57,7 @@ async def auto_execute_with_retry(
     max_tool_loops: int = 40,
     max_supervisor_retries: int = 5,
     yield_sse_func=None,
+    source_index=None,
 ) -> tuple[str, str, list]:
     """
     自律実行ループのメイン処理。
@@ -78,6 +79,7 @@ async def auto_execute_with_retry(
         session_id=session_id,
         mode=mode,
         allow_mocks="モック" in user_input or "ダミー" in user_input or "仮実装" in user_input,
+        source_index=source_index,
     )
     try:
         from app.core.tools.repeat_reminder import reset_chain
@@ -266,6 +268,9 @@ async def auto_execute_with_retry(
         if tool_tag_detected:
             try:
                 current_response, tool_events = await tool_handler.execute_tools(stream_response)
+                if yield_sse_func and tool_events:
+                    for ev in tool_events:
+                        yield_sse_func(ev)
             except Exception as e:
                 logger.error(f"ToolHandler error: {e}")
                 return stream_response, f"ツール実行エラー: {e}", escalation_history

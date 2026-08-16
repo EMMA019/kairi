@@ -1026,12 +1026,14 @@ async def run_web_search(
 
         global_top_sources = rerank(user_input, all_raw_sources, top_k=20)
         from app.core.search_relevance import (
+            drop_news_briefing_noise,
             drop_offtopic_event_sources,
             drop_offtopic_market_sources,
         )
 
         global_top_sources = drop_offtopic_market_sources(user_input, global_top_sources)
         global_top_sources = drop_offtopic_event_sources(user_input, global_top_sources)
+        global_top_sources = drop_news_briefing_noise(user_input, global_top_sources)
         source_index.add(global_top_sources)
 
         deep_fetched_text = ""

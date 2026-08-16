@@ -182,6 +182,7 @@ def test_weekend_news_is_japan_not_events():
     assert "日本" in blob or "Japan news" in blob
     assert "イベント" not in blob
     assert "今週末" not in blob
+    assert "今週" not in blob
 
     sources = [
         {"title": "週末の姫路イベントまとめ", "url": "https://himeji.example/event", "source": "姫路の種"},
@@ -198,6 +199,44 @@ def test_weekend_news_is_japan_not_events():
 
     outing_kept = drop_offtopic_event_sources("今日埼玉か東京でイベント的なのあるかな？", sources)
     assert len(outing_kept) == 4
+
+
+def test_weekend_news_drops_old_baseball_and_paywall_stub():
+    from datetime import datetime
+    from app.core.chat_search import JST
+    from app.core.search_relevance import drop_news_briefing_noise
+
+    now = datetime(2026, 8, 16, 20, 10, tzinfo=JST)
+    sources = [
+        {
+            "title": "リアルタイム速報 日本ハム対西武（2026年8月13日） - プロ野球",
+            "url": "https://sports.example/npb",
+            "source": "日刊スポーツ",
+        },
+        {
+            "title": "Editorial Roundup: United States - The Washington Post",
+            "url": "https://www.washingtonpost.com/opinions/roundup",
+            "source": "Washington Post",
+            "published": "Wed, 12 Aug 2026",
+        },
+        {
+            "title": "世界の軍事ニュース速報（8月11日）：SM-3",
+            "url": "https://military.example/aug11",
+            "source": "military",
+        },
+        {
+            "title": "新体操の世界選手権団体総合で日本が２位",
+            "url": "https://www.jiji.com/news/rhythmic",
+            "source": "時事",
+            "published": "2026-08-15",
+        },
+    ]
+    kept = drop_news_briefing_noise("今週末のニュース教えて", sources, now_jst=now)
+    titles = " ".join(s["title"] for s in kept)
+    assert "新体操" in titles
+    assert "日本ハム" not in titles
+    assert "Editorial Roundup" not in titles
+    assert "8月11日" not in titles
 
 
 def test_english_news_is_world_scope():

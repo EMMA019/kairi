@@ -62,6 +62,23 @@ def test_supervisor_dump_detection_and_strip():
     assert "続きを作成して" in dump
 
 
+def test_strip_news_planning_preamble_keeps_answer():
+    dump = (
+        "ユーザーは「今週末のニュース教えて」と質問している。\n"
+        "facts_to_present に今週末の項目を書く。logical_order は時系列。\n"
+        "tone_directive を formal にする。それではJSONを組み立てる。\n"
+        "承知いたしました。検索実行日時は 2026年8月16日です。\n"
+        "■ 今週末のニュース\n"
+        "新体操で日本が2位になりました [10]\n"
+    )
+    assert looks_like_supervisor_dump(dump)
+    cleaned = strip_supervisor_dump(dump)
+    assert "承知いたしました" in cleaned
+    assert "新体操" in cleaned
+    assert "それではJSON" not in cleaned
+    assert "ユーザーは「" not in cleaned
+
+
 def test_strip_orphan_tool_tag_cluster():
     text = "進捗です。\n<read_file><edit><list_dir>\n完了報告。"
     cleaned = strip_internal_markup(text)

@@ -627,6 +627,21 @@ async def chat(request: ChatRequest):
             instruction = build_executor_instruction(
                 supervisor_json, search_unsupported=search_unsupported, mode=mode
             )
+            from app.core.search_relevance import is_news_briefing_query, is_weekend_news_query
+
+            if is_weekend_news_query(user_input):
+                instruction = (
+                    "【ニュース本文】今週末の土日に起きた報道だけ書け。"
+                    "試合速報・ペイウォール社説の切れ端・週末より前の日付の話題は出すな。"
+                    "監督の思考・JSON・facts_to_present は出すな。\n\n"
+                    + (instruction or "")
+                ).strip()
+            elif is_news_briefing_query(user_input):
+                instruction = (
+                    "【ニュース本文】報道だけ書け。試合速報ページと社説ラウンドアップの切れ端は出すな。"
+                    "監督の思考・JSONは出すな。\n\n"
+                    + (instruction or "")
+                ).strip()
             supervisor_json, memory_to_inject = resolve_memory_inject(
                 supervisor_json, filtered_kv_text, user_input=user_input
             )

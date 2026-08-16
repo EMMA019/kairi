@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date, datetime, timedelta
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -191,27 +192,115 @@ def is_japanese_majority_query(user_input: str) -> bool:
     return cjk >= 2 and cjk >= latin
 
 
+_WEEKEND_NEWS_RE = re.compile(r"今週末|今の週末|this weekend", re.IGNORECASE)
+_NEWS_SCOREBOARD_RE = re.compile(
+    r"プロ野球|リアルタイム速報|リーダーボード|対西武|対巨人|対阪神|"
+    r"日刊スポーツ|スコア.?速報|LPGA|ポートランドクラシック",
+    re.IGNORECASE,
+)
+_NEWS_STUB_RE = re.compile(
+    r"Editorial Roundup|Deadline Hollywood|Widow.?s Bay|"
+    r"熊本地震で断層|facebook\.com",
+    re.IGNORECASE,
+)
+_TITLE_YMD_RE = re.compile(r"(20\d{2})年(\d{1,2})月(\d{1,2})日")
+_TITLE_MD_RE = re.compile(r"（(\d{1,2})月(\d{1,2})日）")
+
+
+def is_weekend_news_query(user_input: str) -> bool:
+    return is_news_briefing_query(user_input) and bool(_WEEKEND_NEWS_RE.search(user_input or ""))
+
+
+def this_weekend_dates(now: datetime) -> tuple[date, date]:
+    """今週末の土日。金はこれから、月〜木は直前の土日。"""
+    today = now.date()
+    wd = now.weekday()
+    if wd >= 5:
+        sat = today - timedelta(days=wd - 5)
+        return sat, sat + timedelta(days=1)
+    if wd == 4:
+        return today + timedelta(days=1), today + timedelta(days=2)
+    sun = today - timedelta(days=wd + 1)
+    return sun - timedelta(days=1), sun
+
+
 def news_briefing_search_queries(user_input: str, *, now_jst=None) -> list[str]:
-    """日本語ニュースは日本、英語ニュースは世界。『今週末』はクエリに使わない。"""
-    from datetime import datetime
+    """日本語ニュースは日本、英語ニュースは世界。今週末は土日の日付だけ使う。"""
     from zoneinfo import ZoneInfo
 
     now = now_jst or datetime.now(ZoneInfo("Asia/Tokyo"))
-    date_iso = now.strftime("%Y-%m-%d")
     month_en = now.strftime("%B")
-    day = now.day
     year = now.year
+    if is_weekend_news_query(user_input):
+        sat, sun = this_weekend_dates(now)
+        if is_japanese_majority_query(user_input):
+            return [
+                f"日本 ニュース {sat.isoformat()}",
+                f"日本 ニュース {sun.isoformat()}",
+                f"Japan news {sat.strftime('%B')} {sat.day}-{sun.day} {sat.year}",
+            ]
+        return [
+            f"world news {sat.isoformat()}",
+            f"world news {sun.isoformat()}",
+            f"international headlines {sat.isoformat()}",
+        ]
+    date_iso = now.strftime("%Y-%m-%d")
+    day = now.day
     if is_japanese_majority_query(user_input):
         return [
             f"日本 主要ニュース {date_iso}",
-            f"今週 日本 ニュース 速報",
+            f"日本 ニュース 速報 {date_iso}",
             f"Japan news {month_en} {day} {year}",
         ]
     return [
         f"world news {month_en} {day} {year}",
         f"international headlines {date_iso}",
-        f"global news this week",
+        f"global news {date_iso}",
     ]
+
+
+def _source_calendar_date(src: dict, *, year: int) -> date | None:
+    raw = str(src.get("published") or src.get("content_as_of") or "")
+    for fmt in ("%Y-%m-%d", "%a, %d %b %Y", "%Y年%m月%d日"):
+        try:
+            return datetime.strptime(raw[:32].strip(), fmt).date()
+        except ValueError:
+            continue
+    title = str(src.get("title") or "")
+    m = _TITLE_YMD_RE.search(title)
+    if m:
+        return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    m = _TITLE_MD_RE.search(title)
+    if m:
+        try:
+            return date(year, int(m.group(1)), int(m.group(2)))
+        except ValueError:
+            return None
+    return None
+
+
+def drop_news_briefing_noise(user_input: str, sources: list, *, now_jst=None) -> list:
+    """ニュース質問から試合速報・社説切れ端・週末より前の日付を除く。"""
+    if not sources or not is_news_briefing_query(user_input):
+        return sources
+    from zoneinfo import ZoneInfo
+
+    now = now_jst or datetime.now(ZoneInfo("Asia/Tokyo"))
+    weekend = is_weekend_news_query(user_input)
+    sat, _sun = this_weekend_dates(now) if weekend else (None, None)
+    kept = []
+    for src in sources:
+        blob = f"{src.get('title') or ''} {src.get('url') or ''} {src.get('source') or ''}"
+        if _NEWS_SCOREBOARD_RE.search(blob) or _NEWS_STUB_RE.search(blob):
+            logger.info(f"🧹 ニュース質問から速報/社説ノイズを除外: {src.get('title') or src.get('url')}")
+            continue
+        if weekend and sat is not None:
+            d = _source_calendar_date(src, year=now.year)
+            if d is not None and d < sat:
+                logger.info(f"🧹 今週末ニュースから古い日付を除外: {src.get('title') or src.get('url')}")
+                continue
+        kept.append(src)
+    return kept
 
 
 def drop_offtopic_event_sources(user_input: str, sources: list) -> list:

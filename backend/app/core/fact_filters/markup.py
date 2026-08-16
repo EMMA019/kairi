@@ -24,11 +24,20 @@ _SUPERVISOR_DUMP_MARKERS = (
     "kv_action",
     "violation_risk",
     "logical_order",
+    "tone_directive",
+    "search_used",
+    "それではJSON",
     "この内容を JSON で出力",
     '"mode": "task"',
     '"mode":"task"',
     "mode は task",
     "output する JSON",
+)
+_PLANNING_PREAMBLE_RE = re.compile(
+    r"ユーザーは「|検索結果を確認すると|それではJSONを|facts_to_present"
+)
+_USER_FACING_START_RE = re.compile(
+    r"(?m)^(?:承知いたしました|■\s|【検索実行日時|#\s)"
 )
 
 _TOOL_OPEN = re.compile(rf"<(?:{TOOL_TAG_NAMES})\b", re.IGNORECASE)
@@ -179,6 +188,10 @@ def strip_supervisor_dump(text: str) -> str:
         return text
     original = text
     text = strip_internal_markup(text)
+    if _PLANNING_PREAMBLE_RE.search(text[:500] if len(text) > 80 else text):
+        m = _USER_FACING_START_RE.search(text)
+        if m and m.start() > 80:
+            text = text[m.start():]
     # JSON 風のキー行・「mode は task」系の内部独白行（instruction.facts_to_present 含む）
     text = re.sub(
         r"(?m)^\s*(?:[-*]|\d+\.)?\s*"

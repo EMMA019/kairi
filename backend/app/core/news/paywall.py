@@ -29,6 +29,10 @@ PAYWALL_DOMAINS = {
     "barrons.com",
     "www.barrons.com",
     "financialtimes.com",
+    "washingtonpost.com",
+    "www.washingtonpost.com",
+    "nytimes.com",
+    "www.nytimes.com",
 }
 
 FREE_SOURCE_HINTS = (
@@ -63,7 +67,20 @@ def is_paywalled(url: str, source: str = "") -> bool:
     if any(host.endswith("." + d) or host == d for d in PAYWALL_DOMAINS):
         return True
     src = (source or "").lower()
-    if any(k in src for k in ("bloomberg", "wsj", "wall street journal", "financial times", "ft ")):
+    if any(
+        k in src
+        for k in (
+            "bloomberg",
+            "wsj",
+            "wall street journal",
+            "financial times",
+            "ft ",
+            "washington post",
+            "new york times",
+            "nikkei",
+            "日経",
+        )
+    ):
         return True
     return False
 

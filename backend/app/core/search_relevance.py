@@ -294,6 +294,14 @@ def drop_news_briefing_noise(user_input: str, sources: list, *, now_jst=None) ->
         if _NEWS_SCOREBOARD_RE.search(blob) or _NEWS_STUB_RE.search(blob):
             logger.info(f"🧹 ニュース質問から速報/社説ノイズを除外: {src.get('title') or src.get('url')}")
             continue
+        try:
+            from app.core.news.paywall import is_paywalled
+
+            if is_paywalled(str(src.get("url") or ""), str(src.get("source") or "")):
+                logger.info(f"🧹 ニュース質問からペイウォールを除外: {src.get('title') or src.get('url')}")
+                continue
+        except Exception:
+            pass
         if weekend and sat is not None:
             d = _source_calendar_date(src, year=now.year)
             if d is not None and d < sat:

@@ -631,14 +631,16 @@ async def chat(request: ChatRequest):
 
             if is_weekend_news_query(user_input):
                 instruction = (
-                    "【ニュース本文】今週末の土日に起きた報道だけ書け。"
-                    "試合速報・ペイウォール社説の切れ端・週末より前の日付の話題は出すな。"
+                    "【ニュース本文】今週末の土日に起きた、無料で読める報道だけ書け。"
+                    "試合速報・週末より前の日付・ペイウォール記事は出すな。"
+                    "「ペイウォールのため確認できません」とも書くな。"
                     "監督の思考・JSON・facts_to_present は出すな。\n\n"
                     + (instruction or "")
                 ).strip()
             elif is_news_briefing_query(user_input):
                 instruction = (
-                    "【ニュース本文】報道だけ書け。試合速報ページと社説ラウンドアップの切れ端は出すな。"
+                    "【ニュース本文】無料で読める報道だけ書け。"
+                    "試合速報とペイウォール記事は出すな。「確認できません」とも書くな。"
                     "監督の思考・JSONは出すな。\n\n"
                     + (instruction or "")
                 ).strip()

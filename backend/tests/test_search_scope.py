@@ -230,6 +230,12 @@ def test_weekend_news_drops_old_baseball_and_paywall_stub():
             "source": "時事",
             "published": "2026-08-15",
         },
+        {
+            "title": "【日本株週間展望】高値を維持",
+            "url": "https://www.bloomberg.com/news/articles/japan-stocks",
+            "source": "Bloomberg",
+            "published": "2026-08-15",
+        },
     ]
     kept = drop_news_briefing_noise("今週末のニュース教えて", sources, now_jst=now)
     titles = " ".join(s["title"] for s in kept)
@@ -237,6 +243,8 @@ def test_weekend_news_drops_old_baseball_and_paywall_stub():
     assert "日本ハム" not in titles
     assert "Editorial Roundup" not in titles
     assert "8月11日" not in titles
+    assert "Bloomberg" not in titles
+    assert "週間展望" not in titles
 
 
 def test_english_news_is_world_scope():

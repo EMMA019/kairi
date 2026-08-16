@@ -247,6 +247,61 @@ def test_weekend_news_drops_old_baseball_and_paywall_stub():
     assert "週間展望" not in titles
 
 
+def test_weekend_news_drops_preview_forecast_keeps_result():
+    from datetime import datetime
+    from app.core.chat_search import JST
+    from app.core.search_relevance import drop_news_briefing_noise
+
+    now = datetime(2026, 8, 16, 20, 31, tzinfo=JST)
+    sources = [
+        {
+            "title": "【8月16日開催】バスケ男子日本代表「Softbank CUP 2026（東京大会）」韓国戦｜放送配信・メンバー・試合情報",
+            "url": "https://basketballking.jp/news/japan/20260816softbank",
+            "source": "バスケットボールキング",
+        },
+        {
+            "title": "19日まで晴れても急な雨に注意　20日以降は広く雨が降ることも　2週間天気",
+            "url": "https://tenki.jp/forecaster/s_domoto/2026/08/16/35124.html",
+            "source": "日本気象協会 tenki.jp",
+        },
+        {
+            "title": "為替相場　　１４日（日本時間１２時）",
+            "url": "https://www.saga-s.co.jp/articles/-/fx14",
+            "source": "佐賀新聞",
+        },
+        {
+            "title": "【新日本プロレス】第8試合 結果速報！2026年8月16日『G1 CLIMAX 36』",
+            "url": "https://www.njpw.co.jp/tornament/g1",
+            "source": "NJPW",
+        },
+        {
+            "title": "2026年8月16日（日） MLB メッツ vs ナショナルズ 試合結果",
+            "url": "https://topics.smt.docomo.ne.jp/mlb",
+            "source": "ドコモTopics",
+        },
+        {
+            "title": "【動画】【ハイライト】【買取大吉カップ2026】日本 vs 韓国（2026.08.15）",
+            "url": "https://sports.yahoo.co.jp/video/japan-korea",
+            "source": "スポーツナビ",
+        },
+        {
+            "title": "新体操の世界選手権団体総合で日本が２位",
+            "url": "https://www.jiji.com/news/rhythmic",
+            "source": "時事",
+            "published": "2026-08-15",
+        },
+    ]
+    kept = drop_news_briefing_noise("今週末のニュース教えて", sources, now_jst=now)
+    titles = " ".join(s["title"] for s in kept)
+    assert "ハイライト" in titles
+    assert "新体操" in titles
+    assert "Softbank" not in titles
+    assert "2週間天気" not in titles
+    assert "為替" not in titles
+    assert "G1" not in titles
+    assert "MLB" not in titles
+
+
 def test_english_news_is_world_scope():
     from app.core.search_relevance import is_japanese_majority_query, news_briefing_search_queries
 

@@ -195,7 +195,8 @@ def is_japanese_majority_query(user_input: str) -> bool:
 _WEEKEND_NEWS_RE = re.compile(r"今週末|今の週末|this weekend", re.IGNORECASE)
 _NEWS_SCOREBOARD_RE = re.compile(
     r"プロ野球|リアルタイム速報|リーダーボード|対西武|対巨人|対阪神|"
-    r"日刊スポーツ|スコア.?速報|LPGA|ポートランドクラシック",
+    r"日刊スポーツ|スコア.?速報|LPGA|ポートランドクラシック|"
+    r"新日本プロレス|G1 CLIMAX|第\d+試合|\bMLB\b",
     re.IGNORECASE,
 )
 _NEWS_STUB_RE = re.compile(
@@ -203,8 +204,19 @@ _NEWS_STUB_RE = re.compile(
     r"熊本地震で断層|facebook\.com",
     re.IGNORECASE,
 )
+_NEWS_EXTRA_RE = re.compile(
+    r"【ライブ】|【LIVE】|ライブ配信|"
+    r"放送配信|メンバー・試合情報|"
+    r"最終調整|ロス切符なるか|"
+    r"2週間天気|天気予報|気象衛星|星空観察|ランデブー|"
+    r"tenki\.jp|weathernews|ウェザーニュース|"
+    r"為替相場|日本株テーマ|野村證券",
+    re.IGNORECASE,
+)
 _TITLE_YMD_RE = re.compile(r"(20\d{2})年(\d{1,2})月(\d{1,2})日")
 _TITLE_MD_RE = re.compile(r"（(\d{1,2})月(\d{1,2})日）")
+_TITLE_DAY_RE = re.compile(r"([0-9０-９]{1,2})日")
+_FW_DIGIT = str.maketrans("０１２３４５６７８９", "0123456789")
 
 
 def is_weekend_news_query(user_input: str) -> bool:
@@ -259,7 +271,7 @@ def news_briefing_search_queries(user_input: str, *, now_jst=None) -> list[str]:
     ]
 
 
-def _source_calendar_date(src: dict, *, year: int) -> date | None:
+def _source_calendar_date(src: dict, *, year: int, month: int) -> date | None:
     raw = str(src.get("published") or src.get("content_as_of") or "")
     for fmt in ("%Y-%m-%d", "%a, %d %b %Y", "%Y年%m月%d日"):
         try:
@@ -274,6 +286,13 @@ def _source_calendar_date(src: dict, *, year: int) -> date | None:
     if m:
         try:
             return date(year, int(m.group(1)), int(m.group(2)))
+        except ValueError:
+            return None
+    m = _TITLE_DAY_RE.search(title)
+    if m:
+        try:
+            day = int(m.group(1).translate(_FW_DIGIT))
+            return date(year, month, day)
         except ValueError:
             return None
     return None
@@ -291,8 +310,8 @@ def drop_news_briefing_noise(user_input: str, sources: list, *, now_jst=None) ->
     kept = []
     for src in sources:
         blob = f"{src.get('title') or ''} {src.get('url') or ''} {src.get('source') or ''}"
-        if _NEWS_SCOREBOARD_RE.search(blob) or _NEWS_STUB_RE.search(blob):
-            logger.info(f"🧹 ニュース質問から速報/社説ノイズを除外: {src.get('title') or src.get('url')}")
+        if _NEWS_SCOREBOARD_RE.search(blob) or _NEWS_STUB_RE.search(blob) or _NEWS_EXTRA_RE.search(blob):
+            logger.info(f"🧹 ニュース質問から速報/社説/予告ノイズを除外: {src.get('title') or src.get('url')}")
             continue
         try:
             from app.core.news.paywall import is_paywalled
@@ -303,7 +322,7 @@ def drop_news_briefing_noise(user_input: str, sources: list, *, now_jst=None) ->
         except Exception:
             pass
         if weekend and sat is not None:
-            d = _source_calendar_date(src, year=now.year)
+            d = _source_calendar_date(src, year=now.year, month=now.month)
             if d is not None and d < sat:
                 logger.info(f"🧹 今週末ニュースから古い日付を除外: {src.get('title') or src.get('url')}")
                 continue

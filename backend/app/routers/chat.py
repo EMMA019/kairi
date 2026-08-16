@@ -469,7 +469,19 @@ async def chat(request: ChatRequest):
                         # KVメモリが更新されたので、プロンプト用のテキストを再生成する
                         relevant_kv = await kv_store.filter_by_scope(user_input)
                         filtered_kv_text = kv_store.format_for_prompt(relevant_kv)
-                        if any(k in user_input for k in ["メモリ", "記憶", "覚えて", "KV", "プロフィール"]):
+                        if any(
+                            k in user_input.lower()
+                            for k in [
+                                "メモリ",
+                                "記憶",
+                                "覚えて",
+                                "KV",
+                                "プロフィール",
+                                "remember",
+                                "memory",
+                                "profile",
+                            ]
+                        ):
                             filtered_kv_text = "（ユーザーの記憶やプロフィールを確認する場合は <internal_kv_state> を参照してください）"
                         kv_summary = await kv_store.format_summary()
 

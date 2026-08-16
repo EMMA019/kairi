@@ -8,6 +8,7 @@ from app.core.memory_policy import (
     should_accept_kv_action,
     user_allows_memory_use,
     user_requests_memory_save,
+    user_requests_forget,
     user_in_holdings_context,
     is_junk_memory,
     entry_matches_user_input,
@@ -19,6 +20,7 @@ from app.core.memory_policy import (
     family_topic_allows_use,
     infer_family_tag,
     user_in_family_occasion_context,
+    user_in_family_topic_context,
     user_in_family_travel_context,
     find_entry_for_memory_edit,
     merge_memory_note,
@@ -570,3 +572,112 @@ def test_strip_child_ask_on_event_query_keeps_child_subject():
     kept = strip_unrequested_child_ask(with_child, "妻が出かけてて子どもと2人なんだよねえ")
     assert "emma" in kept
     assert "昆虫展" in kept
+
+
+def test_english_memory_use_and_save_phrases():
+    assert user_allows_memory_use("use my memory for this")
+    assert user_allows_memory_use("based on what you remember")
+    assert not user_allows_memory_use("I remember seeing that festival last year")
+    assert not user_requests_memory_save("I remember seeing that festival last year")
+    assert user_requests_memory_save("remember this: I like curry")
+    assert user_requests_memory_save("add to memory that we are a family of three")
+    assert user_requests_memory_save("save this to memory")
+    assert user_requests_forget("forget that")
+    assert user_requests_forget("delete that from memory")
+    assert should_edit_existing_memory("append pasta to emma's memory")
+    assert should_edit_existing_memory("add to emma's memory that she likes pizza")
+    assert should_edit_existing_memory("update her profile with pizza")
+
+
+def test_english_family_topic_matches_japanese_contract():
+    assert user_in_family_topic_context("Do you have any recommendations for kids?")
+    assert not user_in_family_topic_context("Is there an event in Saitama or Tokyo today?")
+    assert not user_in_family_topic_context("kidney specialist nearby")
+    assert not user_in_family_topic_context("ask the midwife")
+
+    assert user_in_family_travel_context("planning a family trip")
+    assert user_in_family_travel_context("traveling with family")
+    assert not user_in_family_travel_context("just travel advice")
+    assert not user_in_family_travel_context("family conversation")
+
+    wife_kv = "- [PROFILE] 妻saoriの生年月日: 1989年12月29日生まれ。Naoの妻。"
+    child_kv = "- [PROFILE] 子ども（emma）の生年月日・性別: 2019年11月13日生まれ、女性。"
+    assert family_topic_allows_use("wife's birthday gift ideas", wife_kv)
+    assert family_topic_allows_use("Do you have any recommendations for kids?", child_kv)
+    assert family_topic_allows_use("family trip this weekend", wife_kv + "\n" + child_kv)
+    assert not family_topic_allows_use("just travel advice", child_kv)
+    assert not family_topic_allows_use("Is there an event in Saitama or Tokyo today?", child_kv)
+
+    sj, injected = resolve_memory_inject(
+        {"memory_inject": False},
+        child_kv,
+        user_input="Do you have any recommendations for kids?",
+    )
+    assert sj["memory_inject"] is True
+    assert injected == child_kv
+
+    sj2, injected2 = resolve_memory_inject(
+        {"memory_inject": True},
+        child_kv,
+        user_input="Is there an event in Saitama or Tokyo today?",
+    )
+    assert sj2["memory_inject"] is False
+    assert injected2 is None
+
+
+def test_english_standing_grant_and_holdings():
+    assert entry_in_standing_grant_scope(_CHILD_KV, "recommendations for kids")
+    assert standing_grant_allows_use("kids events today", (
+        "- [PROFILE] 子ども（emma）の生年月日・性別: 2019年11月13日生まれ。"
+        "今後の会話で子どもに触れた場合の記憶利用はユーザー本人から許可済み。"
+    ))
+    en_grant = {
+        "category": "profile",
+        "quote": "when I mention my kid you can use memory",
+        "summary": {
+            "target": "child (emma)",
+            "note": "you can use memory when I talk about kids",
+            "tags": ["emma", "child"],
+        },
+    }
+    assert entry_has_standing_grant(en_grant)
+    assert entry_in_standing_grant_scope(en_grant, "kids events today")
+    assert not entry_in_standing_grant_scope(en_grant, "Is there an event in Saitama today?")
+
+    assert user_in_holdings_context("how is my portfolio today?")
+    assert user_in_holdings_context("check my holdings")
+    assert not user_in_holdings_context("any good Microsoft news?")
+
+
+def test_english_infer_family_tag_and_child_ask_strip():
+    from app.core.fact_filters.format import strip_unrequested_child_ask
+
+    en_child = {
+        "category": "profile",
+        "quote": "my child emma remember this",
+        "summary": {"target": "child emma", "note": "born 2019", "tags": ["emma"]},
+    }
+    en_wife = {
+        "category": "profile",
+        "quote": "my wife saori remember this",
+        "summary": {"target": "wife saori", "note": "birthday in December", "tags": ["saori"]},
+    }
+    assert infer_family_tag(en_child) == FAMILY_TAG_CHILD
+    assert infer_family_tag(en_wife) == FAMILY_TAG_SPOUSE
+
+    leaked = (
+        "There are fireworks in Saitama. "
+        "How old is your child? I can tailor the plan."
+    )
+    cleaned = strip_unrequested_child_ask(
+        leaked, "Is there an event in Saitama or Tokyo today?"
+    )
+    assert "How old is your child" not in cleaned
+    assert "fireworks" in cleaned
+
+    kept = strip_unrequested_child_ask(
+        "For a 6-year-old, the insect walk is a good kids pick.",
+        "Do you have any recommendations for kids?",
+    )
+    assert "insect walk" in kept
+    assert "6-year-old" in kept

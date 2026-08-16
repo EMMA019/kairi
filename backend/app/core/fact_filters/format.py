@@ -114,11 +114,15 @@ def strip_omakase_skill_questions(
 
 
 _UNSOLICITED_CHILD_ASK_RE = re.compile(
-    r"[^\n。．]*お子様の年齢に合わせ[^\n。．]*[。．]?",
+    r"[^\n。．.!?]*お子様の年齢に合わせ[^\n。．.!?]*[。．.!?]?"
+    r"|[^\n。．.!?]*\b(?:child(?:'s)? age|children's ages?|"
+    r"how old (?:is|are) (?:your )?(?:kids?|child|children)|"
+    r"age of your (?:kids?|child|children))\b[^\n。．.!?]*[。．.!?]?",
     re.IGNORECASE,
 )
 _UNSOLICITED_CHILD_NAME_RE = re.compile(
-    r"[^\n。．]*(?:emmaちゃん|6歳のemma|6歳のお子様)[^\n。．]*[。．]?",
+    r"[^\n。．.!]*(?:emmaちゃん|6歳のemma|6歳のお子様|"
+    r"6-year-old emma|6 year old emma)[^\n。．.!?]*[。．.!?]?",
     re.IGNORECASE,
 )
 

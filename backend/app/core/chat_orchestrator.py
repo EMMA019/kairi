@@ -45,7 +45,9 @@ _FACT_SKIP_RE = re.compile(
 )
 
 _MEMORY_SAVE_SUCCESS_RE = re.compile(
-    r"追加した|記憶した|保存した|覚えました|記憶済み|追加いたしました|追記した|追記いたしました"
+    r"追加した|記憶した|保存した|覚えました|記憶済み|追加いたしました|追記した|追記いたしました|"
+    r"added to memory|I (?:saved|remembered) (?:that|this|it)|saved (?:that|this) to memory",
+    re.IGNORECASE,
 )
 
 
@@ -73,9 +75,9 @@ def build_executor_instruction(supervisor_json: dict, *, search_unsupported: boo
     if rejected:
         note = (
             f"【記憶保存の結果】今回の内容はメモリに保存されませんでした（{rejected}）。"
-            "「メモリに追加しました」「記憶しました」等の成功表現は禁止。"
-            "保存できなかった旨を短く伝え、必要なら「覚えておいて」「メモリに追加」など"
-            "明示的な保存の言い方を案内すること。"
+            "「メモリに追加しました」「記憶しました」「I saved that」「added to memory」等の成功表現は禁止。"
+            "保存できなかった旨を短く伝え、必要なら「覚えておいて」「メモリに追加」"
+            "/ remember this / add to memory など明示的な保存の言い方を案内すること。"
         )
         instruction = (note + "\n\n" + (instruction or "")).strip()
 
@@ -119,10 +121,10 @@ def resolve_memory_inject(
     """memory_inject をスコープ付き KV に合わせて正規化し、注入テキストを返す。
 
     Executor への注入は次のいずれかでのみ許可:
-    - 明示的な記憶参照（「記憶を使って」等）
+    - 明示的な記憶参照（「記憶を使って」/ use my memory 等）
     - 保有・ポジション・含み等の文脈
-    - 保存済みのスコープ付き継続許可（例: 子どもに触れたら記憶を使ってよい）
-    - 家族フラグ付きスロット（妻/子どもの話題、家族で旅行）
+    - 保存済みのスコープ付き継続許可（例: 子どもに触れたら記憶を使ってよい / when I mention my kid）
+    - 家族フラグ付きスロット（妻/子ども/wife/kids の話題、家族で旅行 / family trip）
     ニュース・おまかせ開発・単なる旅の相談では家族記憶を落とす。
     """
     from app.core.memory_policy import (

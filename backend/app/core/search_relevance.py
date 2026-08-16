@@ -120,11 +120,14 @@ def is_search_effectively_empty(
 
 _MARKET_SOURCE_NOISE_RE = re.compile(
     r"日経|ロイター|Reuters|ZAi|ザイ|ストップ高|注目株|株式市場|"
-    r"ダイヤモンド.?ザイ|日本株市場|daily.?zai|finance\.yahoo",
+    r"ダイヤモンド.?ザイ|日本株市場|daily.?zai|finance\.yahoo|"
+    r"\b8-K\b|sec\.gov|\bEDGAR\b|sec filing",
     re.IGNORECASE,
 )
 _FINANCE_QUERY_RE = re.compile(
-    r"株|銘柄|株価|相場|配当|決算|投資|市況|日経|ダウ|ナスダック|為替|金利"
+    r"株|銘柄|株価|相場|配当|決算|投資|市況|日経|ダウ|ナスダック|為替|金利|"
+    r"\bstocks?\b|\bearnings\b|\bnasdaq\b|\bdow\b",
+    re.IGNORECASE,
 )
 
 

@@ -26,6 +26,10 @@ _MEMORY_USE_PATTERNS = [
     r"僕の(?:好み|趣味)",
     r"KVメモリ",
     r"長期記憶",
+    r"\buse (?:my |the )?memory\b",
+    r"\bbased on (?:my )?(?:profile|what you remember)\b",
+    r"\bwhat you remember about me\b",
+    r"(?:do you|you) remember (?:me|my|what)\b",
 ]
 
 # 明示的な「保存して」指示
@@ -49,6 +53,10 @@ _MEMORY_SAVE_PATTERNS = [
     r"追記",
     r"remember\s+(?:this|that|it)",
     r"please\s+remember",
+    r"\badd (?:this |it )?to memory\b",
+    r"\bsave (?:this|that)(?: to memory)?\b",
+    r"\bdon't forget\b",
+    r"\bdo not forget\b",
 ]
 
 # ペルソナ変更（カテゴリ persona のみ許可）
@@ -71,6 +79,9 @@ _FORGET_PATTERNS = [
     r"記憶を消",
     r"削除して",
     r"もう覚えないで",
+    r"\bforget (?:that|this|it)\b",
+    r"\bdelete (?:that |this )?from memory\b",
+    r"\bremove (?:that |this )?from memory\b",
 ]
 
 # 会話メタ・ニュース・AI自己紹介など「ユーザーの長期特徴」ではないゴミ
@@ -117,7 +128,9 @@ def user_allows_memory_use(user_input: str) -> bool:
 
 # 保有・ポジション文脈（ニュース質問だけでは inject しない）
 _HOLDINGS_CONTEXT_RE = re.compile(
-    r"保有|ポジション|含み|取得価|何株|自分の銘柄|ポートフォリオ|持ってる株|持株"
+    r"保有|ポジション|含み|取得価|何株|自分の銘柄|ポートフォリオ|持ってる株|持株|"
+    r"\bholdings?\b|\bportfolio\b|\bmy shares\b|\bmy position\b",
+    re.IGNORECASE,
 )
 
 
@@ -131,10 +144,17 @@ _STANDING_GRANT_RE = re.compile(
     r"(?:触れ(?:たら|た場合|たらば)|出たら|言及).{0,24}記憶"
     r"|記憶使って(?:いい|良い|OK|おk)"
     r"|記憶を使って(?:いい|良い)"
-    r"|記憶利用.{0,16}許可",
+    r"|記憶利用.{0,16}許可"
+    r"|when I (?:mention|talk about).{0,24}(?:kids?|child|children|wife).{0,24}memory"
+    r"|you can use memory when"
+    r"|(?:mention|talk about).{0,24}(?:kids?|child|children).{0,32}(?:use memory|memory.{0,16}ok)",
     re.IGNORECASE,
 )
-_CHILD_SCOPE_RE = re.compile(r"子ども|子供|こども|お子様|娘|息子")
+_CHILD_SCOPE_RE = re.compile(
+    r"子ども|子供|こども|お子様|娘|息子|"
+    r"\bkids?\b|\bchildren\b|\bchild\b|\bdaughter\b|\bson\b",
+    re.IGNORECASE,
+)
 
 
 def entry_has_standing_grant(entry: dict) -> bool:
@@ -191,18 +211,55 @@ FAMILY_TAG_SPOUSE = "family:spouse"
 FAMILY_TAG_CHILD = "family:child"
 FAMILY_TAGS = frozenset({FAMILY_TAG_SPOUSE, FAMILY_TAG_CHILD})
 
-_SPOUSE_RE = re.compile(r"妻|嫁|奥さん|家内|配偶者")
-_CHILD_MEMBER_RE = re.compile(r"子ども|子供|こども|お子様|娘|息子")
+_SPOUSE_RE = re.compile(
+    r"妻|嫁|奥さん|家内|配偶者|\bwife\b|\bspouse\b",
+    re.IGNORECASE,
+)
+_CHILD_MEMBER_RE = re.compile(
+    r"子ども|子供|こども|お子様|娘|息子|"
+    r"\bkids?\b|\bchildren\b|\bchild\b|\bdaughter\b|\bson\b",
+    re.IGNORECASE,
+)
 _FAMILY_SLOT_RE = re.compile(
     r"妻|嫁|奥さん|家内|配偶者|夫|主人|旦那|パートナー|"
-    r"子ども|子供|こども|お子様|娘|息子"
+    r"子ども|子供|こども|お子様|娘|息子|"
+    r"\bwife\b|\bspouse\b|\bhusband\b|\bpartner\b|"
+    r"\bkids?\b|\bchildren\b|\bchild\b|\bdaughter\b|\bson\b",
+    re.IGNORECASE,
 )
-_FAMILY_TRAVEL_RE = re.compile(r"旅行|お出かけ|観光|宿|ホテル")
-_NEWS_DENY_RE = re.compile(r"ニュース|市況|決算|相場|ヘッドライン")
+_FAMILY_TRAVEL_RE = re.compile(
+    r"旅行|お出かけ|観光|宿|ホテル|"
+    r"\btrip\b|\btravell?ing\b|\btravel\b|\bouting\b|\bhotel\b|\bsightseeing\b",
+    re.IGNORECASE,
+)
+_NEWS_DENY_RE = re.compile(
+    r"ニュース|市況|決算|相場|ヘッドライン|"
+    r"\bnews\b|\bmarkets?\b|\bearnings\b|\bheadlines?\b",
+    re.IGNORECASE,
+)
 _FAMILY_ALIAS_GROUPS = (
-    ("妻", "嫁", "奥さん", "家内", "配偶者"),
-    ("夫", "主人", "旦那"),
-    ("子ども", "子供", "こども", "お子様", "娘", "息子"),
+    ("妻", "嫁", "奥さん", "家内", "配偶者", "wife", "spouse"),
+    ("夫", "主人", "旦那", "husband"),
+    (
+        "子ども",
+        "子供",
+        "こども",
+        "お子様",
+        "娘",
+        "息子",
+        "kid",
+        "kids",
+        "child",
+        "children",
+        "daughter",
+        "son",
+    ),
+)
+_FAMILY_WORD_RE = re.compile(r"家族|\bfamily\b", re.IGNORECASE)
+_FAMILY_KV_RE = re.compile(
+    r"family:(?:spouse|child)|妻|子ども|子供|お子様|"
+    r"\bwife\b|\bspouse\b|\bkids?\b|\bchildren\b|\bchild\b",
+    re.IGNORECASE,
 )
 
 
@@ -263,7 +320,7 @@ def memory_personalization_denied(user_input: str) -> bool:
 def user_in_family_travel_context(user_input: str) -> bool:
     """家族 × 旅行/お出かけ。『家族』や『旅の相談』だけでは不可。"""
     text = user_input or ""
-    if "家族" not in text:
+    if not _FAMILY_WORD_RE.search(text):
         return False
     return bool(_FAMILY_TRAVEL_RE.search(text))
 
@@ -287,9 +344,14 @@ def _family_slot_aliases_hit(text: str, blob: str) -> bool:
     slots = _FAMILY_SLOT_RE.findall(text or "")
     if not slots or not blob:
         return False
+    blob_l = blob.lower()
     for slot in slots:
-        group = next((g for g in _FAMILY_ALIAS_GROUPS if slot in g), (slot,))
-        if any(alias in blob for alias in group):
+        slot_l = slot.lower()
+        group = next(
+            (g for g in _FAMILY_ALIAS_GROUPS if slot_l in {a.lower() for a in g}),
+            (slot,),
+        )
+        if any(alias.lower() in blob_l if alias.isascii() else alias in blob for alias in group):
             return True
     return False
 
@@ -320,7 +382,7 @@ def family_topic_allows_use(user_input: str, kv_text: str = "") -> bool:
     """家族話題または家族旅行で、スコープ済みKVがそのスロットを含むときだけ許可。"""
     if not user_in_family_topic_context(user_input) or not (kv_text or "").strip():
         return False
-    family_kv = bool(re.search(r"family:(?:spouse|child)|妻|子ども|子供|お子様", kv_text, re.I))
+    family_kv = bool(_FAMILY_KV_RE.search(kv_text))
     if user_in_family_travel_context(user_input):
         return family_kv
     return _family_slot_aliases_hit(user_input, kv_text) or (
@@ -562,8 +624,15 @@ def should_accept_kv_action(user_input: str, kv_action: dict) -> tuple[bool, str
     return True, "explicit save"
 
 
-_APPEND_RE = re.compile(r"追記|書き足|足して覚えて|に足して")
-_EDIT_EXISTING_RE = re.compile(r"の記憶に|のプロフィールに|に追記|を更新|を足して")
+_APPEND_RE = re.compile(
+    r"追記|書き足|足して覚えて|に足して|\bappend\b",
+    re.IGNORECASE,
+)
+_EDIT_EXISTING_RE = re.compile(
+    r"の記憶に|のプロフィールに|に追記|を更新|を足して|"
+    r"add to .{0,24}memory|update .{0,24}profile",
+    re.IGNORECASE,
+)
 
 
 def user_requests_memory_append(user_input: str) -> bool:

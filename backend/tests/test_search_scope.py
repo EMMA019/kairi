@@ -77,6 +77,39 @@ def test_drop_market_sources_on_event_query():
     assert len(market_kept) == 3
 
 
+def test_drop_sec_8k_on_english_event_query():
+    from app.core.search_relevance import drop_offtopic_market_sources
+
+    sources = [
+        {
+            "title": "Tokyo kids events this weekend",
+            "url": "https://www.japanforkids.com/events",
+            "source": "japanforkids",
+        },
+        {
+            "title": "8-K - NEIGHBORHOOD INTELLIGENCE, INC.",
+            "url": "https://www.sec.gov/Archives/edgar/data/1130713/8-k.htm",
+            "source": "SEC",
+        },
+        {
+            "title": "INNSUITES HOSPITALITY TRUST (8-K)",
+            "url": "https://www.sec.gov/cgi-bin/browse-edgar",
+            "source": "EDGAR",
+        },
+    ]
+    kept = drop_offtopic_market_sources(
+        "Is there an event in Saitama or Tokyo today?",
+        sources,
+    )
+    titles = " ".join(s["title"] for s in kept)
+    assert "kids events" in titles
+    assert "8-K" not in titles
+    assert "EDGAR" not in " ".join(s.get("source") or "" for s in kept)
+
+    finance_kept = drop_offtopic_market_sources("今日の日経どう？", sources)
+    assert len(finance_kept) == 3
+
+
 def test_japan_morning_session_is_todayish():
     needed, queries = balance_search_queries(
         "7/29の日本市場前場がどんな感じだった？",

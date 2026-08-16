@@ -126,6 +126,7 @@ PLANNER_SYSTEM_PROMPT = """あなたはユーザーの入力と文脈から、**
 3. **一次ソースドメインの優先追加 (🟢 P3)**: 株式・財務・開示情報を調べる際は、一般的なニュースサイトだけでなく、一次ソース（SECや公式IR等）にヒットしやすいクエリ（例: `"ティッカー" dividend SEC`, `"ティッカー" investor relations`, `site:sec.gov "ティッカー"`）を配列に優先追加してください。
 4. **コーポレートアクションの最優先照合 (🟠 P1)**: 銘柄の急落や急騰理由を調べる際は、決算だけでなく「配当権利落ち日 (ex-dividend date)」「株式分割 (stock split)」「公募増資 (offering)」などのコーポレートアクションが直接原因である可能性が極めて高いため、必ず `"ティッカー" ex-dividend date 2026` 等のイベント照合クエリを第1候補として組み込んでください。
 5. **英語クエリの原則と日付範囲指定の徹底**: 検索エンジンは英語のほうが圧倒的にヒット率・情報の質が高いため、日本国内のローカルな話題以外はすべて英語で同義クエリを1〜2個（最大2個）生成してください。ニュース・政治経済のクエリには必ず `after:YYYY-MM-DD` または `2026` の年号を含めること。例えば「世界の政治経済ニュース」→ `["world politics economy news after:2026-07-01", "global economic news July 2026"]` のように、日付範囲を明示したクエリを優先してください。
+5.5. **ニュース質問の言語スコープ (🔴 P0)**: 日本語で「ニュース教えて」「今週末のニュース」と聞かれたら日本の報道を検索する（例: `["日本 主要ニュース 2026-08-16", "今週 日本 ニュース 速報"]`）。英語の "news" / "headlines" は世界ニュース（`world news` / `international headlines`）。クエリに「今週末」「イベント」「おでかけ」を入れない。地域イベント・お出かけを明示した質問だけイベントクエリにする。
 6. **全領域における両面バランス・多角的検索クエリのペア生成 (🔴 最重要・厳守)**: 市場相場（下落・暴落など）に限らず、政治経済、技術評価、製品レビュー、社会問題、学術論文などあらゆるテーマの検索において、**一方向の見解やネガティブ/ポジティブ単一キーワードだけに偏った検索クエリを生成することを厳禁します。**
    - 例えば「半導体の暴落は懸念で済んだ？」なら、下落要因のクエリと **反発・回復トレンド（rebound / recovery / latest update）** のクエリをペアで生成する。
    - 例：「〇〇技術の欠点は？」なら、欠点（drawbacks / issues）と同時に **解決策・最新改善・メリット（solutions / latest improvements）** も合わせる。
@@ -333,6 +334,14 @@ async def plan_search(
         providers = ["tavily", "brave", "news"]
         category = "finance"
         logger.info("強制ルール適用: 単独『介入』→ 為替介入クエリ（銘柄非依存）")
+
+    from app.core.search_relevance import is_news_briefing_query, news_briefing_search_queries
+
+    if is_news_briefing_query(user_input or ""):
+        needs_search = True
+        search_queries = news_briefing_search_queries(user_input)
+        providers = ["news", "brave"]
+        logger.info(f"強制ルール適用: ニュース質問を地域スコープ付きクエリに正規化: {search_queries}")
 
     # Brave 月額枯渇時でも市況が動くよう、finance は Tavily を先頭に足す
     if needs_search and (

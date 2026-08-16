@@ -166,6 +166,53 @@ def test_drop_goldman_premarket_on_edu_app_query():
     assert len(finance_kept) == 4
 
 
+def test_weekend_news_is_japan_not_events():
+    from app.core.search_relevance import (
+        drop_offtopic_event_sources,
+        is_japanese_majority_query,
+        is_news_briefing_query,
+        news_briefing_search_queries,
+    )
+
+    q = "今週末のニュース教えて！"
+    assert is_news_briefing_query(q) is True
+    assert is_japanese_majority_query(q) is True
+    needed, queries = balance_search_queries(q, search_needed=True, search_queries=["今週末 イベント"])
+    blob = " ".join(queries)
+    assert "日本" in blob or "Japan news" in blob
+    assert "イベント" not in blob
+    assert "今週末" not in blob
+
+    sources = [
+        {"title": "週末の姫路イベントまとめ", "url": "https://himeji.example/event", "source": "姫路の種"},
+        {"title": "【水曜夜に読む週末占い】九星気学", "url": "https://uranai.example", "source": "占い"},
+        {"title": "東日本で記録的豪雨 死者9人", "url": "https://www3.nhk.or.jp/news/rain", "source": "NHK"},
+        {"title": "パリの週末：無料または低料金のお出かけアイデア", "url": "https://www.sortiraparis.com/weekend", "source": "Paris"},
+    ]
+    kept = drop_offtopic_event_sources(q, sources)
+    titles = " ".join(s["title"] for s in kept)
+    assert "豪雨" in titles
+    assert "イベント" not in titles
+    assert "占い" not in titles
+    assert "パリ" not in titles
+
+    outing_kept = drop_offtopic_event_sources("今日埼玉か東京でイベント的なのあるかな？", sources)
+    assert len(outing_kept) == 4
+
+
+def test_english_news_is_world_scope():
+    from app.core.search_relevance import is_japanese_majority_query, news_briefing_search_queries
+
+    q = "What's the news this weekend?"
+    assert is_japanese_majority_query(q) is False
+    needed, queries = balance_search_queries(q, search_needed=True, search_queries=["weekend events"])
+    blob = " ".join(queries).lower()
+    assert "world news" in blob or "international" in blob or "global news" in blob
+    assert "weekend events" not in blob
+    assert needed is True
+    assert any("world" in q.lower() or "international" in q.lower() or "global" in q.lower() for q in news_briefing_search_queries(q))
+
+
 def test_japan_morning_session_is_todayish():
     needed, queries = balance_search_queries(
         "7/29の日本市場前場がどんな感じだった？",

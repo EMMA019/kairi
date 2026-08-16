@@ -148,3 +148,81 @@ def drop_offtopic_market_sources(user_input: str, sources: list) -> list:
             continue
         kept.append(src)
     return kept if kept else sources
+
+
+_NEWS_BRIEFING_RE = re.compile(
+    r"ニュース|報道|速報|ヘッドライン|\bnews\b|\bheadlines?\b|what happened",
+    re.IGNORECASE,
+)
+_OUTING_EXPLICIT_RE = re.compile(
+    r"イベント|祭り|花火|お出かけ|おでかけ|観光|ワークショップ|展示|"
+    r"\bevents?\b|\bfestival\b|\bfireworks\b",
+    re.IGNORECASE,
+)
+_EVENT_ROUNDUP_NOISE_RE = re.compile(
+    r"イベントまとめ|おでかけ|お出かけ|週末イベント|週末占い|九星|気学|"
+    r"花火まとめ|おすすめおでかけ|開催される.?イベント|"
+    r"sortiraparis|weekend events?|kids events this weekend|"
+    r"無料または低料金のお出かけ",
+    re.IGNORECASE,
+)
+
+
+def is_explicit_outing_query(user_input: str) -> bool:
+    return bool(_OUTING_EXPLICIT_RE.search(user_input or ""))
+
+
+def is_news_briefing_query(user_input: str) -> bool:
+    """『ニュース教えて』系。イベント明示や市況は対象外。"""
+    text = user_input or ""
+    if not _NEWS_BRIEFING_RE.search(text):
+        return False
+    if is_explicit_outing_query(text):
+        return False
+    if _FINANCE_QUERY_RE.search(text):
+        return False
+    return True
+
+
+def is_japanese_majority_query(user_input: str) -> bool:
+    text = user_input or ""
+    cjk = len(re.findall(r"[一-龥ぁ-んァ-ン]", text))
+    latin = len(re.findall(r"[A-Za-z]", text))
+    return cjk >= 2 and cjk >= latin
+
+
+def news_briefing_search_queries(user_input: str, *, now_jst=None) -> list[str]:
+    """日本語ニュースは日本、英語ニュースは世界。『今週末』はクエリに使わない。"""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    now = now_jst or datetime.now(ZoneInfo("Asia/Tokyo"))
+    date_iso = now.strftime("%Y-%m-%d")
+    month_en = now.strftime("%B")
+    day = now.day
+    year = now.year
+    if is_japanese_majority_query(user_input):
+        return [
+            f"日本 主要ニュース {date_iso}",
+            f"今週 日本 ニュース 速報",
+            f"Japan news {month_en} {day} {year}",
+        ]
+    return [
+        f"world news {month_en} {day} {year}",
+        f"international headlines {date_iso}",
+        f"global news this week",
+    ]
+
+
+def drop_offtopic_event_sources(user_input: str, sources: list) -> list:
+    """ニュース質問から、地域イベントまとめ・占い・お出かけ記事を除く。"""
+    if not sources or not is_news_briefing_query(user_input):
+        return sources
+    kept = []
+    for src in sources:
+        blob = f"{src.get('title') or ''} {src.get('url') or ''} {src.get('source') or ''}"
+        if _EVENT_ROUNDUP_NOISE_RE.search(blob):
+            logger.info(f"🧹 ニュース質問からイベントまとめを除外: {src.get('title') or src.get('url')}")
+            continue
+        kept.append(src)
+    return kept

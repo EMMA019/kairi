@@ -717,6 +717,14 @@ def balance_search_queries(
         search_queries.append(f"{search_queries[0]} solutions improvements latest update 2026")
         logger.info(f"⚖️ リサーチクエリに多角的バランス補完クエリを追加しました: {search_queries[-1]}")
 
+    from app.core.search_relevance import is_news_briefing_query, news_briefing_search_queries
+
+    if is_news_briefing_query(user_input):
+        search_needed = True
+        search_queries = news_briefing_search_queries(user_input, now_jst=now_jst)
+        logger.info(f"📰 ニュース質問を地域スコープ付きクエリに正規化: {search_queries}")
+        return search_needed, search_queries[:4]
+
     return search_needed, search_queries
 
 
@@ -1017,9 +1025,13 @@ async def run_web_search(
         from app.core.search.router import fetch_url
 
         global_top_sources = rerank(user_input, all_raw_sources, top_k=20)
-        from app.core.search_relevance import drop_offtopic_market_sources
+        from app.core.search_relevance import (
+            drop_offtopic_event_sources,
+            drop_offtopic_market_sources,
+        )
 
         global_top_sources = drop_offtopic_market_sources(user_input, global_top_sources)
+        global_top_sources = drop_offtopic_event_sources(user_input, global_top_sources)
         source_index.add(global_top_sources)
 
         deep_fetched_text = ""

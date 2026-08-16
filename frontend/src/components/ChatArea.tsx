@@ -60,18 +60,40 @@ const markdownComponents: any = {
       <StockImage src={resolvedSrc} alt={alt || "image"} {...props} />
     );
   },
-  a: ({ node, href, children, ...props }: any) => (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-blue-400 hover:text-blue-300 underline underline-offset-4 decoration-blue-400/60 hover:decoration-blue-300 transition-colors inline-flex items-center gap-1 font-medium"
-      {...props}
-    >
-      {children}
-      <span className="text-[10px] opacity-75">↗</span>
-    </a>
-  ),
+  a: ({ node, href, children, ...props }: any) => {
+    const label = Array.isArray(children)
+      ? children.map((c) => (typeof c === "string" ? c : "")).join("")
+      : typeof children === "string"
+        ? children
+        : "";
+    const isCitation = /^\[\d{1,3}\]$/.test(label.trim());
+    if (isCitation) {
+      return (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={href}
+          className="citation-n text-blue-400 hover:text-blue-300 font-semibold no-underline hover:underline"
+          {...props}
+        >
+          {children}
+        </a>
+      );
+    }
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-400 hover:text-blue-300 underline underline-offset-4 decoration-blue-400/60 hover:decoration-blue-300 transition-colors inline-flex items-center gap-1 font-medium"
+        {...props}
+      >
+        {children}
+        <span className="text-[10px] opacity-75">↗</span>
+      </a>
+    );
+  },
   code({ node, inline, className, children, ...props }: any) {
     const match = /language-(\w+)/.exec(className || '');
     const { ref, ...rest } = props;
@@ -107,6 +129,27 @@ interface ChatAreaProps {
 
 type SourceRow = { title: string; url: string; tier?: number; n?: number };
 
+function linkCitations(text: string, sources?: SourceRow[] | null): string {
+  if (!text || !sources?.length) return text;
+  const byN = new Map<number, string>();
+  sources.forEach((s, i) => {
+    const n = typeof s.n === "number" ? s.n : i + 1;
+    if (s.url) byN.set(n, s.url);
+  });
+  if (byN.size === 0) return text;
+  return text
+    .split(/(```[\s\S]*?```)/)
+    .map((part) => {
+      if (part.startsWith("```")) return part;
+      return part.replace(/\[(\d{1,3})\](?!\()/g, (raw, num) => {
+        const url = byN.get(Number(num));
+        if (!url) return raw;
+        return `[[${num}]](${url})`;
+      });
+    })
+    .join("");
+}
+
 function SourcesPanel({ sources }: { sources: SourceRow[] }) {
   return (
     <div className="mb-3 text-xs bg-[#1a1b1e] border border-[#3c4043] rounded p-2">
@@ -126,8 +169,9 @@ function SourcesPanel({ sources }: { sources: SourceRow[] }) {
 }
 
 // 簡易マークダウンリンク ＆ 添付ファイルパーサー
-function renderMessageContent(content: string) {
+function renderMessageContent(content: string, sources?: SourceRow[] | null) {
   if (!content) return { blocks: [], rawContent: "" };
+  content = linkCitations(content, sources);
 
   // リアルタイムAI診断リクエストや長大システム指示を折りたたむ
   if (content.includes("以下の実数値JSONデータに基づく【") && (content.includes("```json:market_data") || content.includes("```json") || content.includes("【重要指示"))) {
@@ -337,7 +381,7 @@ export const ChatArea = memo(({
                   {msg.role === "assistant" && msg.sources && msg.sources.length > 0 && (
                     <SourcesPanel sources={msg.sources} />
                   )}
-                  {renderBlocks(renderMessageContent(msg.content).blocks, onSend)}
+                  {renderBlocks(renderMessageContent(msg.content, msg.sources).blocks, onSend)}
                 </div>
                 <div className="flex items-center gap-2 mt-1">
                   <div className="message-time">
@@ -409,7 +453,7 @@ export const ChatArea = memo(({
                 {streamingSources && streamingSources.length > 0 && (
                   <SourcesPanel sources={streamingSources} />
                 )}
-                {renderBlocks(renderMessageContent(streamingContent).blocks, onSend)}
+                {renderBlocks(renderMessageContent(streamingContent, streamingSources).blocks, onSend)}
                 <span
                   style={{
                     display: "inline-block",

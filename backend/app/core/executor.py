@@ -188,6 +188,14 @@ Docker Compose の操作が必要な場合は、以下の curl コマンドで�
     if memory_text:
         context_parts.append(f"【関連メモリ】\n{memory_text}")
     if search_results:
+        try:
+            from app.core.harness.citation_first import build_citation_first_block
+
+            citation_first = build_citation_first_block(search_results)
+            if citation_first:
+                context_parts.append(citation_first)
+        except Exception:
+            pass
         context_parts.append(f"【検索結果】\n{search_results}")
         
     context_parts.append(f"【instruction】\n{instruction}")

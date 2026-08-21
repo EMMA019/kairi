@@ -26,6 +26,16 @@ Major modules:
 3. **Vacuous completion gate** — “Done” is not enough if acceptance criteria never verified.
 4. **UI caution** — A single general “AI can make mistakes” footer; domain-guessed disclaimers are not appended to the body.
 
+## Cheap-model harness
+
+The same pipeline is used to **raise cheap models** without swapping in a frontier LLM. Code lives in [`backend/app/core/harness/`](../backend/app/core/harness/).
+
+1. **Verify loop (coding)** — After a `.py`/`.ts`/… write in task/coding mode, the loop refuses “done” until `pytest` / `npm test` / `go test` actually ran. Failures are fed back; missing tests get a banner, not a fake completion.
+2. **Citation-first (chat)** — Numbered search hits are distilled into a quote list *before* generation. The executor may only assert those quotes.
+3. **Grounding retry (hard chat)** — If filters had to gut the draft (length drop or ≥2 uncited assertions), one rewrite is sampled and `filter_metrics` / retention pick the better grounded candidate. Override sample count with `KAIRI_BEST_OF_N`.
+
+This is not “the model is Fable.” It is “verified tasks get a Fable-shaped loop.”
+
 ## Violation → eval loop
 
 ```mermaid

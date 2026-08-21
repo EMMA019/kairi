@@ -110,6 +110,12 @@ def ensure_executor_guards(executor_sys_prompt: str, *, has_search: bool) -> str
         prompt += UNIVERSAL_CLOSED_WORLD_INSTRUCTION
     if not has_search and "ソースなしターン" not in prompt:
         prompt += NO_SOURCE_GUARD
+    if has_search and "引用ファースト" not in prompt:
+        prompt += (
+            "\n\n【引用ファースト】検索結果があるターンでは、"
+            "ソース [n] の抜粋に無い固有名・数値を本文に足すな。"
+            "断定する文には [n] を付け、足りない事実は省略せよ。"
+        )
     if "<<<FINAL_ANSWER>>>" not in prompt:
         prompt += BOUNDARY_INSTRUCTION
     return prompt

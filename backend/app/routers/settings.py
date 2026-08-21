@@ -137,6 +137,8 @@ _DEFAULT_SETTINGS = {
     "promo_disclose_bot": True,
     "promo_github_repo": "",
     "github_token": "",
+    "workspace_github_repo": "",
+    "workspace_github_branch": "main",
 }
 
 # GET でマスクする秘密フィールド（保存時のみ平文を受け取る）
@@ -334,6 +336,8 @@ class SettingsUpdate(BaseModel):
     promo_disclose_bot: Optional[bool] = None
     promo_github_repo: Optional[str] = None
     github_token: Optional[str] = None
+    workspace_github_repo: Optional[str] = None
+    workspace_github_branch: Optional[str] = None
 
 
 @router.get("/settings")

@@ -148,6 +148,8 @@ export const en = {
   "settings.promo.post": "Post",
   "settings.promo.ok": "Done.",
   "settings.promo.fail": "Promo request failed.",
+  "settings.promo.workspaceRepo": "Workspace snapshot repo (owner/name). Survives Render restarts.",
+  "settings.promo.workspaceBranch": "Workspace snapshot branch",
 
   "auth.title": "Authentication & Security",
   "error.boundaryTitle": "Something went wrong",

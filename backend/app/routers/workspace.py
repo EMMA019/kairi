@@ -169,6 +169,12 @@ class OpenWorkspaceRequest(BaseModel):
     path: str
 
 
+class PushGithubRequest(BaseModel):
+    message: Optional[str] = None
+    repo: Optional[str] = None
+    branch: Optional[str] = None
+
+
 class SaveSpecRequest(BaseModel):
     content: str
     filename: str = "SPEC.md"
@@ -337,6 +343,48 @@ async def download_workspace():
         media_type="application/zip",
         headers={"Content-Disposition": "attachment; filename=workspace.zip"}
     )
+
+
+@router.post("/workspace/push-github")
+async def push_workspace_github(request: PushGithubRequest | None = None):
+    """Snapshot the workspace tree to YOUR GitHub repo (survives Render redeploys)."""
+    from app.core.github_sync import (
+        GitHubPushError,
+        _token_and_repo,
+        collect_text_files,
+        push_files,
+    )
+
+    req = request or PushGithubRequest()
+    ws_dir = get_workspace_dir()
+    files = collect_text_files(ws_dir, ignore_dirs=IGNORE_DIRS, ignore_exts=IGNORE_EXTS)
+    token, repo, branch = _token_and_repo()
+    if req.repo:
+        repo = req.repo.strip()
+    if req.branch:
+        branch = req.branch.strip()
+    message = (req.message or "").strip() or "Kairi workspace snapshot"
+    try:
+        result = await push_files(
+            files, token=token, repo=repo, branch=branch, message=message
+        )
+    except GitHubPushError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    record_activity("github-push", f"{result.get('repo')}@{result.get('branch')} {result.get('sha', '')[:7]}")
+    return result
+
+
+@router.get("/workspace/github-status")
+async def workspace_github_status():
+    from app.core.github_sync import _token_and_repo
+
+    token, repo, branch = _token_and_repo()
+    return {
+        "token_set": bool(token),
+        "repo": repo,
+        "branch": branch,
+        "ready": bool(token and repo and "/" in repo),
+    }
 
 
 @router.get("/workspace/status")

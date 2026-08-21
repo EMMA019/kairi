@@ -82,6 +82,7 @@ export function CodePanel({ codeBlocks, isOpen, onClose }: CodePanelProps) {
   const [activeTab, setActiveTab] = useState(0);
   const [copied, setCopied] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [pushMsg, setPushMsg] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"edit" | "preview" | "split">("split");
   const prevBlockCountRef = useRef(codeBlocks.length);
   
@@ -187,6 +188,53 @@ export function CodePanel({ codeBlocks, isOpen, onClose }: CodePanelProps) {
     }
   };
 
+  const handleSaveAll = async () => {
+    const files = codeBlocks.map((block, i) => {
+      const key = block.path || block.index.toString();
+      const content = edits[key] !== undefined ? edits[key] : block.code;
+      const path =
+        block.path ||
+        `untitled/code_${i + 1}${getExtension(block.language)}`;
+      return { path, content };
+    });
+    setIsSaving(true);
+    try {
+      const res = await apiFetch("/api/workspace/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files }),
+      });
+      if (!res.ok) {
+        alert("Failed to save tabs to workspace");
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePushGithub = async () => {
+    setPushMsg(null);
+    try {
+      await handleSaveAll();
+      const res = await apiFetch("/api/workspace/push-github", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Kairi workspace snapshot" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPushMsg(data.detail || "GitHub push failed");
+        return;
+      }
+      setPushMsg(data.url || "Pushed");
+    } catch (e) {
+      console.error(e);
+      setPushMsg("GitHub push failed");
+    }
+  };
+
   const handleDownloadWorkspace = async () => {
     try {
       const res = await apiFetch("/api/workspace/download");
@@ -230,6 +278,20 @@ export function CodePanel({ codeBlocks, isOpen, onClose }: CodePanelProps) {
               ⬇ ZIP
             </button>
             <button
+              onClick={handleSaveAll}
+              className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-[#30363d] transition-colors text-sm font-medium"
+              title="全タブをワークスペースに保存"
+            >
+              {isSaving ? "Saving…" : "Save all"}
+            </button>
+            <button
+              onClick={handlePushGithub}
+              className="p-1.5 rounded-md text-emerald-400 hover:text-white hover:bg-[#30363d] transition-colors text-sm font-medium"
+              title="GitHub に退避（Render 再起動でも残る）"
+            >
+              GitHub
+            </button>
+            <button
               onClick={handleCopy}
               className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-[#30363d] transition-colors text-sm"
               title="コピー"
@@ -252,6 +314,11 @@ export function CodePanel({ codeBlocks, isOpen, onClose }: CodePanelProps) {
             </button>
           </div>
         </div>
+        {pushMsg && (
+          <div className="px-4 py-1.5 text-[11px] text-emerald-300/90 border-b border-[#30363d] bg-[#161b22] truncate">
+            {pushMsg}
+          </div>
+        )}
 
         {codeBlocks.length > 1 && (
           <div className="flex overflow-x-auto border-b border-[#30363d] bg-[#161b22] shrink-0 scrollbar-hide">

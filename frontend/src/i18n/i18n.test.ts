@@ -25,6 +25,13 @@ describe("i18n", () => {
     expect(t("input.aiCaution")).toContain("AI can make mistakes");
   });
 
+  it("interpolates vars", () => {
+    setLocaleLocal("en");
+    expect(t("input.locationTag", { lat: "1.2", lon: "3.4" })).toBe(
+      "[Location GPS: 1.2, 3.4] "
+    );
+  });
+
   it("advertises free-tier first-run copy", () => {
     setLocaleLocal("en");
     expect(t("firstRun.title")).toContain("free");

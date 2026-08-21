@@ -29,7 +29,7 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 cd frontend && npm install && npm run dev
 ```
 
-Windows ランチャー: `start_kairi.bat`。
+Windows ランチャー: `start_kairi.bat`。初回ウィザードでは **Gemini / Groq の無料キー**（カード不要）か DeepSeek、または Ollama を選べます。
 
 ---
 

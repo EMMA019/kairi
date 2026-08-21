@@ -31,4 +31,12 @@ describe("i18n", () => {
       "[Location GPS: 1.2, 3.4] "
     );
   });
+
+  it("advertises free-tier first-run copy", () => {
+    setLocaleLocal("en");
+    expect(t("firstRun.title")).toContain("free");
+    expect(t("firstRun.tabGemini")).toContain("Gemini");
+    setLocaleLocal("ja");
+    expect(t("firstRun.tabGroq")).toContain("Groq");
+  });
 });

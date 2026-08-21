@@ -77,7 +77,7 @@ Open `http://localhost:5173`.
 1. Clone the repo
 2. Double-click start_kairi.bat
 3. Browser opens http://127.0.0.1:8000/
-4. Paste your DeepSeek API key in the first-run wizard
+4. First-run wizard: paste a **Gemini** or **Groq** free-tier key (or DeepSeek / Ollama)
 ```
 
 Zip builders with embedded Python: `scripts/prepare_embedded_python.ps1` then `scripts/build_booth_zip.ps1` (commercial packaging scripts; optional).
@@ -86,7 +86,8 @@ Zip builders with embedded Python: `scripts/prepare_embedded_python.ps1` then `s
 
 | Item | Value |
 |------|--------|
-| LLM key | `DEEPSEEK_API_KEY` (or Settings → API Keys) |
+| LLM (free) | `GEMINI_API_KEY` ([AI Studio](https://aistudio.google.com/apikey)) or `GROQ_API_KEY` ([Groq Console](https://console.groq.com/keys)) |
+| LLM (paid) | `DEEPSEEK_API_KEY` (or Settings → API Keys) |
 | Search (optional) | `BRAVE_API_KEY` |
 | Demo without keys | `KAIRI_DEMO=1` |
 

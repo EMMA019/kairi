@@ -1,4 +1,4 @@
-"""BYOK key smoke-test (DeepSeek first). Used by first-run wizard."""
+"""BYOK key smoke-test. Used by first-run wizard (Gemini / Groq / DeepSeek)."""
 from __future__ import annotations
 
 import os
@@ -10,6 +10,9 @@ import openai
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+DEFAULT_GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+_GEMINI_MODELS_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
 def _classify_openai_error(exc: BaseException) -> str:
@@ -33,31 +36,91 @@ def _classify_openai_error(exc: BaseException) -> str:
     return "unknown"
 
 
-async def ping_deepseek_key(api_key: str) -> dict[str, Any]:
-    """Hit DeepSeek with a minimal authenticated call. Does not persist the key."""
+def _ensure_v1_base(url: str) -> str:
+    url = (url or "").strip().rstrip("/")
+    if not url.endswith("/v1"):
+        return f"{url}/v1"
+    return url
+
+
+async def ping_openai_compatible_key(
+    api_key: str,
+    *,
+    base_url: str,
+    provider: str,
+) -> dict[str, Any]:
+    """Hit an OpenAI-compatible /v1 with models.list. Does not persist the key."""
     key = (api_key or "").strip().strip("\"'")
     if not key:
-        return {"ok": False, "error": "empty", "detail": "API key is empty"}
-
-    base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-    if not base_url.endswith("/v1"):
-        base_url = f"{base_url.rstrip('/')}/v1"
+        return {"ok": False, "error": "empty", "detail": "API key is empty", "provider": provider}
 
     client = openai.AsyncOpenAI(
         api_key=key,
-        base_url=base_url,
+        base_url=_ensure_v1_base(base_url),
         timeout=httpx.Timeout(20.0, connect=10.0),
     )
     try:
-        # models.list is enough to validate auth without spending completion tokens
         await client.models.list()
-        return {"ok": True, "provider": "deepseek"}
+        return {"ok": True, "provider": provider}
     except Exception as e:
         code = _classify_openai_error(e)
-        logger.warning(f"DeepSeek key ping failed: {code} ({e})")
-        return {"ok": False, "error": code, "detail": str(e)[:300], "provider": "deepseek"}
+        logger.warning(f"{provider} key ping failed: {code} ({e})")
+        return {"ok": False, "error": code, "detail": str(e)[:300], "provider": provider}
     finally:
         try:
             await client.close()
         except Exception:
             pass
+
+
+async def ping_deepseek_key(api_key: str) -> dict[str, Any]:
+    """Hit DeepSeek with a minimal authenticated call. Does not persist the key."""
+    base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+    return await ping_openai_compatible_key(api_key, base_url=base_url, provider="deepseek")
+
+
+async def ping_groq_key(api_key: str) -> dict[str, Any]:
+    """Hit Groq (OpenAI-compatible, free tier, no card) with models.list."""
+    base_url = os.environ.get("GROQ_BASE_URL", DEFAULT_GROQ_BASE_URL)
+    return await ping_openai_compatible_key(api_key, base_url=base_url, provider="groq")
+
+
+async def ping_gemini_key(api_key: str) -> dict[str, Any]:
+    """Hit Google AI Studio with a models list call. Does not persist the key."""
+    key = (api_key or "").strip().strip("\"'")
+    if not key:
+        return {"ok": False, "error": "empty", "detail": "API key is empty", "provider": "gemini"}
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(20.0, connect=10.0)) as client:
+            response = await client.get(
+                _GEMINI_MODELS_URL,
+                params={"key": key, "pageSize": 1},
+            )
+    except (httpx.TimeoutException, httpx.ConnectError) as e:
+        logger.warning(f"gemini key ping failed: network ({e})")
+        return {"ok": False, "error": "network", "detail": str(e)[:300], "provider": "gemini"}
+    except Exception as e:
+        logger.warning(f"gemini key ping failed: unknown ({e})")
+        return {"ok": False, "error": "unknown", "detail": str(e)[:300], "provider": "gemini"}
+
+    if response.status_code == 200:
+        return {"ok": True, "provider": "gemini"}
+    body = (response.text or "")[:300]
+    upper = body.upper()
+    if response.status_code == 429:
+        return {"ok": False, "error": "rate_limit", "detail": body, "provider": "gemini"}
+    if response.status_code in (400, 401, 403) or "API_KEY_INVALID" in upper:
+        return {
+            "ok": False,
+            "error": "invalid_key",
+            "detail": body,
+            "provider": "gemini",
+        }
+    logger.warning(f"gemini key ping failed: HTTP {response.status_code}")
+    return {
+        "ok": False,
+        "error": "unknown",
+        "detail": body or f"HTTP {response.status_code}",
+        "provider": "gemini",
+    }

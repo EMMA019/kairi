@@ -76,7 +76,7 @@ def main():
         pass
 
     print(f"Starting Kairi Desktop on http://127.0.0.1:{port}/ ...")
-    print("(First run: paste DeepSeek API key in the browser wizard. Data stays on this PC.)")
+    print("(First run: paste a Gemini or Groq free-tier key in the browser wizard. Data stays on this PC.)")
 
     server_thread = threading.Thread(target=run_server, args=(port,), daemon=True)
     server_thread.start()

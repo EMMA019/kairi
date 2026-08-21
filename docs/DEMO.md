@@ -2,7 +2,7 @@
 
 Automated gate: `backend/tests/test_demo_sellable_gate.py`
 
-Prerequisites for live demos: DeepSeek key set, app running at `http://127.0.0.1:8000/`.  
+Prerequisites for live demos: a working LLM key (Gemini or Groq free tier, or DeepSeek), app running at `http://127.0.0.1:8000/`.  
 For a key-free grounding showcase: `KAIRI_DEMO=1` or `docker compose up`.
 
 ## Demo 1 — US market today

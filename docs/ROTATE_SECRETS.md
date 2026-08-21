@@ -4,7 +4,7 @@ If an API key may have been exposed (local leak, shared zip, or old private hist
 
 ## Typical targets
 
-- DeepSeek / OpenAI / Anthropic / Gemini keys
+- DeepSeek / OpenAI / Anthropic / Gemini / Groq keys
 - Brave (or other search) keys
 - Optional `KAIRI_API_TOKEN`
 

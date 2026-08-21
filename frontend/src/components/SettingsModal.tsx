@@ -30,6 +30,7 @@ interface Settings {
   anthropic_api_key?: string;
   openai_api_key?: string;
   deepseek_api_key?: string;
+  groq_api_key?: string;
   brave_api_key?: string;
   world_news_api_key?: string;
   newsdata_api_key?: string;
@@ -38,6 +39,7 @@ interface Settings {
   gemini_models: string[];
   deepseek_models: string[];
   openai_models: string[];
+  groq_models: string[];
   notify_on_complete?: boolean;
 }
 
@@ -142,6 +144,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           anthropic_api_key: settings.anthropic_api_key || "",
           openai_api_key: settings.openai_api_key || "",
           deepseek_api_key: settings.deepseek_api_key || "",
+          groq_api_key: settings.groq_api_key || "",
           brave_api_key: settings.brave_api_key || "",
           world_news_api_key: settings.world_news_api_key || "",
           newsdata_api_key: settings.newsdata_api_key || "",
@@ -173,6 +176,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       case "gemini": return settings.gemini_models || [];
       case "deepseek": return settings.deepseek_models || [];
       case "openai": return settings.openai_models || [];
+      case "groq": return settings.groq_models || [];
       default: return [];
     }
   };
@@ -556,15 +560,17 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                       🤖 LLM Provider API Keys (BYOK)
                     </h3>
                     <p className="text-xs text-gray-400 leading-relaxed mb-4">
-                      Enter your API keys to store them safely on your local machine.
+                      Gemini and Groq have free tiers (no credit card). Keys stay on this machine.
+                      After saving, pick that provider on the Models tab if you skipped the first-run wizard.
                     </p>
 
                     <div className="space-y-3">
                       {[
-                        { label: "DeepSeek API Key（推奨・必須）", key: "deepseek_api_key", placeholder: "sk-..." },
+                        { label: "Google Gemini API Key (free tier)", key: "gemini_api_key", placeholder: "AIza..." },
+                        { label: "Groq API Key (free tier)", key: "groq_api_key", placeholder: "gsk_..." },
+                        { label: "DeepSeek API Key (paid)", key: "deepseek_api_key", placeholder: "sk-..." },
                         { label: "OpenAI API Key", key: "openai_api_key", placeholder: "sk-proj-..." },
                         { label: "Anthropic API Key", key: "anthropic_api_key", placeholder: "sk-ant-..." },
-                        { label: "Google Gemini API Key", key: "gemini_api_key", placeholder: "AIza..." },
                       ].map((item) => (
                         <div key={item.key}>
                           <label className="block text-xs text-gray-300 font-semibold mb-1 leading-normal">

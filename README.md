@@ -9,7 +9,7 @@
 
 The market desk (US/JP session-aware Q&A + news board) is the **reference app** that exercises the same pipeline every day.
 
-[日本語 README](README.ja.md) · [Grounding deep dive](docs/GROUNDING.md) · [Demo script](docs/DEMO.md) · [Security](SECURITY.md)
+[日本語 README](README.ja.md) · [Grounding](docs/GROUNDING.md) · [Quality metrics](docs/QUALITY.md) · [Own-channel promo](docs/PROMO.md) · [Demo script](docs/DEMO.md) · [Security](SECURITY.md)
 
 <p align="center">
   <img src="docs/img/grounding-chat.png" alt="KAIRI_DEMO grounding before/after in chat" width="820" />

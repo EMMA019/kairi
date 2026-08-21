@@ -37,3 +37,5 @@ python evals/run_golden.py --record   # 現状フィルタ出力を記録
 python evals/run_golden.py --check    # 差分検知
 KAIRI_LIVE_EVALS=1 python evals/run_golden.py --live  # LLM 煙テスト（任意）
 ```
+
+`evals/quality_ab.json` is a 30-task **human** A/B seed (not scored by this harness). See [docs/QUALITY.md](../../docs/QUALITY.md).

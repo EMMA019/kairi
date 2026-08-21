@@ -84,6 +84,9 @@ def test_chat_sse_chunk_then_done():
         "app.routers.chat._get_conversation_messages",
         new=AsyncMock(return_value=[]),
     ), patch(
+        "app.core.kv_store.kv_store.filter_by_scope",
+        new=AsyncMock(return_value=[]),
+    ), patch(
         # Local settings may have a token; open the door for this contract test.
         "app.core.auth._configured_token",
         return_value="",

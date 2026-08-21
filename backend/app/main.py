@@ -18,8 +18,9 @@ from app.core.news.scheduler import start_news_scheduler, stop_news_scheduler
 from app.core.cache_manager import init_cache_db
 from app.core.monitor.scheduler import start_radar_scheduler, stop_radar_scheduler
 from app.core.briefing.scheduler import start_briefing_scheduler, stop_briefing_scheduler
+from app.core.promo.scheduler import start_promo_scheduler, stop_promo_scheduler
 from app.core.app_version import APP_VERSION
-from app.routers import chat, history, memory, logs, mood, upload, settings, workspace, project, tools, image, integrity, news_health, export
+from app.routers import chat, history, memory, logs, mood, upload, settings, workspace, project, tools, image, integrity, news_health, export, promo
 from app.utils.logger import ensure_file_logging
 
 
@@ -68,6 +69,7 @@ async def lifespan(app: FastAPI):
         _main_logger.info(
             "Schedulers off (set KAIRI_ENABLE_SCHEDULERS=1 to enable news/radar/briefing)"
         )
+    start_promo_scheduler()  # no-op unless KAIRI_PROMO_ENABLED / promo_enabled
     # autostart: true のMCPサーバーをバックグラウンドで先行起動（initializeまで）
     from app.core.mcp import mcp_manager
     mcp_manager.start_autostart_servers()
@@ -86,6 +88,7 @@ async def lifespan(app: FastAPI):
         stop_briefing_scheduler()
         stop_radar_scheduler()
         stop_news_scheduler()
+    stop_promo_scheduler()
     mcp_manager.stop_all()  # MCPサーバー（StudioMCP.exe等）をツリーごと停止
     from app.core.search.providers.http_client import close_http_client
     await close_http_client()
@@ -160,6 +163,7 @@ app.include_router(image.router, prefix="/api", tags=["image"])
 app.include_router(integrity.router, prefix="/api", tags=["integrity"])
 app.include_router(news_health.router, prefix="/api", tags=["news"])
 app.include_router(export.router, prefix="/api", tags=["export"])
+app.include_router(promo.router, prefix="/api", tags=["promo"])
 
 
 @app.get("/api/ping")

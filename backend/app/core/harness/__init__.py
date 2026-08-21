@@ -7,6 +7,12 @@ from .grounding_retry import (
     pick_better_grounded,
     should_sample_hard,
 )
+from .code_quality import (
+    build_job_lock,
+    classify_job,
+    is_human_handoff,
+    reject_bad_code,
+)
 from .verify_loop import (
     MAX_VERIFY_REINJECT,
     UNVERIFIED_TEST_BANNER,
@@ -20,7 +26,11 @@ __all__ = [
     "MAX_VERIFY_REINJECT",
     "UNVERIFIED_TEST_BANNER",
     "build_citation_first_block",
+    "build_job_lock",
     "candidate_score",
+    "classify_job",
+    "is_human_handoff",
+    "reject_bad_code",
     "extract_grounded_quotes",
     "needs_grounding_retry",
     "pick_better_grounded",

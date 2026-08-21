@@ -80,7 +80,17 @@ async def auto_execute_with_retry(
         mode=mode,
         allow_mocks="モック" in user_input or "ダミー" in user_input or "仮実装" in user_input,
         source_index=source_index,
+        user_input=user_input,
     )
+    if mode in ("task", "coding"):
+        try:
+            from app.core.harness.code_quality import build_job_lock
+
+            lock = build_job_lock(user_input)
+            if lock and lock not in (instruction or ""):
+                instruction = f"{lock}\n\n{instruction or ''}".strip()
+        except Exception as e:
+            logger.warning(f"job lock skipped: {e}")
     try:
         from app.core.tools.repeat_reminder import reset_chain
         reset_chain(session_id)
@@ -601,6 +611,26 @@ async def auto_execute_with_retry(
                 })
                 _clear_ui_with_progress(yield_sse_func, _ui_progress("save_long_then_body"))
                 continue
+
+            if mode in ("task", "coding") and loop_count < 3:
+                try:
+                    from app.core.harness.code_quality import (
+                        human_handoff_reinject,
+                        is_human_handoff,
+                    )
+
+                    if is_human_handoff(stream_response):
+                        logger.info("📝 人間へのビルド丸投げを検知 → 差し戻し")
+                        loop_history.append({"role": "assistant", "content": stream_response})
+                        loop_history.append(
+                            {"role": "user", "content": human_handoff_reinject()}
+                        )
+                        _clear_ui_with_progress(
+                            yield_sse_func, _ui_progress("save_long_then_body")
+                        )
+                        continue
+                except Exception as e:
+                    logger.warning(f"human-handoff gate skipped: {e}")
 
             # ハルシネーションチェック（ツール指示があるのにタグがない）
             tool_keywords = any(kw in instruction for kw in [

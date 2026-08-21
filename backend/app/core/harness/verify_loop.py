@@ -22,8 +22,10 @@ _CODE_FILE_TAG = re.compile(
 
 _TEST_CMD = re.compile(
     r"(?:python\s+-m\s+)?(?:pytest|py_compile|unittest)\b"
-    r"|npm\s+(?:test|run\s+test)\b"
-    r"|npx\s+(?:vitest|jest)\b"
+    r"|npm\s+(?:test|run\s+(?:test|build))\b"
+    r"|npx\s+(?:vitest|jest|tsc)\b"
+    r"|tsc\s+--noEmit\b"
+    r"|vite\s+build\b"
     r"|go\s+test\b"
     r"|cargo\s+test\b"
     r"|python\s+-m\s+compileall\b",
@@ -81,7 +83,7 @@ def verify_reinject_message(*, attempt: int, cap: int = MAX_VERIFY_REINJECT) -> 
     return (
         "【検証ループ・未達】完了宣言は禁止。コードを書いたあとは必ず検証すること。\n"
         "1) テストが無ければ失敗するテストを先に <file> で tests/ に書く。\n"
-        "2) <run_command> で pytest / npm test / go test / cargo test を実行する。\n"
+        "2) <run_command> で pytest / npm test / npm run build / tsc --noEmit / go test を実行する。\n"
         "3) 失敗ログを読んで修正し、再実行して通す。\n"
         "テストが通るまでユーザー向けの完了報告を出すな。"
         f"（検証リトライ {attempt}/{cap}）"

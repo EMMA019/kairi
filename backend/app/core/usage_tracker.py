@@ -23,10 +23,16 @@ MODEL_PRICING = {
 DAILY_BUDGET_USD = 1.0
 
 
+def _connect() -> sqlite3.Connection:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA journal_mode=WAL")
+    return conn
+
+
 def _init_db():
     """DBとテーブルの初期化"""
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(DB_PATH) as conn:
+    with _connect() as conn:
         conn.execute('''
             CREATE TABLE IF NOT EXISTS token_usage (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,7 +67,7 @@ def record_usage(model_name: str, prompt_tokens: int, completion_tokens: int):
         cost = (prompt_tokens / 1_000_000) * 1.0 + (completion_tokens / 1_000_000) * 2.0
 
     try:
-        with sqlite3.connect(DB_PATH) as conn:
+        with _connect() as conn:
             conn.execute(
                 "INSERT INTO token_usage (timestamp, date_str, model_name, prompt_tokens, completion_tokens, estimated_cost_usd) VALUES (?, ?, ?, ?, ?, ?)",
                 (timestamp, date_str, model_name, prompt_tokens, completion_tokens, cost)
@@ -77,7 +83,7 @@ def get_daily_usage(date_str: str = None) -> dict:
         date_str = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
         
     try:
-        with sqlite3.connect(DB_PATH) as conn:
+        with _connect() as conn:
             cursor = conn.execute(
                 "SELECT SUM(prompt_tokens), SUM(completion_tokens), SUM(estimated_cost_usd) FROM token_usage WHERE date_str = ?",
                 (date_str,)

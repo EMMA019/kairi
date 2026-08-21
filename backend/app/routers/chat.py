@@ -11,6 +11,7 @@
 """
 import json
 import re
+import time
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
@@ -122,6 +123,13 @@ async def chat(request: ChatRequest):
 
     # DB から会話履歴を取得
     messages = await _get_conversation_messages(session_id)
+
+    lat_ctx = {
+        "search_ms": 0.0,
+        "supervisor_ms": 0.0,
+        "supervisor_skipped": False,
+        "supervisor_loops": 0,
+    }
 
     async def event_stream():
         nonlocal mode, filtered_kv_text, kv_summary, user_input
@@ -313,6 +321,7 @@ async def chat(request: ChatRequest):
         source_index = SourceIndex()
 
         if search_needed:
+            _t_search = time.perf_counter()
             async for ev in run_web_search(
                 user_input=user_input,
                 search_queries=search_queries,
@@ -325,6 +334,7 @@ async def chat(request: ChatRequest):
                     search_sources = ev.get("sources") or []
                 else:
                     yield _sse_event(ev)
+            lat_ctx["search_ms"] = (time.perf_counter() - _t_search) * 1000.0
 
         search_results_text, search_unsupported = finalize_search_context(
             session_id=session_id,
@@ -386,6 +396,8 @@ async def chat(request: ChatRequest):
             # IBKR 口座照会は Supervisor LLM を飛ばす（空JSONフォールバック対策）
             from app.core.ibkr.intent import ibkr_supervisor_shortcut
 
+            from app.core.supervisor_skip import should_skip_supervisor, skipped_supervisor_json
+
             ibkr_short = ibkr_supervisor_shortcut(user_input)
             if ibkr_short:
                 logger.info(f"🏦 IBKR supervisor shortcut: {user_input[:40]}...")
@@ -394,7 +406,21 @@ async def chat(request: ChatRequest):
                 logger.info(f"⚡ Supervisorキャッシュヒット: {user_input[:30]}...")
                 supervisor_json = cached_response["supervisor_json"]
                 reasoning = cached_response.get("reasoning", "")
+            elif (
+                supervisor_loop_count == 1
+                and not escalation_history
+                and should_skip_supervisor(
+                    user_input,
+                    search_needed=search_needed,
+                    mode=mode,
+                    force_search=bool(request.force_search),
+                )
+            ):
+                logger.info(f"⏭️ Supervisor skip (easy chat): {user_input[:40]}...")
+                supervisor_json, reasoning = skipped_supervisor_json(), ""
+                lat_ctx["supervisor_skipped"] = True
             else:
+                _t_sup = time.perf_counter()
                 try:
                     supervisor_json, reasoning = await run_supervisor(
                         user_input=current_user_input_with_context + "\n\n【動的システムコンテキスト】\n" + supervisor_dynamic_sys,
@@ -426,7 +452,11 @@ async def chat(request: ChatRequest):
                         "detail": str(e),
                     })
                     return
-            
+                finally:
+                    lat_ctx["supervisor_ms"] += (time.perf_counter() - _t_sup) * 1000.0
+
+            lat_ctx["supervisor_loops"] = supervisor_loop_count
+
             # バックグラウンド処理: メモリ抽出 (Supervisor判断 + コード側ゲートで拒否)
             kv_action = supervisor_json.get("kv_action")
             if kv_action and isinstance(kv_action, dict) and kv_action.get("action") in ["add", "update", "delete"]:
@@ -805,8 +835,24 @@ async def chat(request: ChatRequest):
 
             break  # supervisor loop break
 
+    async def _stream_with_latency():
+        from app.core.latency_metrics import LatencyProbe
+
+        probe = LatencyProbe()
+        try:
+            async for chunk in event_stream():
+                probe.observe_sse(chunk)
+                yield chunk
+        finally:
+            probe.finish(
+                search_ms=lat_ctx["search_ms"],
+                supervisor_ms=lat_ctx["supervisor_ms"],
+                supervisor_skipped=lat_ctx["supervisor_skipped"],
+                supervisor_loops=lat_ctx["supervisor_loops"],
+            )
+
     return StreamingResponse(
-        event_stream(),
+        _stream_with_latency(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

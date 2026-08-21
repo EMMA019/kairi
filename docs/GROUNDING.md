@@ -53,3 +53,5 @@ python evals/run_golden.py --check        # snapshot regression
 - **Are not:** Full live LLM judgment. `run_golden.py --live` is opt-in scaffolding only (`KAIRI_LIVE_EVALS=1`).
 
 When writing about Kairi publicly, keep that distinction — overclaiming is the fastest way to lose trust.
+
+Speed (TTFT, supervisor skip) lives in [QUALITY.md](QUALITY.md). Own-channel promo drafts from the same telemetry: [PROMO.md](PROMO.md).

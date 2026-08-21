@@ -89,6 +89,14 @@ _DEFAULT_SETTINGS = {
         "https://localhost",
         "capacitor://localhost",
     ],
+    "promo_enabled": False,
+    "promo_auto_post": False,
+    "promo_discord": True,
+    "promo_github": False,
+    "promo_daily_cap": 1,
+    "promo_disclose_bot": True,
+    "promo_github_repo": "",
+    "github_token": "",
 }
 
 # GET でマスクする秘密フィールド（保存時のみ平文を受け取る）
@@ -106,6 +114,7 @@ _SECRET_SETTING_KEYS = frozenset({
     "app_pin",
     "api_token",
     "license_key",
+    "github_token",
 })
 _SECRET_MASK = "********"
 
@@ -162,6 +171,7 @@ class Settings:
             "ibkr_host": "IBKR_HOST",
             "ibkr_port": "IBKR_PORT",
             "ibkr_client_id": "IBKR_CLIENT_ID",
+            "github_token": "KAIRI_PROMO_GITHUB_TOKEN",
         }
         for k, env_key in env_map.items():
             val = self._settings.get(k)
@@ -273,6 +283,14 @@ class SettingsUpdate(BaseModel):
     api_token: Optional[str] = None
     planner_model: Optional[str] = None
     notify_on_complete: Optional[bool] = None
+    promo_enabled: Optional[bool] = None
+    promo_auto_post: Optional[bool] = None
+    promo_discord: Optional[bool] = None
+    promo_github: Optional[bool] = None
+    promo_daily_cap: Optional[int] = None
+    promo_disclose_bot: Optional[bool] = None
+    promo_github_repo: Optional[str] = None
+    github_token: Optional[str] = None
 
 
 @router.get("/settings")

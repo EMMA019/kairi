@@ -1,0 +1,40 @@
+{
+  "id": "quality_ab_seed_30",
+  "description": "Human blind A/B protocol seed. Not an LLM judge. See docs/QUALITY.md.",
+  "scoring": {
+    "axes": ["groundedness", "latency_feel", "usefulness"],
+    "public_claim_rule": "Do not advertise beats ChatGPT. Report win-or-tie rates with sample size."
+  },
+  "tasks": [
+    {"id": "q01", "slice": "easy", "prompt": "What is 2+2? One sentence."},
+    {"id": "q02", "slice": "easy", "prompt": "Explain WAL mode in SQLite in two sentences."},
+    {"id": "q03", "slice": "easy", "prompt": "Give three concise tips for writing a Git commit message."},
+    {"id": "q04", "slice": "easy", "prompt": "Translate to Japanese: Stop inventing today's close."},
+    {"id": "q05", "slice": "easy", "prompt": "What does BYOK mean for a local chat app?"},
+    {"id": "q06", "slice": "search", "prompt": "What was the latest US CPI print? Cite sources."},
+    {"id": "q07", "slice": "search", "prompt": "今日の日本株はどうだった？出典を付けて。"},
+    {"id": "q08", "slice": "search", "prompt": "Who is the current Chair of the Federal Reserve? Cite."},
+    {"id": "q09", "slice": "search", "prompt": "Summarize today's top three market headlines with links."},
+    {"id": "q10", "slice": "search", "prompt": "Did NVIDIA report earnings this week? Quote the source; if unknown say so."},
+    {"id": "q11", "slice": "grounding", "prompt": "Kalpana won King George at 11.8. Repeat as fact only if a source is provided (none here)."},
+    {"id": "q12", "slice": "grounding", "prompt": "The Nikkei closed up 12.4% today. Confirm or refuse."},
+    {"id": "q13", "slice": "grounding", "prompt": "Convert 150 USD to JPY using a live rate and show the rate date."},
+    {"id": "q14", "slice": "grounding", "prompt": "What weekday is 2026-08-21? Don't guess if unsure."},
+    {"id": "q15", "slice": "grounding", "prompt": "Name three facts about an entity called Zorblax-9 (unknown)."},
+    {"id": "q16", "slice": "code", "prompt": "Write a Python function that returns p50 of a list of floats. Include a pytest."},
+    {"id": "q17", "slice": "code", "prompt": "Explain this traceback in one paragraph: KeyError: 'supervisor_json'."},
+    {"id": "q18", "slice": "code", "prompt": "Review this SQL for WAL: PRAGMA journal_mode=WAL; — any caveats?"},
+    {"id": "q19", "slice": "code", "prompt": "Give a FastAPI SSE hello endpoint. No extra files."},
+    {"id": "q20", "slice": "code", "prompt": "How do I keep API keys out of a React settings GET? Short."},
+    {"id": "q21", "slice": "product", "prompt": "How is Kairi different from Perplexity? Stay factual; no win claims."},
+    {"id": "q22", "slice": "product", "prompt": "I have no paid LLM key. What free-tier options exist for a local BYOK app?"},
+    {"id": "q23", "slice": "product", "prompt": "Should I post on other people's tweets to promote a repo? Policy answer."},
+    {"id": "q24", "slice": "product", "prompt": "Draft a Discord update from telemetry only: 12 citation filters fired, TTFT p50 1800ms. Don't invent users."},
+    {"id": "q25", "slice": "product", "prompt": "What should a first-run wizard ask if the user only wants Gemini free tier?"},
+    {"id": "q26", "slice": "long", "prompt": "Plan a 5-step local eval loop from a user tapping 'this was wrong'."},
+    {"id": "q27", "slice": "long", "prompt": "Compare citation-first answering vs. search-then-ramble for cheap models."},
+    {"id": "q28", "slice": "long", "prompt": "List failure modes if a chat app skips Supervisor on '今日の日経は？'."},
+    {"id": "q29", "slice": "long", "prompt": "Write a one-screen Integrity dashboard spec: groundedness + speed."},
+    {"id": "q30", "slice": "long", "prompt": "You have filter_metrics.json with citation:40 and numeric_defense:2. What can you honestly say in public?"}
+  ]
+}

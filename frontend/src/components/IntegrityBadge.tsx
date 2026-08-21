@@ -13,6 +13,14 @@ interface IntegrityStats {
   filter_hits?: Record<string, number>;
   dead_filters?: string[];
   filter_total_changes?: number;
+  latency?: {
+    sample_count?: number;
+    ttft_p50_ms?: number | null;
+    ttft_p95_ms?: number | null;
+    supervisor_skip_rate?: number;
+    avg_supervisor_loops?: number;
+    search_p50_ms?: number | null;
+  };
 }
 
 export function IntegrityBadge() {
@@ -122,6 +130,36 @@ export function IntegrityBadge() {
                     未発火 {stats.dead_filters!.length} 件（削除候補）
                   </p>
                 )}
+              </div>
+            )}
+
+            {stats.latency && (stats.latency.sample_count || 0) > 0 && (
+              <div className="mt-3 pt-3 border-t border-gray-700/50 space-y-2">
+                <p className="text-[10px] text-gray-500">Speed (this install)</p>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-400">TTFT p50</span>
+                  <span className="font-mono text-sky-300">
+                    {stats.latency.ttft_p50_ms != null ? `${Math.round(stats.latency.ttft_p50_ms)} ms` : "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-400">TTFT p95</span>
+                  <span className="font-mono text-sky-200">
+                    {stats.latency.ttft_p95_ms != null ? `${Math.round(stats.latency.ttft_p95_ms)} ms` : "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-400">Supervisor skip</span>
+                  <span className="font-mono text-violet-300">
+                    {Math.round((stats.latency.supervisor_skip_rate || 0) * 100)}%
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-400">Avg supervisor loops</span>
+                  <span className="font-mono text-gray-200">
+                    {stats.latency.avg_supervisor_loops ?? 0}
+                  </span>
+                </div>
               </div>
             )}
           </div>

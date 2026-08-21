@@ -3,6 +3,7 @@ import { apiFetch } from "../utils/api";
 import { CHAR_BG_PRESETS, isCharBgUrl } from "../utils/charBackground";
 import { getShowAdvancedModes, setShowAdvancedModes } from "../utils/advancedModes";
 import { useLocale, setLocaleLocal } from "../i18n";
+import { PromoPanel } from "./PromoPanel";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -39,6 +40,14 @@ interface Settings {
   deepseek_models: string[];
   openai_models: string[];
   notify_on_complete?: boolean;
+  promo_enabled?: boolean;
+  promo_auto_post?: boolean;
+  promo_discord?: boolean;
+  promo_github?: boolean;
+  promo_daily_cap?: number;
+  promo_disclose_bot?: boolean;
+  promo_github_repo?: string;
+  github_token?: string;
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
@@ -46,7 +55,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<"models" | "persona" | "byok" | "system" | "stats">("models");
+  const [activeTab, setActiveTab] = useState<"models" | "persona" | "byok" | "system" | "stats" | "promo">("models");
   const [usageStats, setUsageStats] = useState<any>(null);
   const [cacheStats, setCacheStats] = useState<any>(null);
   const [advancedModes, setAdvancedModes] = useState(getShowAdvancedModes);
@@ -146,6 +155,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           world_news_api_key: settings.world_news_api_key || "",
           newsdata_api_key: settings.newsdata_api_key || "",
           notify_on_complete: settings.notify_on_complete !== false,
+          promo_enabled: !!settings.promo_enabled,
+          promo_auto_post: !!settings.promo_auto_post,
+          promo_discord: settings.promo_discord !== false,
+          promo_github: !!settings.promo_github,
+          promo_daily_cap: settings.promo_daily_cap || 1,
+          promo_disclose_bot: settings.promo_disclose_bot !== false,
+          promo_github_repo: settings.promo_github_repo || "",
+          github_token: settings.github_token || "",
         })
       });
       try {
@@ -260,6 +277,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             { id: "byok", label: `🔑 ${t("settings.tab.byok")}` },
             { id: "system", label: `🌐 ${t("settings.tab.system")}` },
             { id: "stats", label: `📈 ${t("settings.tab.stats")}` },
+            { id: "promo", label: `📣 ${t("settings.tab.promo")}` },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -761,6 +779,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     )}
                   </div>
                 </div>
+              )}
+
+              {activeTab === "promo" && (
+                <PromoPanel
+                  settings={settings}
+                  onChange={(patch) => setSettings({ ...settings, ...patch })}
+                />
               )}
 
               {/* タブ 4: 🌐 表示・言語 (i18n) */}

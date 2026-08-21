@@ -19,6 +19,7 @@ async def get_integrity_stats():
         "uncited_assertions": 0,
         "filter_hits": {},
         "dead_filters": [],
+        "latency": {},
     }
     try:
         async with get_db() as db:
@@ -75,6 +76,14 @@ async def get_integrity_stats():
                 result["filter_hits"] = {}
                 result["dead_filters"] = []
                 result["filter_total_changes"] = 0
+
+            try:
+                from app.core.latency_metrics import get_latency_snapshot
+
+                result["latency"] = get_latency_snapshot()
+            except Exception as le:
+                logger.debug(f"latency metrics attach skipped: {le}")
+                result["latency"] = {}
 
             return result
     except Exception as e:

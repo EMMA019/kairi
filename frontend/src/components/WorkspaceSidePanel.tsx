@@ -72,6 +72,7 @@ export function WorkspaceSidePanel({
   const [ghBusy, setGhBusy] = useState(false);
   const [ghMsg, setGhMsg] = useState<string | null>(null);
   const [ghReady, setGhReady] = useState(false);
+  const [ghToken, setGhToken] = useState(false);
 
   const refreshMeta = useCallback(async () => {
     try {
@@ -85,8 +86,14 @@ export function WorkspaceSidePanel({
       setActivity(act.activity || []);
       apiFetch("/api/workspace/github-status")
         .then((r) => r.json())
-        .then((g) => setGhReady(!!g.ready))
-        .catch(() => setGhReady(false));
+        .then((g) => {
+          setGhReady(!!g.ready);
+          setGhToken(!!g.token_set);
+        })
+        .catch(() => {
+          setGhReady(false);
+          setGhToken(false);
+        });
     } catch (e) {
       console.error(e);
     }
@@ -281,9 +288,15 @@ export function WorkspaceSidePanel({
           onClick={pushGithub}
           disabled={ghBusy}
           className="w-full text-[11px] py-1 rounded bg-[#13251c] text-emerald-300 border border-emerald-900/60 hover:bg-[#1a3326] disabled:opacity-40"
-          title="Push workspace files to your GitHub repo"
+          title="Create the GitHub repo if missing, then push workspace files"
         >
-          {ghBusy ? "Pushing…" : ghReady ? "Push to GitHub" : "Push to GitHub (set repo in Settings)"}
+          {ghBusy
+            ? "Pushing…"
+            : ghReady
+              ? "Push to GitHub"
+              : ghToken
+                ? "Push to GitHub (set repo in Settings)"
+                : "Push to GitHub (set token in Settings)"}
         </button>
         {ghMsg && (
           <p className="text-[10px] text-emerald-400/90 break-all">{ghMsg}</p>

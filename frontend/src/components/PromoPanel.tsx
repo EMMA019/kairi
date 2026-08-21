@@ -39,6 +39,8 @@ interface PromoPanelProps {
     github_token?: string;
     workspace_github_repo?: string;
     workspace_github_branch?: string;
+    workspace_github_create?: boolean;
+    workspace_github_private?: boolean;
   };
   onChange: (patch: Record<string, unknown>) => void;
 }
@@ -155,9 +157,10 @@ export function PromoPanel({ settings, onChange }: PromoPanelProps) {
           <input
             value={settings.workspace_github_repo || ""}
             onChange={(e) => toggle("workspace_github_repo", e.target.value)}
-            placeholder="owner/kairi-portfolio"
+            placeholder="kairi-workspace"
             className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3 py-2 text-xs text-gray-200 font-mono"
           />
+          <p className="text-[10px] text-gray-500 mt-1">{t("settings.promo.workspaceRepoHint")}</p>
         </div>
         <div>
           <label className="block text-[10px] text-gray-400 mb-1">{t("settings.promo.workspaceBranch")}</label>
@@ -168,6 +171,22 @@ export function PromoPanel({ settings, onChange }: PromoPanelProps) {
             className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3 py-2 text-xs text-gray-200 font-mono"
           />
         </div>
+        <label className="flex items-center justify-between text-xs text-gray-200">
+          <span>{t("settings.promo.workspaceCreate")}</span>
+          <input
+            type="checkbox"
+            checked={settings.workspace_github_create !== false}
+            onChange={(e) => toggle("workspace_github_create", e.target.checked)}
+          />
+        </label>
+        <label className="flex items-center justify-between text-xs text-gray-200">
+          <span>{t("settings.promo.workspacePrivate")}</span>
+          <input
+            type="checkbox"
+            checked={!!settings.workspace_github_private}
+            onChange={(e) => toggle("workspace_github_private", e.target.checked)}
+          />
+        </label>
         <div>
           <label className="block text-[10px] text-gray-400 mb-1">{t("settings.promo.token")}</label>
           <input

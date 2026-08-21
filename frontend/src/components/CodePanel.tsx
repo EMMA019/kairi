@@ -287,7 +287,7 @@ export function CodePanel({ codeBlocks, isOpen, onClose }: CodePanelProps) {
             <button
               onClick={handlePushGithub}
               className="p-1.5 rounded-md text-emerald-400 hover:text-white hover:bg-[#30363d] transition-colors text-sm font-medium"
-              title="GitHub に退避（Render 再起動でも残る）"
+              title="無ければ GitHub リポジトリを作ってから退避（Render 再起動でも残る）"
             >
               GitHub
             </button>

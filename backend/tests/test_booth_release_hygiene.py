@@ -108,6 +108,7 @@ def test_settings_example_defaults_english():
     assert data.get("locale") == "en"
     for k in (
         "deepseek_api_key",
+        "groq_api_key",
         "openai_api_key",
         "anthropic_api_key",
         "brave_api_key",

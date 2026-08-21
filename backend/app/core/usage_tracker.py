@@ -8,10 +8,19 @@ logger = get_logger(__name__)
 DB_PATH = Path(__file__).parent.parent.parent / "storage" / "usage.db"
 
 # モデルごとの単価 (100万トークンあたりのUSD)
+# 無料枠・ローカルは 0。未掲載モデルも 0（$1/日キャップで誤遮断しない）。
 MODEL_PRICING = {
     "gemini-3.1-pro": {"prompt": 1.25, "completion": 5.0},
     "gemini-3.5-flash": {"prompt": 0.075, "completion": 0.3},
     "gemini-3.1-flash-lite": {"prompt": 0.075, "completion": 0.3},
+    "gemini-2.5-flash": {"prompt": 0.0, "completion": 0.0},
+    "gemini-2.5-flash-lite": {"prompt": 0.0, "completion": 0.0},
+    "gemini-2.5-pro": {"prompt": 0.0, "completion": 0.0},
+    "llama-3.3-70b-versatile": {"prompt": 0.0, "completion": 0.0},
+    "llama-3.1-8b-instant": {"prompt": 0.0, "completion": 0.0},
+    "meta-llama/llama-4-scout-17b-16e-instruct": {"prompt": 0.0, "completion": 0.0},
+    "openai/gpt-oss-20b": {"prompt": 0.0, "completion": 0.0},
+    "qwen/qwen3-32b": {"prompt": 0.0, "completion": 0.0},
     "deepseek-v4-pro": {"prompt": 0.55, "completion": 2.19},
     "deepseek-v4-flash": {"prompt": 0.14, "completion": 0.28},
     "gpt-5.5-pro": {"prompt": 2.5, "completion": 10.0},
@@ -57,8 +66,8 @@ def record_usage(model_name: str, prompt_tokens: int, completion_tokens: int):
     if pricing:
         cost = (prompt_tokens / 1_000_000) * pricing["prompt"] + (completion_tokens / 1_000_000) * pricing["completion"]
     else:
-        # 未知のモデルのデフォルト単価 (高めに設定して安全寄りに)
-        cost = (prompt_tokens / 1_000_000) * 1.0 + (completion_tokens / 1_000_000) * 2.0
+        # 未掲載 = ローカル / 無料 OpenAI 互換。有料モデルは MODEL_PRICING に載せる。
+        cost = 0.0
 
     try:
         with sqlite3.connect(DB_PATH) as conn:

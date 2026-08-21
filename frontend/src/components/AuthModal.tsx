@@ -188,7 +188,25 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 </p>
                 <ol className="list-decimal list-inside space-y-2 text-xs text-gray-300 leading-relaxed">
                   <li>
-                    Recommended: create a key at{" "}
+                    Free: create a key at{" "}
+                    <a
+                      href="https://aistudio.google.com/apikey"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-400 underline"
+                    >
+                      Google AI Studio (Gemini)
+                    </a>
+                    {" "}or{" "}
+                    <a
+                      href="https://console.groq.com/keys"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-400 underline"
+                    >
+                      Groq
+                    </a>
+                    . Paid alternative:{" "}
                     <a
                       href="https://platform.deepseek.com/"
                       target="_blank"
@@ -199,7 +217,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     </a>
                   </li>
                   <li>Open the ⚙️ Settings (gear) icon in the bottom-left Activity Bar, then the
-                      API Keys tab, and save your DeepSeek key.</li>
+                      API Keys tab, and save the key. The first-run wizard can do this too.</li>
                   <li>Optional: Brave Search key improves web search quality</li>
                 </ol>
                 <p className="text-[11px] text-gray-500 leading-relaxed">
@@ -289,7 +307,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 </h3>
                 <ul className="space-y-2 text-xs text-gray-300">
                   <li className="p-3 bg-[#0b0e14] rounded-xl border border-[#2d3139]">
-                    DeepSeek (or another) API key saved in Settings
+                    Gemini, Groq, or DeepSeek API key saved in Settings
                   </li>
                   <li className="p-3 bg-[#0b0e14] rounded-xl border border-[#2d3139]">
                     Do not share settings.json or API keys

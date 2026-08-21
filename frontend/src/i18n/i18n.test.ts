@@ -25,10 +25,11 @@ describe("i18n", () => {
     expect(t("input.aiCaution")).toContain("AI can make mistakes");
   });
 
-  it("interpolates vars", () => {
+  it("advertises free-tier first-run copy", () => {
     setLocaleLocal("en");
-    expect(t("input.locationTag", { lat: "1.2", lon: "3.4" })).toBe(
-      "[Location GPS: 1.2, 3.4] "
-    );
+    expect(t("firstRun.title")).toContain("free");
+    expect(t("firstRun.tabGemini")).toContain("Gemini");
+    setLocaleLocal("ja");
+    expect(t("firstRun.tabGroq")).toContain("Groq");
   });
 });

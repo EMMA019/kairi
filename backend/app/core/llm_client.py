@@ -81,8 +81,12 @@ DEFAULT_GEMINI_MODEL = "gemini-3.1-pro"
 # 2026年6月時点最新
 DEFAULT_DEEPSEEK_REASONER_MODEL = "deepseek-v4-pro"
 DEFAULT_DEEPSEEK_CHAT_MODEL = "deepseek-v4-flash"
+# Groq free-tier workhorse (OpenAI-compatible; no credit card)
+DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
 _deepseek_client: openai.AsyncOpenAI | None = None
+_groq_client: openai.AsyncOpenAI | None = None
 
 
 def get_provider() -> str:
@@ -144,14 +148,31 @@ def get_deepseek_client() -> openai.AsyncOpenAI:
     return _deepseek_client
 
 
+def get_groq_client() -> openai.AsyncOpenAI:
+    """Groq クライアント（OpenAI 互換・無料枠）のシングルトンを取得"""
+    global _groq_client
+    if _groq_client is None:
+        api_key = os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            raise ValueError("Environment variable 'GROQ_API_KEY' is not set.")
+        api_key = api_key.strip().strip("\"'")
+        base_url = os.environ.get("GROQ_BASE_URL", DEFAULT_GROQ_BASE_URL)
+        if not base_url.endswith("/v1"):
+            base_url = f"{base_url.rstrip('/')}/v1"
+        _groq_client = openai.AsyncOpenAI(api_key=api_key, base_url=base_url)
+        logger.info(f"Groq クライアントを初期化しました: {base_url}")
+    return _groq_client
+
+
 def reset_llm_clients() -> None:
     """設定キー変更後にシングルトンを破棄（次回呼び出しで新キーを読む）。"""
-    global _deepseek_client, _openai_client, _gemini_client, _local_client, _anthropic_client
+    global _deepseek_client, _openai_client, _gemini_client, _local_client, _anthropic_client, _groq_client
     _deepseek_client = None
     _openai_client = None
     _gemini_client = None
     _local_client = None
     _anthropic_client = None
+    _groq_client = None
 
 
 def get_gemini_client() -> genai.Client:
@@ -339,6 +360,18 @@ async def _call_model_inner(
             temperature=temperature,  # ← 追加
         )
         return response.choices[0].message.content or ""
+
+    elif effective_provider == "groq":
+        client = get_groq_client()
+        model = model_name or DEFAULT_GROQ_MODEL
+        oai_messages = [{"role": "system", "content": system_instruction}] + messages
+        response = await client.chat.completions.create(
+            model=model,
+            max_tokens=max_tokens,
+            messages=oai_messages,
+            temperature=temperature,
+        )
+        return response.choices[0].message.content or ""
         
     elif effective_provider == "local":
         client = get_local_client()
@@ -512,6 +545,29 @@ async def _stream_model_inner(
                 if finish_reason == "length":
                     logger.warning("⚠️ OpenAI応答がトークン上限で途切れました")
                     yield _escalate_for_truncation("OpenAI length")
+
+    elif effective_provider == "groq":
+        client = get_groq_client()
+        model = model_name or DEFAULT_GROQ_MODEL
+        oai_messages = [{"role": "system", "content": system_instruction}] + messages
+        stream = await client.chat.completions.create(
+            model=model,
+            max_tokens=max_tokens,
+            messages=oai_messages,
+            stream=True,
+            temperature=temperature,
+        )
+        async for chunk in stream:
+            if chunk.choices:
+                content = getattr(chunk.choices[0].delta, "content", None)
+                if content:
+                    yield content
+                finish_reason = getattr(chunk.choices[0], "finish_reason", None)
+                if finish_reason:
+                    logger.info(f"📡 Groq finish_reason={finish_reason}")
+                if finish_reason == "length":
+                    logger.warning("⚠️ Groq応答がトークン上限で途切れました")
+                    yield _escalate_for_truncation("Groq length")
                 
     elif effective_provider == "local":
         client = get_local_client()

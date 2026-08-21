@@ -25,15 +25,15 @@ ANTHROPIC_MODELS = [
     "claude-haiku-4-5-20251001",
 ]
 
-# Gemini モデル固定リスト
+# Gemini モデル固定リスト（無料枠で使いやすい Flash を先頭に）
 GEMINI_MODELS = [
-    "gemini-3.1-pro",
-    "gemini-3.5-flash",
-    "gemini-3.1-flash-lite",
-    "gemini-3-flash-preview",
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
     "gemini-2.5-pro",
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash",
+    "gemini-3-flash-preview",
+    "gemini-3.1-pro",
 ]
 
 # DeepSeek モデル固定リスト
@@ -49,6 +49,45 @@ OPENAI_MODELS = [
     "gpt-5.4-mini",
     "gpt-5.4-nano",
 ]
+
+# Groq モデル（無料枠・カード不要。TPM 制限あり）
+GROQ_MODELS = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "openai/gpt-oss-20b",
+    "qwen/qwen3-32b",
+]
+
+AVAILABLE_PROVIDERS = ["gemini", "groq", "deepseek", "openai", "anthropic", "local"]
+
+# First-run: pick a free/cheap provider and point all roles at a working model.
+FREE_TIER_DEFAULTS = {
+    "gemini": {
+        "executor_provider": "gemini",
+        "executor_model": "gemini-2.5-flash",
+        "supervisor_provider": "gemini",
+        "supervisor_model": "gemini-2.5-flash",
+        "planner_provider": "gemini",
+        "planner_model": "gemini-2.5-flash",
+    },
+    "groq": {
+        "executor_provider": "groq",
+        "executor_model": "llama-3.3-70b-versatile",
+        "supervisor_provider": "groq",
+        "supervisor_model": "llama-3.3-70b-versatile",
+        "planner_provider": "groq",
+        "planner_model": "llama-3.3-70b-versatile",
+    },
+    "local": {
+        "executor_provider": "local",
+        "executor_model": "llama3",
+        "supervisor_provider": "local",
+        "supervisor_model": "llama3",
+        "planner_provider": "local",
+        "planner_model": "llama3",
+    },
+}
 
 _DEFAULT_SETTINGS = {
     "supervisor_provider": "deepseek",
@@ -72,6 +111,7 @@ _DEFAULT_SETTINGS = {
     "anthropic_api_key": "",
     "openai_api_key": "",
     "deepseek_api_key": "",
+    "groq_api_key": "",
     "brave_api_key": "",
     "world_news_api_key": "",
     "newsdata_api_key": "",
@@ -97,6 +137,7 @@ _SECRET_SETTING_KEYS = frozenset({
     "anthropic_api_key",
     "openai_api_key",
     "deepseek_api_key",
+    "groq_api_key",
     "brave_api_key",
     "world_news_api_key",
     "newsdata_api_key",
@@ -152,6 +193,7 @@ class Settings:
             "anthropic_api_key": "ANTHROPIC_API_KEY",
             "openai_api_key": "OPENAI_API_KEY",
             "deepseek_api_key": "DEEPSEEK_API_KEY",
+            "groq_api_key": "GROQ_API_KEY",
             "brave_api_key": "BRAVE_API_KEY",
             "world_news_api_key": "WORLD_NEWS_API_KEY",
             "newsdata_api_key": "NEWSDATA_API_KEY",
@@ -263,6 +305,7 @@ class SettingsUpdate(BaseModel):
     anthropic_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None
     deepseek_api_key: Optional[str] = None
+    groq_api_key: Optional[str] = None
     brave_api_key: Optional[str] = None
     world_news_api_key: Optional[str] = None
     newsdata_api_key: Optional[str] = None
@@ -281,11 +324,13 @@ async def get_settings():
     settings = _public_settings(app_settings.get())
     return {
         **settings,
-        "available_providers": ["anthropic", "openai", "gemini", "deepseek", "local"],
+        "available_providers": AVAILABLE_PROVIDERS,
         "anthropic_models": ANTHROPIC_MODELS,
         "gemini_models": GEMINI_MODELS,
         "deepseek_models": DEEPSEEK_MODELS,
         "openai_models": OPENAI_MODELS,
+        "groq_models": GROQ_MODELS,
+        "free_tier_defaults": FREE_TIER_DEFAULTS,
     }
 
 
@@ -319,6 +364,14 @@ async def ping_key(req: PingKeyRequest):
     if provider == "deepseek":
         from app.core.key_ping import ping_deepseek_key
         return await ping_deepseek_key(key)
+    if provider == "groq":
+        from app.core.key_ping import ping_groq_key
+        return await ping_groq_key(key)
+    if provider == "gemini":
+        from app.core.key_ping import ping_gemini_key
+        return await ping_gemini_key(key)
+    if provider == "local":
+        return {"ok": True, "provider": "local"}
     return {"ok": False, "error": "unsupported", "detail": f"Provider not supported: {provider}"}
 
 @router.get("/usage")

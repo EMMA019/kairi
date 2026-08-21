@@ -508,7 +508,7 @@ function App() {
             }}
           />
 
-          {/* 初回: DeepSeek キーだけ */}
+          {/* 初回: Gemini / Groq 無料枠、または DeepSeek / ローカル */}
           <FirstRunWizard onComplete={() => {}} />
 
           {/* 認証・セキュリティモーダル */}

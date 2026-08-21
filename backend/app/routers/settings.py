@@ -139,6 +139,8 @@ _DEFAULT_SETTINGS = {
     "github_token": "",
     "workspace_github_repo": "",
     "workspace_github_branch": "main",
+    "workspace_github_create": True,
+    "workspace_github_private": False,
 }
 
 # GET でマスクする秘密フィールド（保存時のみ平文を受け取る）
@@ -338,6 +340,8 @@ class SettingsUpdate(BaseModel):
     github_token: Optional[str] = None
     workspace_github_repo: Optional[str] = None
     workspace_github_branch: Optional[str] = None
+    workspace_github_create: Optional[bool] = None
+    workspace_github_private: Optional[bool] = None
 
 
 @router.get("/settings")

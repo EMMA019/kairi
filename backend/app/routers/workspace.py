@@ -173,6 +173,8 @@ class PushGithubRequest(BaseModel):
     message: Optional[str] = None
     repo: Optional[str] = None
     branch: Optional[str] = None
+    create: Optional[bool] = None
+    private: Optional[bool] = None
 
 
 class SaveSpecRequest(BaseModel):
@@ -345,45 +347,81 @@ async def download_workspace():
     )
 
 
+def _remember_workspace_repo(resolved: str) -> None:
+    """Persist the resolved owner/name so the next push does not re-guess."""
+    if not resolved or "/" not in resolved:
+        return
+    if (os.environ.get("KAIRI_WORKSPACE_GITHUB_REPO") or "").strip():
+        return
+    try:
+        from app.routers.settings import app_settings
+
+        current = (app_settings.get().get("workspace_github_repo") or "").strip()
+        if current != resolved:
+            app_settings.update({"workspace_github_repo": resolved})
+    except Exception as e:
+        logger.warning(f"could not remember workspace github repo: {e}")
+
+
 @router.post("/workspace/push-github")
 async def push_workspace_github(request: PushGithubRequest | None = None):
-    """Snapshot the workspace tree to YOUR GitHub repo (survives Render redeploys)."""
+    """Snapshot the workspace tree to YOUR GitHub repo (creates it if missing)."""
     from app.core.github_sync import (
         GitHubPushError,
-        _token_and_repo,
         collect_text_files,
+        github_target,
         push_files,
     )
 
     req = request or PushGithubRequest()
     ws_dir = get_workspace_dir()
     files = collect_text_files(ws_dir, ignore_dirs=IGNORE_DIRS, ignore_exts=IGNORE_EXTS)
-    token, repo, branch = _token_and_repo()
-    if req.repo:
-        repo = req.repo.strip()
-    if req.branch:
-        branch = req.branch.strip()
+    target = github_target()
+    token = target["token"]
+    repo = (req.repo or "").strip() or target["repo"]
+    branch = (req.branch or "").strip() or target["branch"]
+    create = target["create"] if req.create is None else bool(req.create)
+    private = target["private"] if req.private is None else bool(req.private)
     message = (req.message or "").strip() or "Kairi workspace snapshot"
     try:
         result = await push_files(
-            files, token=token, repo=repo, branch=branch, message=message
+            files,
+            token=token,
+            repo=repo,
+            branch=branch,
+            message=message,
+            create_if_missing=create,
+            private=private,
+            workspace_name=ws_dir.name,
         )
     except GitHubPushError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    record_activity("github-push", f"{result.get('repo')}@{result.get('branch')} {result.get('sha', '')[:7]}")
+    _remember_workspace_repo(str(result.get("repo") or ""))
+    created_bit = " created" if result.get("repo_created") else ""
+    record_activity(
+        "github-push",
+        f"{result.get('repo')}@{result.get('branch')} {str(result.get('sha') or '')[:7]}{created_bit}",
+    )
     return result
 
 
 @router.get("/workspace/github-status")
 async def workspace_github_status():
-    from app.core.github_sync import _token_and_repo
+    from app.core.github_sync import github_target, suggest_repo_name
 
-    token, repo, branch = _token_and_repo()
+    t = github_target()
+    token, repo, branch = t["token"], t["repo"], t["branch"]
+    create = bool(t["create"])
+    suggested = suggest_repo_name(get_workspace_dir().name)
+    ready = bool(token) if create else bool(token and repo)
     return {
         "token_set": bool(token),
         "repo": repo,
         "branch": branch,
-        "ready": bool(token and repo and "/" in repo),
+        "create": create,
+        "private": bool(t["private"]),
+        "suggested": suggested,
+        "ready": ready,
     }
 
 

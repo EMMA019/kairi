@@ -1,11 +1,14 @@
-"""Push the local workspace tree to a GitHub repo via the Git Data API.
+"""Push the local workspace tree to GitHub (create the repo if asked).
 
-Render disks are ephemeral — this is how generated files survive a redeploy.
-Requires a token with `contents:write` on YOUR repo (create the empty repo first).
+Render disks are ephemeral. Token needs `repo` (classic) or Contents + Administration
+(fine-grained) on the user/org that will own the snapshot. Never defaults to the
+product repo `kairi`.
 """
 from __future__ import annotations
 
+import asyncio
 import os
+import re
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -18,9 +21,10 @@ logger = get_logger(__name__)
 MAX_FILES = 80
 MAX_FILE_BYTES = 400_000
 GITHUB_API = "https://api.github.com"
+_REPO_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
-def _token_and_repo(settings: dict[str, Any] | None = None) -> tuple[str, str, str]:
+def github_target(settings: dict[str, Any] | None = None) -> dict[str, Any]:
     s = settings or {}
     try:
         if not s:
@@ -44,7 +48,29 @@ def _token_and_repo(settings: dict[str, Any] | None = None) -> tuple[str, str, s
         or (s.get("workspace_github_branch") or "")
         or "main"
     ).strip() or "main"
-    return token, repo, branch
+    create_raw = os.environ.get("KAIRI_WORKSPACE_GITHUB_CREATE")
+    if create_raw is None or not str(create_raw).strip():
+        create = s.get("workspace_github_create")
+        create = True if create is None else bool(create)
+    else:
+        create = str(create_raw).strip().lower() in ("1", "true", "yes", "on")
+    private_raw = os.environ.get("KAIRI_WORKSPACE_GITHUB_PRIVATE")
+    if private_raw is None or not str(private_raw).strip():
+        private = bool(s.get("workspace_github_private"))
+    else:
+        private = str(private_raw).strip().lower() in ("1", "true", "yes", "on")
+    return {
+        "token": token,
+        "repo": repo,
+        "branch": branch,
+        "create": create,
+        "private": private,
+    }
+
+
+def _token_and_repo(settings: dict[str, Any] | None = None) -> tuple[str, str, str]:
+    t = github_target(settings)
+    return t["token"], t["repo"], t["branch"]
 
 
 def collect_text_files(
@@ -87,8 +113,108 @@ def collect_text_files(
     return out
 
 
+def suggest_repo_name(workspace_name: str | None = None) -> str:
+    raw = re.sub(r"[^A-Za-z0-9_.-]+", "-", (workspace_name or "").strip())
+    raw = raw.strip("-._") or "kairi-workspace"
+    if raw.lower() in {"kairi", "output", "workspace"}:
+        raw = "kairi-workspace"
+    return raw[:80]
+
+
 class GitHubPushError(RuntimeError):
     pass
+
+
+async def _github_login(client: httpx.AsyncClient) -> str:
+    res = await client.get(f"{GITHUB_API}/user")
+    if res.status_code >= 400:
+        raise GitHubPushError(
+            f"GitHub token rejected ({res.status_code}). "
+            "Use a token for YOUR account with repo create + contents write."
+        )
+    login = ((res.json() or {}).get("login") or "").strip()
+    if not login:
+        raise GitHubPushError("GitHub /user did not return a login")
+    return login
+
+
+def resolve_repo_spec(repo: str, login: str, workspace_name: str | None = None) -> str:
+    spec = (repo or "").strip().lstrip("/")
+    if not spec:
+        spec = f"{login}/{suggest_repo_name(workspace_name)}"
+    elif "/" not in spec:
+        spec = f"{login}/{spec}"
+    owner, name = spec.split("/", 1)
+    owner, name = owner.strip(), name.strip()
+    if not owner or not _REPO_NAME_RE.match(name):
+        raise GitHubPushError(f"invalid repo name: {spec}")
+    if name.lower() == "kairi" and owner.lower() == login.lower():
+        # Never snapshot into the product repo by accident.
+        raise GitHubPushError(
+            f"refusing to push workspace into {owner}/kairi (the product repo). "
+            f"Leave the field empty to create {login}/kairi-workspace, or set a different owner/name."
+        )
+    return f"{owner}/{name}"
+
+
+def _default_branch_of(payload: dict[str, Any] | None) -> str:
+    name = ((payload or {}).get("default_branch") or "").strip()
+    return name or "main"
+
+
+async def ensure_repo(
+    client: httpx.AsyncClient,
+    *,
+    repo: str,
+    login: str,
+    create: bool,
+    private: bool,
+) -> tuple[str, bool, str]:
+    """Return (owner/name, created, default_branch). Creates the repo when missing and create=True."""
+    owner, name = repo.split("/", 1)
+    base = f"{GITHUB_API}/repos/{owner}/{name}"
+    got = await client.get(base)
+    if got.status_code == 200:
+        return repo, False, _default_branch_of(got.json())
+    if got.status_code != 404:
+        raise GitHubPushError(f"github {got.status_code}: {got.text[:300]}")
+    if not create:
+        raise GitHubPushError(
+            f"repo {repo} not found. Enable create-if-missing or make the repo yourself."
+        )
+    payload = {
+        "name": name,
+        "description": "Kairi workspace snapshot (created by the local app, not a Cursor agent).",
+        "private": bool(private),
+        "auto_init": True,
+        "has_issues": True,
+        "has_projects": False,
+        "has_wiki": False,
+    }
+    if owner.lower() == login.lower():
+        created = await client.post(f"{GITHUB_API}/user/repos", json=payload)
+    else:
+        created = await client.post(f"{GITHUB_API}/orgs/{owner}/repos", json=payload)
+    if created.status_code not in (200, 201):
+        hint = ""
+        if created.status_code in (401, 403):
+            hint = (
+                " Token needs permission to create repositories "
+                "(classic: repo; fine-grained: Administration + Contents)."
+            )
+        raise GitHubPushError(
+            f"github create-repo {created.status_code}: {created.text[:300]}.{hint}"
+        )
+    html = (created.json() or {}).get("html_url") or f"https://github.com/{repo}"
+    logger.info(f"✅ created GitHub repo {html}")
+    # auto_init is eventually consistent
+    last_json: dict[str, Any] = created.json() or {}
+    for _ in range(8):
+        check = await client.get(base)
+        if check.status_code == 200:
+            return repo, True, _default_branch_of(check.json())
+        await asyncio.sleep(0.4)
+    return repo, True, _default_branch_of(last_json)
 
 
 async def push_files(
@@ -98,13 +224,18 @@ async def push_files(
     repo: str,
     branch: str,
     message: str,
+    create_if_missing: bool = True,
+    private: bool = False,
+    workspace_name: str | None = None,
 ) -> dict[str, Any]:
     if not token:
         raise GitHubPushError("github_token / KAIRI_WORKSPACE_GITHUB_TOKEN is not set")
-    if not repo or "/" not in repo:
-        raise GitHubPushError("workspace_github_repo must be owner/name (create the empty repo first)")
     if not files:
         raise GitHubPushError("workspace is empty — nothing to push")
+    if not (repo or "").strip() and not create_if_missing:
+        raise GitHubPushError(
+            "set workspace repo as owner/name, or enable create-if-missing"
+        )
 
     headers = {
         "Accept": "application/vnd.github+json",
@@ -112,19 +243,15 @@ async def push_files(
         "X-GitHub-Api-Version": "2022-11-28",
         "User-Agent": "kairi-workspace-sync",
     }
-    owner, name = repo.split("/", 1)
-    base = f"{GITHUB_API}/repos/{owner}/{name}"
 
     async with httpx.AsyncClient(timeout=40.0, headers=headers) as client:
-        repo_res = await client.get(base)
-        if repo_res.status_code == 404:
-            raise GitHubPushError(
-                f"repo {repo} not found. Create an empty GitHub repo first, then retry."
-            )
-        if repo_res.status_code >= 400:
-            raise GitHubPushError(f"github {repo_res.status_code}: {repo_res.text[:300]}")
-        repo_json = repo_res.json()
-        default_branch = (repo_json.get("default_branch") or "main").strip()
+        login = await _github_login(client)
+        repo = resolve_repo_spec(repo, login, workspace_name)
+        repo, created, default_branch = await ensure_repo(
+            client, repo=repo, login=login, create=create_if_missing, private=private
+        )
+        owner, _name = repo.split("/", 1)
+        base = f"{GITHUB_API}/repos/{owner}/{_name}"
 
         parent_sha: str | None = None
         base_tree: str | None = None
@@ -135,6 +262,11 @@ async def push_files(
             def_res = await client.get(f"{base}/git/ref/heads/{default_branch}")
             if def_res.status_code == 200:
                 parent_sha = ((def_res.json() or {}).get("object") or {}).get("sha")
+                # Keep the requested branch name; we will create it from default_branch's tip.
+            elif def_res.status_code not in (200, 404):
+                raise GitHubPushError(
+                    f"github default-ref {def_res.status_code}: {def_res.text[:300]}"
+                )
         elif ref_res.status_code not in (200, 404):
             raise GitHubPushError(f"github ref {ref_res.status_code}: {ref_res.text[:300]}")
 
@@ -180,12 +312,14 @@ async def push_files(
             if patch.status_code >= 400:
                 raise GitHubPushError(f"github update-ref {patch.status_code}: {patch.text[:300]}")
         else:
-            create = await client.post(
+            ref_create = await client.post(
                 f"{base}/git/refs",
                 json={"ref": f"refs/heads/{branch}", "sha": new_sha},
             )
-            if create.status_code not in (200, 201):
-                raise GitHubPushError(f"github create-ref {create.status_code}: {create.text[:300]}")
+            if ref_create.status_code not in (200, 201):
+                raise GitHubPushError(
+                    f"github create-ref {ref_create.status_code}: {ref_create.text[:300]}"
+                )
 
     html = f"https://github.com/{repo}/commit/{new_sha}"
     logger.info(f"✅ workspace pushed {len(files)} files → {html}")
@@ -195,14 +329,25 @@ async def push_files(
         "branch": branch,
         "sha": new_sha,
         "url": html,
+        "html_url": f"https://github.com/{repo}",
         "files": [p for p, _ in files],
         "file_count": len(files),
+        "repo_created": created,
     }
 
 
 async def push_workspace_dir(root: Path, *, message: str = "Kairi workspace snapshot") -> dict[str, Any]:
     from app.routers.workspace import IGNORE_DIRS, IGNORE_EXTS
 
-    token, repo, branch = _token_and_repo()
+    target = github_target()
     files = collect_text_files(root, ignore_dirs=IGNORE_DIRS, ignore_exts=IGNORE_EXTS)
-    return await push_files(files, token=token, repo=repo, branch=branch, message=message)
+    return await push_files(
+        files,
+        token=target["token"],
+        repo=target["repo"],
+        branch=target["branch"],
+        message=message,
+        create_if_missing=target["create"],
+        private=target["private"],
+        workspace_name=root.name,
+    )

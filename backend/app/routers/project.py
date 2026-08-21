@@ -2,7 +2,7 @@
 プロジェクト管理APIルーター
 
 プロジェクト = ワークスペースディレクトリ + 会話履歴のコンテナ。
-プロジェクトを作成すると `output/{project_name}/` ディレクトリが作成される。
+プロジェクトを作成すると耐久ワークスペース配下（`storage/workspace/{project_name}/`、Render の消える repo `output/` ではない）にディレクトリが作成される。
 """
 import json
 import os

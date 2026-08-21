@@ -41,6 +41,7 @@ interface PromoPanelProps {
     workspace_github_branch?: string;
     workspace_github_create?: boolean;
     workspace_github_private?: boolean;
+    workspace_github_auto?: boolean;
   };
   onChange: (patch: Record<string, unknown>) => void;
 }
@@ -171,6 +172,14 @@ export function PromoPanel({ settings, onChange }: PromoPanelProps) {
             className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3 py-2 text-xs text-gray-200 font-mono"
           />
         </div>
+        <label className="flex items-center justify-between text-xs text-gray-200">
+          <span>{t("settings.promo.workspaceAuto")}</span>
+          <input
+            type="checkbox"
+            checked={settings.workspace_github_auto !== false}
+            onChange={(e) => toggle("workspace_github_auto", e.target.checked)}
+          />
+        </label>
         <label className="flex items-center justify-between text-xs text-gray-200">
           <span>{t("settings.promo.workspaceCreate")}</span>
           <input

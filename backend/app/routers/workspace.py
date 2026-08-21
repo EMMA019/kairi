@@ -21,10 +21,12 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-ROOT_OUTPUT_DIR = _REPO_ROOT / "output"
+_STORAGE_DIR = Path(__file__).resolve().parents[2] / "storage"
+_env_root = (os.environ.get("KAIRI_WORKSPACE_ROOT") or "").strip()
+# Working copy lives next to chat DB — not repo-root output/ (ephemeral on Render).
+ROOT_OUTPUT_DIR = Path(_env_root).expanduser() if _env_root else (_STORAGE_DIR / "workspace")
 ROOT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-_STORAGE_DIR = Path(__file__).resolve().parents[2] / "storage"
 _WORKSPACE_ROOT_FILE = _STORAGE_DIR / "workspace_root.txt"
 
 BASE_WORKSPACE_DIR = ROOT_OUTPUT_DIR
@@ -216,6 +218,12 @@ async def save_files(request: SaveRequest):
                 f.write(file_req.content)
             saved_files.append(str(target_path))
             logger.info(f"ファイルを保存しました: {target_path}")
+            try:
+                from app.core.workspace_store import persist_workspace_file
+
+                persist_workspace_file(rel, file_req.content)
+            except Exception as e:
+                logger.warning(f"cloud persist skipped ({rel}): {e}")
         except Exception as e:
             logger.error(f"ファイル保存エラー ({target_path}): {e}")
             raise HTTPException(status_code=500, detail=f"ファイル保存に失敗しました: {rel}")
@@ -348,19 +356,9 @@ async def download_workspace():
 
 
 def _remember_workspace_repo(resolved: str) -> None:
-    """Persist the resolved owner/name so the next push does not re-guess."""
-    if not resolved or "/" not in resolved:
-        return
-    if (os.environ.get("KAIRI_WORKSPACE_GITHUB_REPO") or "").strip():
-        return
-    try:
-        from app.routers.settings import app_settings
+    from app.core.github_sync import remember_workspace_repo
 
-        current = (app_settings.get().get("workspace_github_repo") or "").strip()
-        if current != resolved:
-            app_settings.update({"workspace_github_repo": resolved})
-    except Exception as e:
-        logger.warning(f"could not remember workspace github repo: {e}")
+    remember_workspace_repo(resolved)
 
 
 @router.post("/workspace/push-github")
@@ -414,14 +412,19 @@ async def workspace_github_status():
     create = bool(t["create"])
     suggested = suggest_repo_name(get_workspace_dir().name)
     ready = bool(token) if create else bool(token and repo)
+    from app.core.workspace_store import cloud_backend
+
     return {
         "token_set": bool(token),
         "repo": repo,
         "branch": branch,
         "create": create,
         "private": bool(t["private"]),
+        "auto": bool(t.get("auto", True)),
         "suggested": suggested,
         "ready": ready,
+        "durable_root": str(get_workspace_dir()),
+        "cloud_backend": cloud_backend(),
     }
 
 
@@ -465,10 +468,22 @@ async def discard_change(request: DiscardRequest):
             if target.exists():
                 target.unlink()
             record_activity("discard", safe_path)
+            try:
+                from app.core.workspace_store import persist_workspace_delete
+
+                persist_workspace_delete(safe_path)
+            except Exception:
+                pass
             return {"success": True, "path": safe_path, "action": "deleted"}
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(change.before, encoding="utf-8")
         record_activity("discard", safe_path)
+        try:
+            from app.core.workspace_store import persist_workspace_file
+
+            persist_workspace_file(safe_path, change.before)
+        except Exception:
+            pass
         return {"success": True, "path": safe_path, "action": "restored"}
     except Exception as e:
         logger.error(f"Discard failed ({safe_path}): {e}")
@@ -499,6 +514,12 @@ async def save_spec(request: SaveSpecRequest):
         target.write_text(request.content or "", encoding="utf-8")
         record_activity("save_spec", name)
         logger.info(f"Spec saved: {target}")
+        try:
+            from app.core.workspace_store import persist_workspace_file
+
+            persist_workspace_file(name, request.content or "")
+        except Exception:
+            pass
         return {"success": True, "path": name}
     except Exception as e:
         logger.error(f"Spec save failed: {e}")

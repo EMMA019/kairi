@@ -150,9 +150,10 @@ export const ja: Record<MessageKey, string> = {
   "settings.promo.post": "投稿",
   "settings.promo.ok": "完了しました。",
   "settings.promo.fail": "宣伝 API に失敗しました。",
-  "settings.promo.workspaceRepo": "ワークスペース退避先（空なら {githubユーザー}/kairi-workspace を新規作成）",
-  "settings.promo.workspaceRepoHint": "owner/name、または名前だけ。製品リポジトリ kairi には押しません。Cloudflare Pages の接続は GitHub 上で手動です。",
+  "settings.promo.workspaceRepo": "GitHub 退避先（空なら {githubユーザー}/kairi-workspace を新規作成）",
+  "settings.promo.workspaceRepoHint": "ファイルはチャットと同じクラウドDBに残し、書いたら自動でここに push します。製品リポジトリ kairi には押しません。Cloudflare Pages の接続は手動です。",
   "settings.promo.workspaceBranch": "ワークスペース退避ブランチ",
+  "settings.promo.workspaceAuto": "ファイルを書いたら GitHub へ自動 push",
   "settings.promo.workspaceCreate": "無ければリポジトリを新規作成",
   "settings.promo.workspacePrivate": "新規リポジトリをプライベートにする",
 

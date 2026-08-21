@@ -144,5 +144,14 @@ async def init_db():
             )
         """)
 
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS workspace_files (
+                path TEXT PRIMARY KEY,
+                content TEXT NOT NULL,
+                updated_at REAL NOT NULL,
+                deleted INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+
         await db.commit()
 

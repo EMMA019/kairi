@@ -7,8 +7,12 @@ product repo `kairi`.
 from __future__ import annotations
 
 import asyncio
+import io
 import os
 import re
+import threading
+import time
+import zipfile
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -59,12 +63,19 @@ def github_target(settings: dict[str, Any] | None = None) -> dict[str, Any]:
         private = bool(s.get("workspace_github_private"))
     else:
         private = str(private_raw).strip().lower() in ("1", "true", "yes", "on")
+    auto_raw = os.environ.get("KAIRI_WORKSPACE_GITHUB_AUTO")
+    if auto_raw is None or not str(auto_raw).strip():
+        auto = s.get("workspace_github_auto")
+        auto = True if auto is None else bool(auto)
+    else:
+        auto = str(auto_raw).strip().lower() in ("1", "true", "yes", "on")
     return {
         "token": token,
         "repo": repo,
         "branch": branch,
         "create": create,
         "private": private,
+        "auto": auto,
     }
 
 
@@ -336,12 +347,28 @@ async def push_files(
     }
 
 
+def remember_workspace_repo(resolved: str) -> None:
+    """Persist the resolved owner/name so the next push does not re-guess."""
+    if not resolved or "/" not in resolved:
+        return
+    if (os.environ.get("KAIRI_WORKSPACE_GITHUB_REPO") or "").strip():
+        return
+    try:
+        from app.routers.settings import app_settings
+
+        current = (app_settings.get().get("workspace_github_repo") or "").strip()
+        if current != resolved:
+            app_settings.update({"workspace_github_repo": resolved})
+    except Exception as e:
+        logger.warning(f"could not remember workspace github repo: {e}")
+
+
 async def push_workspace_dir(root: Path, *, message: str = "Kairi workspace snapshot") -> dict[str, Any]:
     from app.routers.workspace import IGNORE_DIRS, IGNORE_EXTS
 
     target = github_target()
     files = collect_text_files(root, ignore_dirs=IGNORE_DIRS, ignore_exts=IGNORE_EXTS)
-    return await push_files(
+    result = await push_files(
         files,
         token=target["token"],
         repo=target["repo"],
@@ -350,4 +377,162 @@ async def push_workspace_dir(root: Path, *, message: str = "Kairi workspace snap
         create_if_missing=target["create"],
         private=target["private"],
         workspace_name=root.name,
+    )
+    remember_workspace_repo(str(result.get("repo") or ""))
+    return result
+
+
+def _strip_zip_prefix(name: str) -> str:
+    parts = name.replace("\\", "/").split("/")
+    if parts:
+        parts = parts[1:]  # GitHub zipball: owner-repo-sha/...
+    rel = "/".join(p for p in parts if p and p != ".")
+    return rel
+
+
+async def pull_workspace_into(dest: Path) -> dict[str, Any]:
+    """Restore text files from GitHub when the working copy is empty. No git binary."""
+    from app.routers.workspace import IGNORE_DIRS, IGNORE_EXTS
+
+    target = github_target()
+    token, repo, branch = target["token"], target["repo"], target["branch"]
+    if not token:
+        return {"ok": False, "file_count": 0, "reason": "no token"}
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {token}",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "kairi-workspace-sync",
+    }
+    dest.mkdir(parents=True, exist_ok=True)
+    async with httpx.AsyncClient(timeout=60.0, headers=headers, follow_redirects=True) as client:
+        login = await _github_login(client)
+        if not (repo or "").strip():
+            repo = resolve_repo_spec("", login, dest.name)
+        else:
+            repo = resolve_repo_spec(repo, login, dest.name)
+        owner, name = repo.split("/", 1)
+        url = f"{GITHUB_API}/repos/{owner}/{name}/zipball/{branch}"
+        res = await client.get(url)
+        if res.status_code == 404:
+            return {"ok": True, "file_count": 0, "repo": repo, "reason": "repo missing"}
+        if res.status_code >= 400:
+            raise GitHubPushError(f"github zipball {res.status_code}: {res.text[:300]}")
+        try:
+            zf = zipfile.ZipFile(io.BytesIO(res.content))
+        except zipfile.BadZipFile as e:
+            raise GitHubPushError(f"github zipball was not a zip: {e}") from e
+        ignore_d = set(IGNORE_DIRS)
+        ignore_e = {
+            e.lower() if str(e).startswith(".") else f".{str(e).lower()}" for e in IGNORE_EXTS
+        }
+        written = 0
+        for info in zf.infolist():
+            if info.is_dir():
+                continue
+            rel = _strip_zip_prefix(info.filename)
+            if not rel or rel.startswith(".") or "/." in f"/{rel}":
+                continue
+            parts = Path(rel).parts
+            if any(p in ignore_d or p.startswith(".") for p in parts):
+                continue
+            ext = os.path.splitext(rel)[1].lower()
+            if ext in ignore_e:
+                continue
+            if info.file_size > MAX_FILE_BYTES:
+                continue
+            raw = zf.read(info)
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                continue
+            target_path = dest / rel
+            if ".." in Path(rel).parts:
+                continue
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            target_path.write_text(text, encoding="utf-8")
+            written += 1
+            if written >= MAX_FILES:
+                break
+    if written:
+        logger.info(f"✅ restored {written} workspace files from GitHub {repo}@{branch}")
+    return {"ok": True, "repo": repo, "branch": branch, "file_count": written}
+
+
+AUTO_PUSH_DELAY_SEC = 2.0
+_push_lock = threading.Lock()
+_push_timer: threading.Timer | None = None
+_last_skip_log = 0.0
+
+
+def cancel_scheduled_push() -> None:
+    global _push_timer
+    with _push_lock:
+        if _push_timer is not None:
+            _push_timer.cancel()
+            _push_timer = None
+
+
+def schedule_github_push(reason: str = "workspace write") -> bool:
+    """Debounced GitHub snapshot. Returns False if skipped (no token / auto off)."""
+    global _push_timer, _last_skip_log
+    if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get("KAIRI_TEST_GITHUB_PUSH"):
+        return False
+    target = github_target()
+    if not target.get("auto", True):
+        return False
+    if not target["token"]:
+        now = time.time()
+        if now - _last_skip_log > 300:
+            _last_skip_log = now
+            logger.warning(
+                "workspace GitHub auto-push skipped: set github_token "
+                "(classic repo, or fine-grained Administration + Contents)"
+            )
+            try:
+                from app.core.workspace_state import record_activity
+
+                record_activity("github-push", "skipped: set GitHub token in Settings")
+            except Exception:
+                pass
+        return False
+
+    def _fire() -> None:
+        try:
+            asyncio.run(_run_auto_push(reason))
+        except Exception as e:
+            logger.warning(f"workspace GitHub auto-push failed: {e}")
+            try:
+                from app.core.workspace_state import record_activity
+
+                record_activity("github-push", f"failed: {e}")
+            except Exception:
+                pass
+
+    with _push_lock:
+        if _push_timer is not None:
+            _push_timer.cancel()
+        _push_timer = threading.Timer(AUTO_PUSH_DELAY_SEC, _fire)
+        _push_timer.daemon = True
+        _push_timer.start()
+    return True
+
+
+async def _run_auto_push(reason: str) -> None:
+    from app.core.workspace_state import record_activity
+    from app.core.workspace_store import snapshot_disk_to_db
+    from app.routers.workspace import get_workspace_dir
+
+    ws = get_workspace_dir()
+    try:
+        await snapshot_disk_to_db(ws)
+    except Exception as e:
+        logger.warning(f"workspace cloud snapshot failed: {e}")
+    result = await push_workspace_dir(
+        ws, message=f"Kairi workspace snapshot ({reason})"
+    )
+    created_bit = " created" if result.get("repo_created") else ""
+    record_activity(
+        "github-push",
+        f"{result.get('repo')}@{result.get('branch')} {str(result.get('sha') or '')[:7]}{created_bit}",
     )

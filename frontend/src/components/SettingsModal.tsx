@@ -54,6 +54,7 @@ interface Settings {
   workspace_github_branch?: string;
   workspace_github_create?: boolean;
   workspace_github_private?: boolean;
+  workspace_github_auto?: boolean;
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
@@ -174,6 +175,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           workspace_github_branch: settings.workspace_github_branch || "main",
           workspace_github_create: settings.workspace_github_create !== false,
           workspace_github_private: !!settings.workspace_github_private,
+          workspace_github_auto: settings.workspace_github_auto !== false,
         })
       });
       try {

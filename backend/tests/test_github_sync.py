@@ -14,10 +14,11 @@ from app.core.github_sync import (
 
 
 class _Resp:
-    def __init__(self, status_code, json_data=None, text=""):
+    def __init__(self, status_code, json_data=None, text="", content=b""):
         self.status_code = status_code
         self._json = json_data or {}
         self.text = text or ""
+        self.content = content if content else (self.text.encode("utf-8") if text else b"")
 
     def json(self):
         return self._json
@@ -202,3 +203,79 @@ def test_push_rejects_empty_repo_without_create():
 
     err = asyncio.run(_run())
     assert err and "create-if-missing" in err
+
+
+def test_schedule_skips_without_token(monkeypatch):
+    monkeypatch.setenv("KAIRI_TEST_GITHUB_PUSH", "1")
+    from app.core.github_sync import cancel_scheduled_push, schedule_github_push
+
+    with patch(
+        "app.core.github_sync.github_target",
+        return_value={
+            "token": "",
+            "repo": "",
+            "branch": "main",
+            "create": True,
+            "private": False,
+            "auto": True,
+        },
+    ):
+        assert schedule_github_push("test") is False
+    cancel_scheduled_push()
+
+
+def test_schedule_skips_when_auto_off(monkeypatch):
+    monkeypatch.setenv("KAIRI_TEST_GITHUB_PUSH", "1")
+    from app.core.github_sync import cancel_scheduled_push, schedule_github_push
+
+    with patch(
+        "app.core.github_sync.github_target",
+        return_value={
+            "token": "t",
+            "repo": "me/site",
+            "branch": "main",
+            "create": True,
+            "private": False,
+            "auto": False,
+        },
+    ):
+        assert schedule_github_push("test") is False
+    cancel_scheduled_push()
+
+
+def test_pull_workspace_from_zipball(tmp_path: Path, monkeypatch):
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("emma-kairi-workspace-abc/src/App.tsx", "export default function App() {}")
+        zf.writestr("emma-kairi-workspace-abc/node_modules/x.js", "skip")
+        zf.writestr("emma-kairi-workspace-abc/shot.png", b"\x89PNG")
+    zip_bytes = buf.getvalue()
+
+    class _ZipClient(_FakeClient):
+        async def get(self, url):
+            self.calls.append(("GET", url))
+            if url.endswith("/user"):
+                return _Resp(200, {"login": "emma"})
+            if "zipball" in url:
+                return _Resp(200, content=zip_bytes)
+            return _Resp(500, text=url)
+
+    monkeypatch.setenv("KAIRI_WORKSPACE_GITHUB_REPO", "emma/kairi-workspace")
+    dest = tmp_path / "ws"
+    with patch("app.core.github_sync.github_target", return_value={
+        "token": "t",
+        "repo": "emma/kairi-workspace",
+        "branch": "main",
+        "create": True,
+        "private": False,
+        "auto": True,
+    }), patch("app.core.github_sync.httpx.AsyncClient", _ZipClient):
+        from app.core.github_sync import pull_workspace_into
+
+        result = asyncio.run(pull_workspace_into(dest))
+    assert result["file_count"] == 1
+    assert (dest / "src" / "App.tsx").read_text(encoding="utf-8") == "export default function App() {}"
+    assert not (dest / "node_modules").exists()

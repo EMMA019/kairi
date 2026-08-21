@@ -4,7 +4,7 @@
 
 **LLM の回答に捏造を混ぜにくくする**ためのローカル BYOK 相棒です。引用契約・content-age・数値防御・違和感ログ→eval の一周が本体で、市況デスク（米日セッション／ニュースボード）はそのパイプラインを毎日回すリファレンスアプリです。
 
-詳細: [docs/GROUNDING.md](docs/GROUNDING.md) · [品質の測り方](docs/QUALITY.md) · [自分のチャンネルへの宣伝](docs/PROMO.md) · [デモ手順](docs/DEMO.md) · [SECURITY.md](SECURITY.md)
+詳細: [docs/GROUNDING.md](docs/GROUNDING.md) · [品質の測り方](docs/QUALITY.md) · [自分のチャンネルへの宣伝](docs/PROMO.md) · [Workspace を GitHub に退避](docs/WORKSPACE_GITHUB.md) · [デモ手順](docs/DEMO.md) · [SECURITY.md](SECURITY.md)
 
 ---
 

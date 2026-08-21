@@ -37,6 +37,8 @@ interface PromoPanelProps {
     promo_disclose_bot?: boolean;
     promo_github_repo?: string;
     github_token?: string;
+    workspace_github_repo?: string;
+    workspace_github_branch?: string;
   };
   onChange: (patch: Record<string, unknown>) => void;
 }
@@ -145,6 +147,24 @@ export function PromoPanel({ settings, onChange }: PromoPanelProps) {
             value={settings.promo_github_repo || ""}
             onChange={(e) => toggle("promo_github_repo", e.target.value)}
             placeholder="owner/repo"
+            className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3 py-2 text-xs text-gray-200 font-mono"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] text-gray-400 mb-1">{t("settings.promo.workspaceRepo")}</label>
+          <input
+            value={settings.workspace_github_repo || ""}
+            onChange={(e) => toggle("workspace_github_repo", e.target.value)}
+            placeholder="owner/kairi-portfolio"
+            className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3 py-2 text-xs text-gray-200 font-mono"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] text-gray-400 mb-1">{t("settings.promo.workspaceBranch")}</label>
+          <input
+            value={settings.workspace_github_branch || "main"}
+            onChange={(e) => toggle("workspace_github_branch", e.target.value)}
+            placeholder="main"
             className="w-full bg-[#0b0e14] border border-[#2d3139] rounded-lg px-3 py-2 text-xs text-gray-200 font-mono"
           />
         </div>

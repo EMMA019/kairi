@@ -69,6 +69,9 @@ export function WorkspaceSidePanel({
   const [activity, setActivity] = useState<WorkspaceActivity[]>([]);
   const [selectedChange, setSelectedChange] = useState<string | null>(null);
   const [treeBump, setTreeBump] = useState(0);
+  const [ghBusy, setGhBusy] = useState(false);
+  const [ghMsg, setGhMsg] = useState<string | null>(null);
+  const [ghReady, setGhReady] = useState(false);
 
   const refreshMeta = useCallback(async () => {
     try {
@@ -80,6 +83,10 @@ export function WorkspaceSidePanel({
       setStatus(st);
       setChanges(ch.changes || []);
       setActivity(act.activity || []);
+      apiFetch("/api/workspace/github-status")
+        .then((r) => r.json())
+        .then((g) => setGhReady(!!g.ready))
+        .catch(() => setGhReady(false));
     } catch (e) {
       console.error(e);
     }
@@ -179,6 +186,29 @@ export function WorkspaceSidePanel({
     }
   };
 
+  const pushGithub = async () => {
+    setGhBusy(true);
+    setGhMsg(null);
+    try {
+      const res = await apiFetch("/api/workspace/push-github", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Kairi workspace snapshot" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setGhMsg(typeof data.detail === "string" ? data.detail : "GitHub push failed");
+        return;
+      }
+      setGhMsg(data.url || "Pushed");
+      await refreshMeta();
+    } catch {
+      setGhMsg("GitHub push failed");
+    } finally {
+      setGhBusy(false);
+    }
+  };
+
   const active = changes.find((c) => c.path === selectedChange);
 
   return (
@@ -246,6 +276,17 @@ export function WorkspaceSidePanel({
           <div className="text-[10px] text-gray-500 truncate" title={activity[activity.length - 1]?.detail}>
             {activity[activity.length - 1]?.kind}: {activity[activity.length - 1]?.detail}
           </div>
+        )}
+        <button
+          onClick={pushGithub}
+          disabled={ghBusy}
+          className="w-full text-[11px] py-1 rounded bg-[#13251c] text-emerald-300 border border-emerald-900/60 hover:bg-[#1a3326] disabled:opacity-40"
+          title="Push workspace files to your GitHub repo"
+        >
+          {ghBusy ? "Pushing…" : ghReady ? "Push to GitHub" : "Push to GitHub (set repo in Settings)"}
+        </button>
+        {ghMsg && (
+          <p className="text-[10px] text-emerald-400/90 break-all">{ghMsg}</p>
         )}
       </div>
 

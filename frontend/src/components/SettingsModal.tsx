@@ -50,6 +50,8 @@ interface Settings {
   promo_disclose_bot?: boolean;
   promo_github_repo?: string;
   github_token?: string;
+  workspace_github_repo?: string;
+  workspace_github_branch?: string;
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
@@ -166,6 +168,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           promo_disclose_bot: settings.promo_disclose_bot !== false,
           promo_github_repo: settings.promo_github_repo || "",
           github_token: settings.github_token || "",
+          workspace_github_repo: settings.workspace_github_repo || "",
+          workspace_github_branch: settings.workspace_github_branch || "main",
         })
       });
       try {

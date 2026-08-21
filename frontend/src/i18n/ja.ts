@@ -150,6 +150,8 @@ export const ja: Record<MessageKey, string> = {
   "settings.promo.post": "投稿",
   "settings.promo.ok": "完了しました。",
   "settings.promo.fail": "宣伝 API に失敗しました。",
+  "settings.promo.workspaceRepo": "ワークスペース退避先リポジトリ（owner/name）。Render 再起動でも残ります。",
+  "settings.promo.workspaceBranch": "ワークスペース退避ブランチ",
 
   "auth.title": "認証・セキュリティ",
   "error.boundaryTitle": "エラーが発生しました",

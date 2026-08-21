@@ -143,6 +143,10 @@ async def auto_execute_with_retry(
     error_signature_counts = {}  # 同一エラー文本の発生回数（2回目で自動修正を打ち切り）
     force_tool_synthesis = False  # 重複ツール停止時など、生ログを本文にせず合成へ回す
     files_written_this_run = False
+    code_written_this_run = False
+    tests_ran_this_run = False
+    tests_passed_this_run = False
+    verify_attempts = 0
     last_gate_meta: dict | None = None
     gate_fix_attempts = 0
 
@@ -315,6 +319,21 @@ async def auto_execute_with_retry(
             has_tool_results = bool(tool_handler.tool_results and any(r.strip() for r in tool_handler.tool_results))
             
             if has_tool_results:
+                from app.core.harness.verify_loop import (
+                    record_test_outcome,
+                    should_force_verify,
+                    verify_reinject_message,
+                    wrote_code_file,
+                )
+
+                outcome = record_test_outcome(stream_response, tool_handler.tool_results)
+                if outcome.get("ran"):
+                    tests_ran_this_run = True
+                if outcome.get("passed"):
+                    tests_passed_this_run = True
+                if wrote_code_file(stream_response):
+                    code_written_this_run = True
+
                 has_error = False
                 error_abort = False
                 for result in tool_handler.tool_results:
@@ -440,6 +459,21 @@ async def auto_execute_with_retry(
                                 continue
                         except Exception as gate_err:
                             logger.warning(f"completion gate error: {gate_err}")
+
+                    if should_force_verify(
+                        mode=mode,
+                        wrote_code=code_written_this_run,
+                        tests_passed=tests_passed_this_run,
+                        attempts=verify_attempts,
+                    ):
+                        verify_attempts += 1
+                        loop_history.append({
+                            "role": "user",
+                            "content": verify_reinject_message(attempt=verify_attempts),
+                        })
+                        _clear_ui_with_progress(yield_sse_func, _ui_progress("run_verify_tests"))
+                        final_accumulated_response = ""
+                        continue
 
                     if wrote_file and mode in ("task", "coding", "research"):
                         if wants_code_in_chat(user_input):
@@ -622,6 +656,11 @@ async def auto_execute_with_retry(
         except Exception as e:
             logger.warning(f"final completion gate: {e}")
             gate = last_gate_meta
+        from app.core.harness.verify_loop import UNVERIFIED_TEST_BANNER
+
+        if code_written_this_run and not tests_passed_this_run:
+            if UNVERIFIED_TEST_BANNER.strip() not in (final_accumulated_response or ""):
+                final_accumulated_response += UNVERIFIED_TEST_BANNER
         if persist_gate:
             try:
                 persist_gate(

@@ -44,6 +44,14 @@ _PIPELINE = {
         "en": "Composing answer from search results…",
         "ja": "検索結果から回答を構成中…",
     },
+    "run_verify_tests": {
+        "en": "Code saved — running tests before treating it as done…",
+        "ja": "コード保存済み。完了前にテストを実行します…",
+    },
+    "rewrite_from_sources": {
+        "en": "Rewriting from cited sources only…",
+        "ja": "引用ソースだけを根拠に書き直しています…",
+    },
     "system_error": {
         "en": "A system error occurred. Could not complete the request.",
         "ja": "システムエラーが発生しました。処理を完了できませんでした。",

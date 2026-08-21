@@ -414,6 +414,49 @@ async def finalize_loop_response(
         logger.warning(f"Fact filter validation warning in auto_execution_loop: {e}")
         final_accumulated_response = strip_internal_markup(pre_sanitize)
 
+    # Cheap-model harness: one rewrite if filters had to gut a hard chat draft
+    try:
+        from app.core.harness.grounding_retry import (
+            needs_grounding_retry,
+            pick_better_grounded,
+            retry_instruction,
+            should_sample_hard,
+        )
+
+        if (
+            search_results
+            and needs_grounding_retry(pre_sanitize, final_accumulated_response)
+            and should_sample_hard(user_input or "", mode=mode, has_search=True)
+        ):
+            clear_ui_with_progress(yield_sse_func, ui_progress("rewrite_from_sources"))
+            alt_raw = await _synthesize_from_tools(
+                retry_instruction(),
+                "\n引用ファースト。ソースに無い固有名を足すな。XML禁止。",
+            )
+            from app.core.auto_execution_loop.grounding_waterfall import apply_grounding_stage as _apply_g
+
+            alt_grounded = _apply_g(
+                alt_raw,
+                search_results=search_results,
+                user_input=user_input or "",
+                session_id=getattr(tool_handler, "session_id", None) or "",
+                citation_max_n=(
+                    (getattr(tool_handler, "source_index", None).max_n() or None)
+                    if getattr(tool_handler, "source_index", None) is not None
+                    else None
+                ),
+            )
+            chosen = pick_better_grounded(
+                pre_sanitize,
+                final_accumulated_response,
+                alt_raw,
+                alt_grounded,
+            )
+            if (chosen or "").strip():
+                final_accumulated_response = chosen
+    except Exception as e:
+        logger.warning(f"grounding retry skipped: {e}")
+
     if not final_accumulated_response.strip():
         if last_good_user_visible.strip() and not looks_like_tool_dump(last_good_user_visible):
             logger.warning("⚠️ サニタイズ後も空のため last_good_user_visible を復元します")

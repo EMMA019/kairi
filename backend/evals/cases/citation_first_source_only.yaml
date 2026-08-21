@@ -1,0 +1,22 @@
+id: citation_first_source_only
+description: >
+  Cheap-model harness — invented proper names still get softened when
+  they are absent from numbered search quotes (citation-first + filters).
+input: "How did SNDK do?"
+history: []
+search_results: |
+  [1] SanDisk Investor Day announced 100% excess cash return (Aug 13).
+mock_executor_output: |
+  SNDK announced a 100% excess cash return [1]. ゼブラトン騎手が優勝しました。
+expectations:
+  must_contain:
+    - "100%"
+  must_not_contain:
+    - "ゼブラトン"
+  must_contain_any:
+    - "要確認"
+    - "ソース未記載"
+    - "未確認"
+    - "氏名はソース未記載"
+    - "[1]"
+pipeline: fact_filters_only

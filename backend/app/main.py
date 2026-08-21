@@ -45,6 +45,19 @@ async def lifespan(app: FastAPI):
     await init_db()
     await init_news_db()
     await init_cache_db()
+    try:
+        from app.core.workspace_store import restore_durable_workspace
+
+        restored = await restore_durable_workspace()
+        _main_logger.info(
+            "Workspace restore: backend=%s db=%s github=%s root=%s",
+            restored.get("backend"),
+            restored.get("from_db"),
+            restored.get("from_github"),
+            restored.get("root"),
+        )
+    except Exception as e:
+        _main_logger.warning("workspace restore skipped: %s", e)
     # API token 未設定は開発向け。配布時は必須化を推奨。
     try:
         from app.core.auth import _configured_token

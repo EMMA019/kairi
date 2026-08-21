@@ -148,9 +148,10 @@ export const en = {
   "settings.promo.post": "Post",
   "settings.promo.ok": "Done.",
   "settings.promo.fail": "Promo request failed.",
-  "settings.promo.workspaceRepo": "Workspace snapshot repo (blank = create {you}/kairi-workspace)",
-  "settings.promo.workspaceRepoHint": "owner/name or a name only. Never pushes into the product repo kairi. Cloudflare Pages still needs a manual connect.",
+  "settings.promo.workspaceRepo": "Workspace GitHub repo (blank = create {you}/kairi-workspace)",
+  "settings.promo.workspaceRepoHint": "Files live in the same cloud DB as chat, then auto-push here. Never pushes into the product repo kairi. Cloudflare Pages still needs a manual connect.",
   "settings.promo.workspaceBranch": "Workspace snapshot branch",
+  "settings.promo.workspaceAuto": "Push to GitHub automatically when files are written",
   "settings.promo.workspaceCreate": "Create the GitHub repo if it is missing",
   "settings.promo.workspacePrivate": "Make a new snapshot repo private",
 

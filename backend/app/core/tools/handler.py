@@ -475,6 +475,12 @@ class ToolHandler:
                 success_msg = f"ファイル {safe_path} を新規作成・全体保存しました。次のステップに進んでください。"
                 self.tool_results.append(success_msg)
                 logger.info(f"AI出力によりファイルを全体保存しました: {target_path}")
+                try:
+                    from app.core.workspace_store import persist_workspace_file
+
+                    persist_workspace_file(safe_path, clean_content + "\n")
+                except Exception:
+                    pass
             except (PermissionError, IsADirectoryError) as e:
                 err_msg = (
                     f"ファイル保存エラー ({path_str}): {e}\n"
@@ -569,6 +575,12 @@ class ToolHandler:
                 success_msg = f"ファイル {safe_path} にFast Apply編集を適用しました。次のステップに進んでください。"
                 self.tool_results.append(success_msg)
                 logger.info(f"Fast Apply編集を適用しました: {target_path}")
+                try:
+                    from app.core.workspace_store import persist_workspace_file
+
+                    persist_workspace_file(safe_path, result)
+                except Exception:
+                    pass
             except Exception as e:
                 err_msg = f"Fast Apply編集エラー ({path_str}): {e}"
                 logger.error(err_msg)
@@ -622,6 +634,12 @@ class ToolHandler:
                         success_msg = f"ファイル {safe_path} をフォールバック置換しました。"
                         self.tool_results.append(success_msg)
                         logger.info(f"フォールバック置換成功: {target_path}")
+                        try:
+                            from app.core.workspace_store import persist_workspace_file
+
+                            persist_workspace_file(safe_path, target_path.read_text(encoding="utf-8"))
+                        except Exception:
+                            pass
                         continue
                     else:
                         err_msg = f"置換対象のテキストが見つかりませんでした ({path_str})。ファイルの最新内容: {result[:200] if result else 'N/A'}"
@@ -649,6 +667,12 @@ class ToolHandler:
                 success_msg = f"ファイル {safe_path} の対象箇所を差分置換しました。次のステップに進んでください。"
                 self.tool_results.append(success_msg)
                 logger.info(f"AI出力によりファイルを差分置換しました: {target_path}")
+                try:
+                    from app.core.workspace_store import persist_workspace_file
+
+                    persist_workspace_file(safe_path, new_content)
+                except Exception:
+                    pass
             except Exception as e:
                 err_msg = f"差分置換エラー ({path_str}): {e}"
                 logger.error(err_msg)

@@ -78,11 +78,19 @@ class ToolHandler:
     実行モデル(Executor)が生成したXMLタグをパースし、
     ファイルの作成・更新、コマンド実行、スクレイピングなどのツール処理を安全に実行する。
     """
-    def __init__(self, session_id: str, mode: str, allow_mocks: bool = False, source_index=None):
+    def __init__(
+        self,
+        session_id: str,
+        mode: str,
+        allow_mocks: bool = False,
+        source_index=None,
+        user_input: str = "",
+    ):
         self.session_id = session_id
         self.mode = mode
         self.allow_mocks = allow_mocks
         self.source_index = source_index
+        self.user_input = user_input or ""
         self.tool_results: List[str] = []
         self.escalation_history: List[str] = []
         self.has_escalation: bool = False
@@ -137,6 +145,14 @@ class ToolHandler:
         if found_mocks:
             return f"モック実装が検出されました ({', '.join(found_mocks)})。TODOやダミーデータを残さず、実際のロジックを完全に実装してください。"
         return None
+
+    def check_code_quality(self, content: str, dest: Path) -> str | None:
+        from app.core.harness.code_quality import reject_bad_code, theme_leak_warning
+
+        bad = reject_bad_code(content, dest)
+        if bad:
+            return bad
+        return theme_leak_warning(self.user_input, content)
 
     def clean_markdown_block(self, content: str) -> str:
         """AIが出力しがちな不要なマークダウンブロックを除去する"""
@@ -443,6 +459,11 @@ class ToolHandler:
                     self.tool_results.append(f"ファイル保存拒否: {ve}")
                     continue
                 safe_path = target_path.relative_to(Path(BASE_WORKSPACE_DIR).resolve()).as_posix()
+                qerr = self.check_code_quality(clean_content, target_path)
+                if qerr:
+                    logger.error(qerr)
+                    self.tool_results.append(qerr)
+                    continue
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 
                 is_new_file = not target_path.exists()
@@ -533,6 +554,11 @@ class ToolHandler:
                     self.tool_results.append(f"Fast Apply拒否: {ve}")
                     continue
                 safe_path = target_path.relative_to(Path(BASE_WORKSPACE_DIR).resolve()).as_posix()
+                qerr = self.check_code_quality(clean_snippet, target_path)
+                if qerr:
+                    logger.error(qerr)
+                    self.tool_results.append(qerr)
+                    continue
 
                 if not target_path.exists():
                     err_msg = f"Fast Apply編集エラー: ファイルが存在しません ({path_str})。新規作成する場合は <file path=\"{path_str}\"> を使用してください。"
@@ -608,6 +634,11 @@ class ToolHandler:
                     self.tool_results.append(f"差分置換拒否: {ve}")
                     continue
                 safe_path = target_path.relative_to(Path(BASE_WORKSPACE_DIR).resolve()).as_posix()
+                qerr = self.check_code_quality(clean_replace, target_path)
+                if qerr:
+                    logger.error(qerr)
+                    self.tool_results.append(qerr)
+                    continue
                 
                 if not target_path.exists():
                     err_msg = f"差分置換エラー: ファイルが存在しません ({path_str})。新規作成する場合は <file path=\"{path_str}\"> を使用してください。"

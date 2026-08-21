@@ -116,26 +116,69 @@ def detect_project_type(workspace_dir: str) -> str:
     return " + ".join(types)
 
 
-def read_key_configs(workspace_dir: str, max_chars: int = 1200) -> str:
+def _summarize_package_json(pkg_json: Path, label: str) -> str:
+    import json
+
+    data = json.loads(pkg_json.read_text(encoding="utf-8"))
+
+    def _ver(d: dict, n: int = 18) -> str:
+        return ", ".join(f"{k}@{v}" for k, v in list(d.items())[:n])
+
+    deps = _ver(data.get("dependencies") or {})
+    dev_deps = _ver(data.get("devDependencies") or {}, 12)
+    scripts = list(data.get("scripts", {}).keys())[:8]
+    info = f"- [{label}] Scripts: {', '.join(scripts)}\n  Dependencies: {deps or '(none)'}"
+    if dev_deps:
+        info += f"\n  DevDependencies: {dev_deps}"
+    return info
+
+
+def _iter_package_jsons(base: Path, limit: int = 4) -> list[Path]:
+    found: list[Path] = []
+    root = base / "package.json"
+    if root.is_file():
+        found.append(root)
+    if not base.is_dir():
+        return found
+    try:
+        children = sorted(base.iterdir(), key=lambda p: p.name.lower())
+    except OSError:
+        return found
+    for child in children:
+        if len(found) >= limit:
+            break
+        if not child.is_dir() or child.name.startswith(".") or child.name in IGNORE_DIRS:
+            continue
+        pkg = child / "package.json"
+        if pkg.is_file():
+            found.append(pkg)
+            continue
+        try:
+            subs = sorted(child.iterdir(), key=lambda p: p.name.lower())
+        except OSError:
+            continue
+        for sub in subs:
+            if len(found) >= limit:
+                break
+            if sub.is_dir() and not sub.name.startswith(".") and sub.name not in IGNORE_DIRS:
+                nested = sub / "package.json"
+                if nested.is_file():
+                    found.append(nested)
+    return found[:limit]
+
+
+def read_key_configs(workspace_dir: str, max_chars: int = 2000) -> str:
     """主要な設定ファイルや依存関係（package.json, pyproject.toml等）の要点を抽出"""
     base = Path(workspace_dir)
     summaries = []
     
-    # 1. package.json
-    pkg_json = base / "package.json"
-    if pkg_json.exists():
+    # 1. package.json（ルート＋ sites/foo など1〜2階層下）
+    for pkg_json in _iter_package_jsons(base):
         try:
-            import json
-            data = json.loads(pkg_json.read_text(encoding="utf-8"))
-            deps = list(data.get("dependencies", {}).keys())[:15]
-            dev_deps = list(data.get("devDependencies", {}).keys())[:10]
-            scripts = list(data.get("scripts", {}).keys())[:8]
-            info = f"- [package.json] Scripts: {', '.join(scripts)}\n  Dependencies: {', '.join(deps)}"
-            if dev_deps:
-                info += f"\n  DevDependencies: {', '.join(dev_deps)}"
-            summaries.append(info)
+            rel = pkg_json.relative_to(base).as_posix()
+            summaries.append(_summarize_package_json(pkg_json, rel))
         except Exception as e:
-            summaries.append(f"- [package.json] 読み込み失敗: {e}")
+            summaries.append(f"- [{pkg_json.name}] 読み込み失敗: {e}")
             
     # 2. pyproject.toml / requirements.txt
     pyproject = base / "pyproject.toml"
@@ -219,7 +262,9 @@ async def gather_project_context(workspace_dir: str) -> str:
         
         context_text = (
             f"【🤖 プロジェクトコンテキスト自動検出 (Claude Code準拠)】\n"
-            f"**プロジェクトタイプ**: {proj_type}\n\n"
+            f"**プロジェクトタイプ**: {proj_type}\n"
+            "既存フォルダは、今回の依頼がそれを指定していない限り流用しない。"
+            "依存バージョンは当該フォルダの package.json が正。無い API を発明するな。\n\n"
             f"**ディレクトリ構造 (最大3階層)**:\n```\n{tree_str}\n```\n\n"
             f"**依存関係・主要構成**:\n{configs_str}\n\n"
             f"**変更履歴・ステータス**:\n{git_str}"

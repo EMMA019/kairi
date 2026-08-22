@@ -259,6 +259,12 @@ async def gather_project_context(workspace_dir: str) -> str:
         proj_type = detect_project_type(workspace_dir)
         configs_str = read_key_configs(workspace_dir)
         git_str = get_recent_changes(workspace_dir)
+        try:
+            from app.core.project_structure import analyze_workspace
+
+            structure_str = analyze_workspace(workspace_dir)
+        except Exception:
+            structure_str = ""
         
         context_text = (
             f"【🤖 プロジェクトコンテキスト自動検出 (Claude Code準拠)】\n"
@@ -267,8 +273,10 @@ async def gather_project_context(workspace_dir: str) -> str:
             "依存バージョンは当該フォルダの package.json が正。無い API を発明するな。\n\n"
             f"**ディレクトリ構造 (最大3階層)**:\n```\n{tree_str}\n```\n\n"
             f"**依存関係・主要構成**:\n{configs_str}\n\n"
-            f"**変更履歴・ステータス**:\n{git_str}"
         )
+        if structure_str:
+            context_text += f"**シンボル地図**:\n{structure_str}\n\n"
+        context_text += f"**変更履歴・ステータス**:\n{git_str}"
         logger.info(f"📁 プロジェクトコンテキスト自動収集完了 ({len(context_text)}文字)")
         return context_text
     except Exception as e:

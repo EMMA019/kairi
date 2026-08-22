@@ -122,6 +122,7 @@ async def run_executor(
 6. **依存は package.json が正**: 既存プロジェクトでは必ずそのバージョンで書け。R3F v8 の箱に v9 API（`state.scrollOffset`、`<mesh shape>`、`bufferAttribute args`）を発明するな。
 7. **別案件の世界観を盗むな**: アフィ/LP/別HPは今回の依頼文だけが仕様。Kairi 製品・海里・海・航海・星・楽曲ブランドを流用するな。新しいフォルダに作れ。
 8. **人間にビルドさせるな**: 「各ファイルに保存して npm run build してください」は禁止。自分で `<file>` と `<run_command>` を出せ。
+9. **シンボル地図を信じろ**: 初回コンテキストの定義済み関数/クラスだけを呼べ。無い名前を発明するな。`[WORKSPACE_NOT_FOUND]` なら候補パスを読め。`[MODULE_NOT_FOUND]` なら自分で pip install せよ。
 
 【タスク実行ツールの環境仕様（重要・正確に理解すること）】
 - ワークスペースは Render の消える `output/` ではない。ファイルはチャット履歴と同じクラウドDB（Turso または storage）に即保存され、GitHub トークンがあればシステムが自動で push する。ユーザーに「保存して」「ZIPで残して」「GitHubに上げて」と頼むな。自分で `<file>` を書け。

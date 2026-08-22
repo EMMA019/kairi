@@ -17,39 +17,79 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
+_PLAN_FILE_KEYS = (
+    "files",
+    "target_files",
+    "files_to_modify",
+    "file_list",
+    "modified_files",
+    "files_to_create",
+    "code_files",
+    "output_files",
+)
+
+
+def _coerce_file_entry(f, i: int) -> Optional[dict]:
+    if isinstance(f, str) and f.strip():
+        return {"path": f, "type": "create", "depends_on": [], "content": ""}
+    if isinstance(f, dict):
+        path = f.get("path") or f.get("filename") or f.get("name")
+        if not path:
+            path = f"unknown_{i}"
+        return {
+            "path": path,
+            "type": f.get("type", "create"),
+            "content": f.get("content", ""),
+            "depends_on": f.get("depends_on", []),
+            "description": f.get("description", ""),
+        }
+    return None
+
+
+def _files_from_mapping(obj: dict) -> list:
+    for k in _PLAN_FILE_KEYS:
+        if k in obj and obj[k]:
+            return list(obj[k])
+    return []
+
+
 def parse_multi_file_plan(supervisor_json: dict) -> Optional[dict]:
     """
     SupervisorのJSONからマルチファイルプランを抽出。
+    Evo-OS Architect のキーゆらぎ（target_files / filename 等）も吸収する。
     """
     if not isinstance(supervisor_json, dict):
         return None
     
     plan = supervisor_json.get("multi_file_plan") or supervisor_json.get("plan")
-    if not plan or not isinstance(plan, dict):
-        return None
-    
-    files = plan.get("files", [])
-    if not files:
+    raw_files: list = []
+    extra: dict = {}
+    if isinstance(plan, list):
+        for step in plan:
+            if isinstance(step, dict):
+                raw_files.extend(_files_from_mapping(step))
+    elif isinstance(plan, dict):
+        raw_files = _files_from_mapping(plan)
+        extra = plan
+    elif isinstance(supervisor_json.get("files"), list):
+        raw_files = list(supervisor_json["files"])
+        extra = supervisor_json
+    if not raw_files:
         return None
     
     normalized_files = []
-    for i, f in enumerate(files):
-        if isinstance(f, str):
-            normalized_files.append({"path": f, "type": "create", "depends_on": [], "content": ""})
-        elif isinstance(f, dict):
-            normalized_files.append({
-                "path": f.get("path", f"unknown_{i}"),
-                "type": f.get("type", "create"),
-                "content": f.get("content", ""),
-                "depends_on": f.get("depends_on", []),
-                "description": f.get("description", ""),
-            })
+    for i, f in enumerate(raw_files):
+        entry = _coerce_file_entry(f, i)
+        if entry:
+            normalized_files.append(entry)
+    if not normalized_files:
+        return None
     
     return {
         "files": normalized_files,
-        "execution_order": plan.get("execution_order", [f["path"] for f in normalized_files]),
-        "rollback_strategy": plan.get("rollback_strategy", "best_effort"),
-        "verification": plan.get("verification", {}),
+        "execution_order": extra.get("execution_order", [f["path"] for f in normalized_files]),
+        "rollback_strategy": extra.get("rollback_strategy", "best_effort"),
+        "verification": extra.get("verification", {}),
     }
 
 

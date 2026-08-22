@@ -231,7 +231,12 @@ def safe_read_file(workspace_dir: str, file_path: str) -> str:
                 return "[エラー: ファイルが大きすぎます（50000文字以上）]"
             return content
     except FileNotFoundError:
-        return f"[エラー: ファイルが見つかりません: {file_path}]"
+        try:
+            from app.core.contracts import missing_workspace_file
+
+            return missing_workspace_file(workspace_dir, file_path, "read")
+        except Exception:
+            return f"[エラー: ファイルが見つかりません: {file_path}]"
     except Exception as e:
         return f"[エラー: ファイル読み込み失敗: {e}]"
 

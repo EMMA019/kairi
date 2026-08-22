@@ -561,7 +561,9 @@ class ToolHandler:
                     continue
 
                 if not target_path.exists():
-                    err_msg = f"Fast Apply編集エラー: ファイルが存在しません ({path_str})。新規作成する場合は <file path=\"{path_str}\"> を使用してください。"
+                    from app.core.contracts import missing_workspace_file
+
+                    err_msg = missing_workspace_file(BASE_WORKSPACE_DIR, path_str, "edit")
                     logger.warning(err_msg)
                     self.tool_results.append(err_msg)
                     current_response += f"\n\n*[⚠️ {err_msg}]*\n\n"
@@ -641,7 +643,9 @@ class ToolHandler:
                     continue
                 
                 if not target_path.exists():
-                    err_msg = f"差分置換エラー: ファイルが存在しません ({path_str})。新規作成する場合は <file path=\"{path_str}\"> を使用してください。"
+                    from app.core.contracts import missing_workspace_file
+
+                    err_msg = missing_workspace_file(BASE_WORKSPACE_DIR, path_str, "replace")
                     logger.warning(err_msg)
                     self.tool_results.append(err_msg)
                     current_response += f"\n\n*[⚠️ {err_msg}]*\n\n"
@@ -798,6 +802,14 @@ class ToolHandler:
                     current_response = current_response.replace(match.group(0), terminal_block + terminal_output)
                     
                     self.tool_results.append(f"実行したコマンド: {cmd}\n結果:\n```\n{output}\n```")
+                    try:
+                        from app.core.dep_repair import missing_module_repair
+
+                        note = missing_module_repair(workspace_dir, output)
+                        if note:
+                            self.tool_results.append(note)
+                    except Exception:
+                        pass
             except Exception as e:
                 error_msg = f"Dockerサンドボックス初期化エラー: {e}\nDocker Desktopが起動しているか確認してください。"
                 self.tool_results.append(error_msg)

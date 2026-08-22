@@ -12,6 +12,7 @@ from .code_quality import (
     classify_job,
     is_human_handoff,
     reject_bad_code,
+    reject_banned_python,
 )
 from .verify_loop import (
     MAX_VERIFY_REINJECT,
@@ -31,6 +32,7 @@ __all__ = [
     "classify_job",
     "is_human_handoff",
     "reject_bad_code",
+    "reject_banned_python",
     "extract_grounded_quotes",
     "needs_grounding_retry",
     "pick_better_grounded",

@@ -6,6 +6,7 @@ the tool handler and the auto-execution loop.
 """
 from __future__ import annotations
 
+import ast
 import json
 import re
 from pathlib import Path
@@ -90,9 +91,33 @@ def fiber_major(pkg: Optional[dict]) -> Optional[int]:
     return int(m.group(1)) if m else None
 
 
+_BANNED_CALLS = frozenset({"eval", "exec"})
+
+
+def reject_banned_python(content: str, dest: Path) -> Optional[str]:
+    """Evo-OS verifier: catch SyntaxError and eval/exec before the file hits disk."""
+    if dest.suffix != ".py":
+        return None
+    try:
+        tree = ast.parse(content or "")
+    except SyntaxError as e:
+        return f"[SYNTAX] Python SyntaxError: {e}。保存せず直せ。"
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            if node.func.id in _BANNED_CALLS:
+                return (
+                    f"[CODE_QUALITY] `{node.func.id}()` は禁止。"
+                    " 明示の許可が無い限り本番コードに書くな。"
+                )
+    return None
+
+
 def reject_bad_code(content: str, dest: Path) -> Optional[str]:
     """Return an error string if this file must not be saved."""
     text = content or ""
+    banned = reject_banned_python(text, dest)
+    if banned:
+        return banned
     for pat, reason in _INVENTED_APIS:
         if pat.search(text):
             return f"コード品質ゲート: 未実在/非互換 API を拒否しました。{reason}"
